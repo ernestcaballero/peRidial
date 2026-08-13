@@ -24,5 +24,6 @@ new_pd_unit(
 An object of class \code{pd_unit}.
 }
 \description{
-Wraps a tibble/data frame with metadata about
+Wraps a tibble/data frame with metadata about the name of PD unit,
+the reporting period, etc
 }
