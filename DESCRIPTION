@@ -1,14 +1,18 @@
 Package: peridial
-Title: What the Package Does (One Line, Title Case)
+Title: Peritoneal Dialysis Units Peritonitis Indicators
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+    person("Ernest", "Caballero", , "ernestcabs@gmail.com", role = c("aut", "cre"))
+Description: A standardised R framework for ingesting, validating, and
+    summarising clinical peritoneal (PD) unit data. Nested S3
+    classes represent the PD unit, patients, catheters, and peritonitis
+    episodes, supporting reproducible calculation of ISPD-recommended
+    peritonitis rate and peritonitis-free percentage indicators from
+    longitudinal catheter and infection records.
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Imports:
-    readxl,
+    readxl (>= 1.5.0),
     tibble
 Config/roxygen2/version: 8.1.0
