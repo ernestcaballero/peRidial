@@ -2,23 +2,42 @@
 % Please edit documentation in R/ingest.R
 \name{new_pd_unit}
 \alias{new_pd_unit}
-\title{Create a pd_unit object}
+\title{----- CONTRUCTOR -----
+Create a pd_unit object}
 \usage{
 new_pd_unit(
-  data = tibble::tibble(),
-  unit = NA_character_,
-  period_start = as.Date(NA),
-  period_end = as.Date(NA)
+  unit_id = NA_character_,
+  t0 = as.Date(NA),
+  t1 = as.Date(NA),
+  n_new = NA_integer_,
+  n_patients = NA_integer_,
+  tpyar = NA_integer_,
+  patients = tibble::tibble(),
+  catheters = tibble::tibble(),
+  infections = tibble::tibble(),
+  patient_list = list()
 )
 }
 \arguments{
-\item{data}{A tibble or dataframe.}
+\item{unit_id}{Character. The name of PD Unit (e.g. "XYZ PD Unit")}
 
-\item{unit}{Character. The name of PD Unit (e.g. "XYZ PD Unit")}
+\item{n_new}{Integer. Number of incident patients in the reporting period.}
 
-\item{period_start}{Date. Start date of reporting period.}
+\item{n_patients}{Integer. Number of prevalent patients in the reporting period.}
 
-\item{period_end}{Date. End date of reporting period.}
+\item{catheters}{Tibble. A dataframe of catheter insertions.}
+
+\item{infections}{Tibble. A dataframe of peritonitis infections.}
+
+\item{patient_list}{List. A list of patient objects.}
+
+\item{period_start}{Date. Start date of reporting period \code{t_0}.}
+
+\item{period_end}{Date. End date of reporting period \code{t_1}.}
+
+\item{total_patient_yrs_at_risk}{Integer. The total amount of time (in years) that patients actively spend on PD while vulnerable to complications like peritonitis.}
+
+\item{patients.}{Tibble. A dataframe of patients.}
 }
 \value{
 An object of class \code{pd_unit}.
