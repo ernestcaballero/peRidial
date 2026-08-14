@@ -5,7 +5,7 @@
 \title{Create a pd_unit object}
 \usage{
 new_pd_unit(
-  data = tibble::tibble(data),
+  data = tibble::tibble(),
   unit = NA_character_,
   period_start = as.Date(NA),
   period_end = as.Date(NA)
