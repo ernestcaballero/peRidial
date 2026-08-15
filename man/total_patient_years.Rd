@@ -6,6 +6,19 @@
 \usage{
 total_patient_years(catheters)
 }
+\arguments{
+\item{catheters}{Data frame. One row per catheter episode, with columns
+\code{nhi} (patient identifier), \code{pd_start_date} (Date), and
+\code{pd_stop_date} (Date). Assumed to already be validated by the object's
+constructor.}
+}
+\value{
+A single non-negative numeric value: total patient-years-at-risk
+across all patients.
+}
 \description{
-Calculate total patient-years-at-risk for a unit
+Computes the total exposure time, in patient-years, across all catheter
+episodes for a unit. Exposure days for each episode are calculated via
+\code{exposure_days()}, summed per patient (\code{nhi}) using
+\code{rowsum()}, and converted to years using a 365.25-day year.
 }

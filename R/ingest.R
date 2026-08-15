@@ -1,7 +1,22 @@
-#' Reads raw files and builds the objects
+#' Build a PD unit object from raw data files
 #'
+#' Reads a unit's raw dialysis data file and infection data file
+#' and builds patient, catheter, and peritonitis-episode data
+#' for a reporting period.
 #'
+#' @param unit_data_path Character. Path to the raw unit Excel file
+#'   containing both patient and catheter data.
+#' @param infection_data_path Character. Path to the raw infection/peritonitis
+#'   episode Excel file.
+#' @param t0 Date. Start of the reporting period.
+#' @param t1 Date. End of the reporting period.
+#' @param unit_id Character. Optional identifier for the unit. Defaults to
+#'   \code{NA_character_} if not supplied.
 #'
+#' @return A \code{pd_unit} object containing the patient, catheter, and
+#'   peritonitis episode data for the unit over the reporting period
+#'   \code{t0} to \code{t1}.
+#' @export
 #'
 
 pd_unit <- function(unit_data_path,
