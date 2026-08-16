@@ -1,4 +1,4 @@
-#' ----- CONTRUCTOR -----
+
 #' Create a pd_unit object
 #'
 #' Wraps a tibble/data frame with metadata about the name of PD unit,
@@ -17,6 +17,10 @@
 #'
 #' @return An object of class \code{pd_unit}.
 #' @export
+#'
+#' @examples
+#' # example code
+#'
 
 new_pd_unit <- function(unit_id = NA_character_,
                         t0 = as.Date(NA),        # start date
@@ -28,7 +32,8 @@ new_pd_unit <- function(unit_id = NA_character_,
                         catheters = tibble::tibble(),
                         infections = tibble::tibble(),
                         patient_list = list()) {
-  stopifnot(is.character(unit_id) || is.na(unit_id))
+
+  stopifnot(length(unit_id) == 1, is.character(unit_id) || is.na(unit_id))
   stopifnot(inherits(t0, "Date"), inherits(t1, "Date"))
 
   structure(

@@ -1,4 +1,4 @@
-#' Build a PD unit object from raw data files
+#' Build pd_unit object from raw data files
 #'
 #' Reads a unit's raw dialysis data file and infection data file
 #' and builds patient, catheter, and peritonitis-episode data
@@ -49,12 +49,12 @@ pd_unit <- function(unit_data_path,
 
   raw_pe <- readxl::read_excel(infection_data_path) |>
     dplyr::select(patient_id, catheter_id, date_of_infection,
-                  infection_type_peritonitis, relapse_recurrence_code,
-                  organism, regimen_type, drug_position, antibiotic_code,
-                  route_of_administration, date_of_last_dose,
-                  overnight_hospitalisation, catheter_removed,
-                  catheter_removed_date, interim_hd, permanent_hd,
-                  first_dialysis_date, last_dialysis_date)
+                  relapse_recurrence_code, organism, last_dose_antibiotic,
+                  overnight_hospitalisation, days_hospitalised,
+                  catheter_removed, catheter_removed_date,
+                  interim_hd, permanent_hd, first_dialysis_date, last_dialysis_date)
+
+  # build nested objects
 
 
 }
