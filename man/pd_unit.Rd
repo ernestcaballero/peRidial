@@ -2,7 +2,7 @@
 % Please edit documentation in R/ingest.R
 \name{pd_unit}
 \alias{pd_unit}
-\title{Build a PD unit object from raw data files}
+\title{Build pd_unit object from raw data files}
 \usage{
 pd_unit(unit_data_path, infection_data_path, t0, t1, unit_id = NA_character_)
 }

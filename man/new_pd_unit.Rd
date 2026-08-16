@@ -2,8 +2,7 @@
 % Please edit documentation in R/pd_unit.R
 \name{new_pd_unit}
 \alias{new_pd_unit}
-\title{----- CONTRUCTOR -----
-Create a pd_unit object}
+\title{Create a pd_unit object}
 \usage{
 new_pd_unit(
   unit_id = NA_character_,
@@ -45,4 +44,8 @@ An object of class \code{pd_unit}.
 \description{
 Wraps a tibble/data frame with metadata about the name of PD unit,
 the reporting period, etc
+}
+\examples{
+# example code
+
 }
