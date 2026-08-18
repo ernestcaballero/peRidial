@@ -55,6 +55,8 @@ pd_unit <- function(unit_data_path,
                   interim_hd, permanent_hd, first_dialysis_date, last_dialysis_date)
 
   # build nested objects
-
+  infection_object <- raw_infections |>
+    dplyr::group_by(c(patient_id, date_of_infection)) |>
+    purrr::map()
 
 }
