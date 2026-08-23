@@ -21,11 +21,11 @@ exposure_days <- function(min_date, max_date) {
 #'
 #' Computes the total exposure time, in patient-years, across all catheter
 #' episodes for a unit. Exposure days for each episode are calculated via
-#' \code{exposure_days()}, summed per patient (\code{nhi}) using
+#' \code{exposure_days()}, summed per patient (\code{patient_id}) using
 #' \code{rowsum()}, and converted to years using a 365.25-day year.
 #'
 #' @param catheters Data frame. One row per catheter episode, with columns
-#'   \code{nhi} (patient identifier), \code{pd_start_date} (Date), and
+#'   \code{patient_id} (patient identifier), \code{pd_start_date} (Date), and
 #'   \code{pd_stop_date} (Date). Assumed to already be validated by the object's
 #'   constructor.
 #'
@@ -35,8 +35,8 @@ exposure_days <- function(min_date, max_date) {
 #'
 total_patient_years <- function(catheters) {
   stopifnot(is.data.frame(catheters))
-  stopifnot(all(c("nhi", "pd_start_date", "pd_stop_date") %in% names(catheters)))
+  stopifnot(all(c("patient_id", "pd_start_date", "pd_stop_date") %in% names(catheters)))
   catheters$exp_days <- exposure_days(catheters$pd_start_date, catheters$pd_stop_date)
-  patient_years <- rowsum(catheters$exp_days, catheters$nhi) / 365.25
+  patient_years <- rowsum(catheters$exp_days, catheters$patient_id) / 365.25
   return(sum(patient_years))
 }
