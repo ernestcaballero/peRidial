@@ -24,7 +24,9 @@
 #' @return A single non-negative integer count.
 #' @noRd
 #'
-count_episodes_in_period <- function(infections, t0 = as.Date(NA), t1 = as.Date(NA)) {
+count_episodes_in_period <- function(infections,
+                                     t0 = as.Date(NA),
+                                     t1 = as.Date(NA)) {
   if (length(infections) == 0) {
     return(0L)
   }
@@ -36,7 +38,7 @@ count_episodes_in_period <- function(infections, t0 = as.Date(NA), t1 = as.Date(
     # Infection counter (within the reporting window)
     in_window <- TRUE
 
-    # Checks if episode is on or after t0, on or before tt
+    # Checks if episode is on or after t0, on or before t1
     if (!is.na(t0)) in_window <- in_window && inf$infection_date >= t0
     if (!is.na(t1)) in_window <- in_window && inf$infection_date <= t1
 
