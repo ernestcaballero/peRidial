@@ -7,9 +7,11 @@
 exposure_days(min_date, max_date)
 }
 \arguments{
-\item{min_date}{Date. The truncated start of the exposure interval.}
+\item{min_date}{Date. The truncated start of the exposure interval (e.g. \code{t0} or
+start date of PD therapy.}
 
-\item{max_date}{Date. The truncated end of the exposure interval.}
+\item{max_date}{Date. The truncated end of the exposure interval (e.g. \code{t1},
+death, transplant, or permanent HD transfer).}
 }
 \value{
 A non-negative numeric vector of exposure days.

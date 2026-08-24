@@ -15,6 +15,34 @@ new_pd_infection(
   outcome_date = as.Date(NA)
 )
 }
+\arguments{
+\item{patient_id}{Character. The patient's unique identifier (NHI).}
+
+\item{catheter_id}{Character. Identifier of the catheter through which this
+infection occurred.}
+
+\item{infection_date}{Date. The date the peritonitis episode was diagnosed.}
+
+\item{organism_list}{List. A list of one or more character strings of the
+causative organism(s) identified for this episode. Use \code{"negative"}
+for a culture-negative episode; \code{"negative"} cannot be combined with
+other organisms in the same list.}
+
+\item{episode_type}{Character. One of \code{"relapsing"}, \code{"recurrent"},
+or \code{"repeat"} (per ISPD 2022 definitions), or \code{NA} if this is the
+patient's first recorded episode and there is no prior episode to compare
+against. Typically derived via \code{get_episode_type()}.}
+
+\item{last_dose_antibiotic}{Date. Date of the last dose of antibiotic
+treatment given for this episode.}
+
+\item{outcome}{Character. Clinical outcome of this episode (e.g.
+\code{"hospitalisation"}, \code{"catheter removed"}, \code{"temporary transfer to HD"}).
+If supplied, \code{outcome_date} must also be supplied.}
+
+\item{outcome_date}{Date. Date of the outcome. Required whenever
+\code{outcome} is supplied, and specifically required when \code{outcome} is \code{"catheter removed"}.}
+}
 \value{
 An object of class \code{pd_infection}.
 }

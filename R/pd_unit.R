@@ -55,13 +55,6 @@ new_pd_unit <- function(unit_id = NA_character_,
 
 
 
-
-#' ----- VALIDATOR -----
-#'
-#'
-#'
-#'
-
 validate_pd_unit <- function(x) {
   # checks if dates are missing
   if (is.na(x$t0) || is.na(x$t1)) {
@@ -92,9 +85,9 @@ validate_pd_unit <- function(x) {
   if (nrow(x$patients) > 0 && nrow(x$patients) != x$n_patients) {
     stop("Total number of patients does not match total rows in `patients`.")
   }
-  # checks catheters reference a valid nhi
-  if (nrow(x$catheters) > 0 && !all(x$catheters$nhi %in% x$patients$nhi)) {
-    stop("Some catheter records reference an nhi not present in `patients`.")
+  # checks catheters reference a valid patient_id
+  if (nrow(x$catheters) > 0 && !all(x$catheters$patient_id %in% x$patients$patient_id)) {
+    stop("Some catheter records reference an patient_id not present in `patients`.")
   }
   # checks infections reference a valid catheter_id
   if (nrow(x$infections) > 0 && !all(x$infections$catheter_id %in% x$catheters$catheter_id)) {
@@ -107,3 +100,6 @@ validate_pd_unit <- function(x) {
 
   x
 }
+
+
+## User-facing helper for pd_unit object on separate ingest.R file

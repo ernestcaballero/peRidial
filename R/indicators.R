@@ -4,8 +4,10 @@
 #' between two dates. Intended to be called with dates that have been
 #' truncated/censored to the reporting window.
 #'
-#' @param min_date Date. The truncated start of the exposure interval.
-#' @param max_date Date. The truncated end of the exposure interval.
+#' @param min_date Date. The truncated start of the exposure interval (e.g. \code{t0} or
+#'    start date of PD therapy.
+#' @param max_date Date. The truncated end of the exposure interval (e.g. \code{t1},
+#'    death, transplant, or permanent HD transfer).
 #'
 #' @return A non-negative numeric vector of exposure days.
 #' @export
