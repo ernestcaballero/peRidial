@@ -142,7 +142,7 @@ get_episode_type <- function(current_infection_date,
   }
 
   days_since_treatment <- as.numeric(current_infection_date - prior_episode$last_dose_antibiotic)
-  within_4_weeks <- days_since_treatment <= 28
+  within_4_weeks <- days_since_treatment <= 28               # LOGICAL: TRUE if less than or equal to 28 days/4 weeks
 
   same_organism <- identical(
     sort(tolower(unlist(current_organism_list))),
@@ -162,6 +162,18 @@ get_episode_type <- function(current_infection_date,
 
 
 
+
+
+#' Construct and validate a pd_infection object
+#'
+#' Builds a \code{pd_infection} via \code{new_pd_infection()} and checks it with
+#' \code{validate_pd_infection()} before returning it.
+#'
+#' @inheritParams new_pd_infection
+#'
+#' @return An object of class \code{pd_infection}.
+#' @export
+#'
 
 pd_infection <- function(patient_id,
                          catheter_id,

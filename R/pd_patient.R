@@ -1,96 +1,5 @@
 
 
-#' Determine whether a patient is incident (new to PD) in a reporting period
-#'
-#' Internal helper. A patient is "incident" (a new PD patient) for the
-#' reporting period \code{[t0, t1]} if the \emph{earliest} PD start date
-#' falls inside that window.
-#'
-#' Either t0/t1 boundary can be \code{NA}, in which case that side is left
-#' unfiltered. If both are \code{NA} there is no window to be incident
-#' \emph{within}, so this returns \code{NA}.
-#'
-#' @param catheters List of \code{pd_catheter} objects for one patient.
-#' @param t0 Date. Start of the reporting period, or \code{NA}.
-#' @param t1 Date. End of the reporting period, or \code{NA}.
-#'
-#' @return \code{TRUE} if the patient first started PD within \code{[t0, t1]},
-#'   \code{FALSE} if they started before it (i.e. prevalent), or \code{NA} when
-#'   there is nothing to decide from (no catheters, no usable start dates, or
-#'   no reporting window supplied).
-#' @noRd
-#'
-is_incident_patient <- function(catheters,
-                                t0 = as.Date(NA),
-                                t1 = as.Date(NA)) {
-  # no window supplied -> "incident within what?" is undecidable
-  if (is.na(t0) && is.na(t1)) {
-    return(NA)
-  }
-  if (length(catheters) == 0) {
-    return(NA)
-  }
-
-  starts <- lapply(catheters, function(cath) {
-    if (!inherits(cath, "pd_catheter")) {
-      return(NULL)
-    }
-    if (is.na(cath$pd_start_date)) {
-      return(NULL)
-    }
-    cath$pd_start_date
-  })
-  starts <- do.call(c, starts[!vapply(starts, is.null, logical(1))])
-
-  if (length(starts) == 0) {
-    return(NA)
-  }
-
-  # earliest PD start across every catheter this patient has
-  first_start <- min(starts)
-
-  in_window <- TRUE
-  if (!is.na(t0)) in_window <- in_window && first_start >= t0
-  if (!is.na(t1)) in_window <- in_window && first_start <= t1
-
-  in_window
-}
-
-
-
-#' Count peritonitis episodes across all of a patient's catheters
-#'
-#' Internal helper. Sums \code{n_peritonitis_episodes} over every
-#' \code{pd_catheter} in \code{catheters}. It is the
-#' \eqn{n_i} in Equation (3) of the design proposal, i.e. the count of
-#' countable episodes for patient \eqn{i} within the window.
-#'
-#' @param catheters List of \code{pd_catheter} objects for one patient.
-#'
-#' @return A single non-negative integer count.
-#' @noRd
-#'
-count_patient_episodes <- function(catheters) {
-  if (length(catheters) == 0) {
-    return(0L)
-  }
-
-  counts <- vapply(catheters, function(cath) {
-    if (!inherits(cath, "pd_catheter")) {
-      return(0)
-    }
-    n <- cath$n_peritonitis_episodes
-    if (is.null(n) || is.na(n)) {
-      return(0)
-    }
-    as.numeric(n)
-  }, numeric(1))
-
-  sum(counts)
-}
-
-
-
 #' Create pd_patient object
 #'
 #' One person receiving PD at any point during the reporting period. Owns the
@@ -282,11 +191,103 @@ validate_pd_patient <- function(x) {
 
 
 
+
+#' Determine whether a patient is incident (new to PD) in a reporting period
+#'
+#' A patient is "incident" (a new PD patient) for the reporting period \code{[t0, t1]}
+#' if the \emph{earliest} PD start date falls inside that window.
+#'
+#' Either t0/t1 boundary can be \code{NA}, in which case that side is left unfiltered.
+#' If both are \code{NA} there is no window to be incident \emph{within}, so this returns \code{NA}.
+#'
+#' @param catheters List of \code{pd_catheter} objects for one patient.
+#' @param t0 Date. Start of the reporting period, or \code{NA}.
+#' @param t1 Date. End of the reporting period, or \code{NA}.
+#'
+#' @return \code{TRUE} if the patient first started PD within \code{[t0, t1]},
+#'   \code{FALSE} if they started before it, or \code{NA} when there is nothing
+#'   to decide from (no catheters, no usable start dates, or
+#'   no reporting window supplied).
+#' @noRd
+#'
+is_incident_patient <- function(catheters,
+                                t0 = as.Date(NA),
+                                t1 = as.Date(NA)) {
+  # no window supplied -> "incident within what?" is undecidable
+  if (is.na(t0) && is.na(t1)) {
+    return(NA)
+  }
+  if (length(catheters) == 0) {
+    return(NA)
+  }
+
+  # Identify start date
+  starts <- lapply(catheters, function(cath) {
+    # Checks if not a pd_catheter object or pd_start_date is NA
+    if (!inherits(cath, "pd_catheter")) {
+      return(NULL)
+    }
+    if (is.na(cath$pd_start_date)) {
+      return(NULL)
+    }
+    cath$pd_start_date
+  })
+  # Keep the date/s only in a list
+  starts <- do.call(c, starts[!vapply(starts, is.null, logical(1))])
+
+  # NA for when all catheters were invalid or had no start date and NULL-from-empty-list
+  if (length(starts) == 0) {
+    return(NA)
+  }
+
+  # earliest PD start across every valid pd_start_date this patient has
+  first_start <- min(starts)
+
+  in_window <- TRUE
+  if (!is.na(t0)) in_window <- in_window && first_start >= t0
+  if (!is.na(t1)) in_window <- in_window && first_start <= t1
+
+  in_window
+}
+
+
+
+#' Count peritonitis episodes across all of patient's catheters
+#'
+#' Sums \code{n_peritonitis_episodes} over every \code{pd_catheter} in \code{catheters}.
+#'
+#' @param catheters List of \code{pd_catheter} objects for one patient.
+#'
+#' @return A single non-negative integer count.
+#' @noRd
+#'
+count_patient_episodes <- function(catheters) {
+  if (length(catheters) == 0) {
+    return(0L)
+  }
+
+  counts <- vapply(catheters, function(cath) {
+    if (!inherits(cath, "pd_catheter")) {
+      return(0)
+    }
+    n <- cath$n_peritonitis_episodes
+    if (is.null(n) || is.na(n)) {
+      return(0)
+    }
+    as.numeric(n)
+  }, numeric(1))
+
+  sum(counts)
+}
+
+
+
+
+
 #' Construct and validate a pd_patient object
 #'
-#' User-facing constructor: builds a \code{pd_patient} via
-#' \code{new_pd_patient()} and checks it with \code{validate_pd_patient()}
-#' before returning it.
+#' Builds a \code{pd_patient} via \code{new_pd_patient()} and checks it with
+#' \code{validate_pd_patient()} before returning it.
 #'
 #' @inheritParams new_pd_patient
 #'

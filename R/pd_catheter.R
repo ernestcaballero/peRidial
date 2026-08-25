@@ -1,58 +1,5 @@
 
 
-#' Count peritonitis episodes falling inside a reporting period
-#'
-#' Internal helper. Counts how many \code{pd_infection} objects in
-#' \code{infections} both (a) have an \code{infection_date} inside
-#' \code{[t0, t1]}, and (b) are not a \strong{relapsing} episode. Per ISPD, a
-#' relapsing episode (same organism, occurring within 4 weeks of completing
-#' antibiotics for the immediately preceding episode -- see
-#' \code{get_episode_type()} in pd_infection.R) is a continuation of that
-#' prior episode rather than a distinct new one, so it is excluded from the
-#' count used for rate/free-percentage calculations. \code{"recurrent"} and
-#' \code{"repeat"} episodes ARE distinct new episodes and stay counted, as
-#' does an episode with \code{NA} \code{episode_type} (e.g. a patient's
-#' first-ever recorded episode, with nothing prior to compare against).
-#'
-#' Either t0/t1 boundary can be \code{NA}, in which case that side is left
-#' unfiltered. If both are \code{NA} this only filters out relapses.
-#'
-#' @param infections List of \code{pd_infection} objects.
-#' @param t0 Date. Start of the reporting period, or \code{NA}.
-#' @param t1 Date. End of the reporting period, or \code{NA}.
-#'
-#' @return A single non-negative integer count.
-#' @noRd
-#'
-count_episodes_in_period <- function(infections,
-                                     t0 = as.Date(NA),
-                                     t1 = as.Date(NA)) {
-  if (length(infections) == 0) {
-    return(0L)
-  }
-
-  counts <- vapply(infections, function(inf) {
-    if (!inherits(inf, "pd_infection")) {
-      return(FALSE)
-    }
-    # Infection counter (within the reporting window)
-    in_window <- TRUE
-
-    # Checks if episode is on or after t0, on or before t1
-    if (!is.na(t0)) in_window <- in_window && inf$infection_date >= t0
-    if (!is.na(t1)) in_window <- in_window && inf$infection_date <= t1
-
-    # ISPD: a relapsing episode is a continuation of the preceding episode,
-    # not a new one, so exclude it from the count. Recurrent/repeat/NA episodes are counted.
-    not_relapse <- is.na(inf$episode_type) || inf$episode_type != "relapsing"
-
-    in_window && not_relapse
-  }, logical(1))
-
-  sum(counts)
-}
-
-
 
 #' Create pd_catheter object
 #'
@@ -254,17 +201,67 @@ validate_pd_catheter <- function(x) {
 
 
 
+#' Count peritonitis episodes falling inside a reporting period
+#'
+#' Counts how many \code{pd_infection} objects in
+#' \code{infections} both (a) have an \code{infection_date} inside
+#' \code{[t0, t1]}, and (b) are not a \strong{relapsing} episode. Per ISPD, a
+#' relapsing episode (same organism, occurring within 4 weeks of completing
+#' antibiotics for the immediately preceding episode -- see
+#' \code{get_episode_type()} in pd_infection.R) is a continuation of that
+#' prior episode rather than a distinct new one, so it is excluded from the
+#' count used for rate/free-percentage calculations. \code{"recurrent"} and
+#' \code{"repeat"} episodes ARE distinct new episodes and stay counted, as
+#' does an episode with \code{NA} \code{episode_type} (e.g. a patient's
+#' first-ever recorded episode, with nothing prior to compare against).
+#'
+#' Either t0/t1 boundary can be \code{NA}, in which case that side is left
+#' unfiltered. If both are \code{NA} this only filters out relapses.
+#'
+#' @param infections List of \code{pd_infection} objects.
+#' @param t0 Date. Start of the reporting period, or \code{NA}.
+#' @param t1 Date. End of the reporting period, or \code{NA}.
+#'
+#' @return A single non-negative integer count.
+#' @noRd
+#'
+count_episodes_in_period <- function(infections,
+                                     t0 = as.Date(NA),
+                                     t1 = as.Date(NA)) {
+  if (length(infections) == 0) {
+    return(0L)
+  }
+
+  counts <- vapply(infections, function(inf) {
+    if (!inherits(inf, "pd_infection")) {
+      return(FALSE)
+    }
+    # Infection counter (within the reporting window)
+    in_window <- TRUE
+
+    # Checks if episode is on or after t0, on or before t1
+    if (!is.na(t0)) in_window <- in_window && inf$infection_date >= t0
+    if (!is.na(t1)) in_window <- in_window && inf$infection_date <= t1
+
+    # ISPD: a relapsing episode is a continuation of the preceding episode,
+    # not a new one, so exclude it from the count. Recurrent/repeat/NA episodes are counted.
+    not_relapse <- is.na(inf$episode_type) || inf$episode_type != "relapsing"
+
+    in_window && not_relapse
+  }, logical(1))
+
+  sum(counts)
+}
+
+
+
+
 #' Construct and validate a pd_catheter object
 #'
-#' User-facing constructor: builds a \code{pd_catheter} via
-#' \code{new_pd_catheter()} and checks it with \code{validate_pd_catheter()}
-#' before returning it.
+#' Builds a \code{pd_catheter} via \code{new_pd_catheter()} and checks it with
+#' \code{validate_pd_catheter()} before returning it.
 #'
 #' @inheritParams new_pd_catheter
-#' @param patient_id Character. The patient's unique identifier (NHI).
-#' @param catheter_id Character. Unique identifier for this catheter.
-#' @param insertion_date Date. Date the catheter was surgically inserted.
-#' @param pd_start_date Date. Date PD therapy started on this catheter.
 #'
 #' @return An object of class \code{pd_catheter}.
 #' @export
