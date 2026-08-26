@@ -126,11 +126,35 @@ validate_pd_patient <- function(x) {
              "', which does not match this patient's patient_id '",
              x$patient_id, "'.")
       }
+      # PD start is not optional; it is the origin of time-at-risk
+      if (is.na(catheter$pd_start_date)) {
+        stop("catheters[[", i, "]] has a missing pd_start_date. ", "Must be supplied.")
+      }
+      # pd_stop_date may be NA, but the element must be present
+      if (length(catheter$pd_stop_date) != 1) {
+        stop("catheters[[", i, "]] has no pd_stop_date element (it may be NA ",
+             "for an active catheter, but it must be present).")
+      }
       # a patient's PD can't continue past their censoring date (tau): death, transplant, or permanent transfer to HD
-      if (!is.na(x$transfer_date) && !is.na(catheter$pd_stop_date) &&
-          catheter$pd_stop_date > x$transfer_date) {
-        stop("catheters[[", i, "]] has pd_stop_date after this patient's ",
-             "transfer_date (tau).")
+      if (!is.na(x$transfer_date)) {
+        if (catheter$pd_start_date > x$transfer_date) {
+          stop("catheters[[", i, "]] has pd_start_date after this patient's ",
+               "transfer_date (tau).")
+        }
+        if (is.na(catheter$pd_stop_date)) {
+          stop("catheters[[", i, "]] has no pd_stop_date (still active), but ",
+               "this patient permanently left PD on ", x$transfer_date,
+               " ('", x$transfer_reason, "').")
+        }
+        if (catheter$pd_stop_date > x$transfer_date) {
+          stop("catheters[[", i, "]] has pd_stop_date after this patient's ",
+               "transfer_date (tau).")
+        }
+      }
+      # the catheter's reporting window must be this patient's
+      if (!identical(catheter$t0, x$t0) || !identical(catheter$t1, x$t1)) {
+        stop("catheters[[", i, "]] has a reporting window that differs from ",
+             "this patient's [t0, t1].")
       }
     }
 
@@ -141,14 +165,12 @@ validate_pd_patient <- function(x) {
            paste(unique(cath_ids[duplicated(cath_ids)]), collapse = ", "), ".")
     }
 
-    # Non-overlapping catheter intervals. Two catheters may not deliver PD
-    # to the same patient at the same time, so sorting by start date and
-    # checking each interval begins after the previous one ended is enough.
-    # An open interval (pd_stop_date NA) is treated as running to the end of time, so nothing may start after it.
+    # Check for non-overlappinh catheter intervals. Two catheters may not deliver PD
+    # to the same patient at the same time.
     starts <- do.call(c, lapply(x$catheters, function(cath) cath$pd_start_date))
     stops  <- do.call(c, lapply(x$catheters, function(cath) cath$pd_stop_date))
 
-    if (!anyNA(starts) && length(starts) > 1) {
+    if (length(starts) > 1) {
       ord <- order(starts)
       starts <- starts[ord]
       stops  <- stops[ord]
@@ -158,12 +180,12 @@ validate_pd_patient <- function(x) {
         # an open-ended catheter can't be followed by another one
         if (is.na(stops[i])) {
           stop("Catheter '", ids[i], "' has no pd_stop_date (still active) ",
-               "but catheter '", ids[i + 1], "' starts after it -- ",
-               "catheter intervals within a patient must not overlap.")
+               "but catheter '", ids[i + 1], "' starts after it.",
+               "Catheter intervals within a patient must not overlap.")
         }
         if (starts[i + 1] < stops[i]) {
           stop("Catheters '", ids[i], "' and '", ids[i + 1], "' have ",
-               "overlapping PD intervals -- catheter intervals within a ",
+               "overlapping PD intervals. Catheter intervals within a ",
                "patient must not overlap.")
         }
       }

@@ -171,6 +171,11 @@ validate_pd_catheter <- function(x) {
              "', which does not match this catheter's patient_id '",
              x$patient_id, "'.")
       }
+      # infection_date is required before the window checks below
+      if (is.na(infection$infection_date)) {
+        stop("infections[[", i, "]] has a missing infection_date. ",
+             "Must be supplied.")
+      }
       # ISPD time-at-risk begins on pd_start_date, so an episode can't be before this date,
       # If the catheter has stopped, an episode can't be after pd_stop_date either.
       if (infection$infection_date < x$pd_start_date) {

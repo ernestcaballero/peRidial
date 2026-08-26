@@ -14,7 +14,7 @@
 #'
 exposure_days <- function(min_date, max_date) {
   stopifnot(inherits(min_date, "Date"), inherits(max_date, "Date"))
-  as.numeric(pmax(0, max_date - min_date))
+  as.numeric(pmax(0, max_date - min_date + 1))
 }
 
 

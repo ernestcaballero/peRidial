@@ -97,6 +97,19 @@ validate_pd_unit <- function(x) {
   if (length(x$patient_list) != x$n_patients) {
     stop("Length of `patient_list` does not match n_patients.")
   }
+  # every patient must be scoped to this unit's reporting window
+  if (length(x$patient_list) > 0) {
+    for (i in seq_along(x$patient_list)) {
+      p <- x$patient_list[[i]]
+      if (!inherits(p, "pd_patient")) {
+        stop("patient_list[[", i, "]] is not a pd_patient object.")
+      }
+      if (!identical(p$t0, x$t0) || !identical(p$t1, x$t1)) {
+        stop("patient_list[[", i, "]] has a reporting window that differs ",
+             "from this unit's [t0, t1].")
+      }
+    }
+  }
 
   x
 }
