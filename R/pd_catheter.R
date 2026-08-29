@@ -9,7 +9,8 @@
 #' their matching denominator live in the same object.
 #'
 #' @param patient_id Character. The patient's unique identifier (NHI).
-#' @param catheter_id Character. Unique identifier for this catheter.
+#' @param catheter_id Character. Unique identifier for this catheter. Generated as per
+#'    insertion date per patient (e.g. XYZ1234_01).
 #' @param insertion_date Date. Date the catheter was surgically inserted.
 #' @param procedure_type Character. Type of insertion technique (eg. \code{"open surgical"},
 #'    \code{"laparoscopic"}, \code{"percutaneous"}).
@@ -165,11 +166,7 @@ validate_pd_catheter <- function(x) {
       if (!inherits(infection, "pd_infection")) {
         stop("infections[[", i, "]] is not a pd_infection object.")
       }
-      if (!identical(infection$catheter_id, x$catheter_id)) {
-        stop("infections[[", i, "]] has catheter_id '", infection$catheter_id,
-             "', which does not match this catheter's catheter_id '",
-             x$catheter_id, "'.")
-      }
+      # checks if patient_id in pd_infection and pd_catheter matches
       if (!identical(infection$patient_id, x$patient_id)) {
         stop("infections[[", i, "]] has patient_id '", infection$patient_id,
              "', which does not match this catheter's patient_id '",
@@ -261,7 +258,6 @@ count_episodes_in_period <- function(infections,
 
   sum(counts)
 }
-
 
 
 

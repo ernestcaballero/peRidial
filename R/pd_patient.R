@@ -165,16 +165,16 @@ validate_pd_patient <- function(x) {
            paste(unique(cath_ids[duplicated(cath_ids)]), collapse = ", "), ".")
     }
 
-    # Check for non-overlappinh catheter intervals. Two catheters may not deliver PD
-    # to the same patient at the same time.
+    # Check for non-overlapping catheter intervals.
+    # Two catheters may not deliver PD to the same patient at the same time.
     starts <- do.call(c, lapply(x$catheters, function(cath) cath$pd_start_date))
     stops  <- do.call(c, lapply(x$catheters, function(cath) cath$pd_stop_date))
 
     if (length(starts) > 1) {
       ord <- order(starts)
       starts <- starts[ord]
-      stops  <- stops[ord]
-      ids    <- cath_ids[ord]
+      stops <- stops[ord]
+      ids <- cath_ids[ord]
 
       for (i in seq_len(length(starts) - 1)) {
         # an open-ended catheter can't be followed by another one

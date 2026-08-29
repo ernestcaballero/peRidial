@@ -8,8 +8,6 @@
 #' to haemodialysis - permanently or temporarily).
 #'
 #' @param patient_id Character. The patient's unique identifier (NHI).
-#' @param catheter_id Character. Identifier of the catheter through which this
-#'   infection occurred.
 #' @param infection_date Date. The date the peritonitis episode was diagnosed.
 #' @param organism_list  List. A list of one or more character strings of the
 #'   causative organism(s) identified for this episode. Use \code{"negative"}
@@ -37,7 +35,7 @@
 #'
 
 new_pd_infection <- function(patient_id = NA_character_,
-                             catheter_id = NA_character_,
+                             # catheter_id = NA_character_,
                              infection_date = as.Date(NA),
                              organism_list = list(),
                              episode_type = NA_character_,
@@ -46,7 +44,7 @@ new_pd_infection <- function(patient_id = NA_character_,
                              outcome_date = as.Date(NA)) {
 
   stopifnot(length(patient_id) == 1, is.character(patient_id) || is.na(patient_id))
-  stopifnot(length(catheter_id) == 1, is.character(catheter_id) || is.na(catheter_id))
+  # stopifnot(length(catheter_id) == 1, is.character(catheter_id) || is.na(catheter_id))
   stopifnot(inherits(infection_date, "Date"))
   stopifnot(is.list(organism_list))
   stopifnot(is.character(episode_type) || is.na(episode_type))
@@ -57,7 +55,7 @@ new_pd_infection <- function(patient_id = NA_character_,
   structure(
     list(
       patient_id = patient_id,
-      catheter_id = catheter_id,
+      # catheter_id = catheter_id,
       infection_date = infection_date,
       organism_list = organism_list,
       episode_type = episode_type,
@@ -74,8 +72,11 @@ new_pd_infection <- function(patient_id = NA_character_,
 validate_pd_infection <- function(x) {
   stopifnot(inherits(x, "pd_infection"))
 
-  if (is.na(x$patient_id) || is.na(x$catheter_id)) {
-    stop("Both patient_id and catheter_id must be supplied.")
+  # if (is.na(x$patient_id) || is.na(x$catheter_id)) {
+  #   stop("Both patient_id and catheter_id must be supplied.")
+  # }
+  if (is.na(x$patient_id)) {
+    stop("patient_id and catheter_id must be supplied.")
   }
   if (is.na(x$infection_date)) {
     stop("Missing infection date. Must be supplied.")
@@ -176,7 +177,7 @@ get_episode_type <- function(current_infection_date,
 #'
 
 pd_infection <- function(patient_id,
-                         catheter_id,
+                         # catheter_id,
                          infection_date,
                          organism_list,
                          last_dose_antibiotic = as.Date(NA),
@@ -190,7 +191,7 @@ pd_infection <- function(patient_id,
 
   x <- new_pd_infection(
     patient_id = patient_id,
-    catheter_id = catheter_id,
+    # catheter_id = catheter_id,
     infection_date = infection_date,
     organism_list = organism_list,
     episode_type = episode_type,

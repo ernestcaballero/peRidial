@@ -1,3 +1,41 @@
+#' Generate catheter_id values from patient_id and insertion_date
+#'
+#' A patient can have more than one PD catheter over time, so a catheter is
+#' identified by which patient it belongs to and when it was
+#' inserted relative to that patient's other catheters. This builds
+#' \code{catheter_id} as \code{patient_id} plus a two-digit sequence number
+#' ordered by \code{insertion_date} within each patient (e.g. a patient
+#' \code{"XYZ1234"}'s first catheter becomes \code{"XYZ1234_01"}, their next
+#' one (if any) \code{"XYZ1234_02"}, and so on). See the \code{catheter_id}
+#' documentation in \code{pd_catheter()}.
+#'
+#' @param patient_id Character vector. Patient identifier for each row (NHI).
+#' @param insertion_date Date vector, the same length as \code{patient_id}.
+#'   Date each row's catheter was inserted; used to order multiple catheters
+#'   within the same patient.
+#'
+#' @return Character vector, same length and order as the inputs, giving each
+#'   row's generated \code{catheter_id}.
+#' @noRd
+#'
+create_catheter_id <- function(patient_id, insertion_date) {
+  stopifnot(length(patient_id) == length(insertion_date))
+  stopifnot(inherits(insertion_date, "Date"))
+
+  catheter_id <- character(length(patient_id))
+
+  for (pid in unique(patient_id)) {
+    rows <- which(patient_id == pid)
+    ord <- rows[order(insertion_date[rows])]
+    catheter_id[ord] <- paste0(pid, "_", sprintf("%02d", seq_along(ord)))
+  }
+
+  catheter_id
+}
+
+
+
+
 #' Build pd_unit object from raw data files
 #'
 #' Reads a unit's raw dialysis data file and infection data file
@@ -42,60 +80,39 @@ pd_unit <- function(unit_data_path,
                   last_centre_name, date_transfer_last,
                   dialysis_type_code, dry_weight_at_last_dx_kg) |>
     dplyr::mutate(
-      date_of_birth = as.Date(date_of_birth, format = "%d-%m-%Y"),
-      date_of_death = as.Date(date_of_death, format = "%d-%m-%Y"),
-      date_transfer_current = as.Date(date_transfer_current, format = "%d-%m-%Y"),
-      date_transfer_last = as.Date(date_transfer_last, format = "%d-%m-%Y")) |>
+      date_of_birth = as.Date(date_of_birth, format = "%Y-%m-%d"),
+      date_of_death = as.Date(date_of_death, format = "%Y-%m-%d"),
+      date_transfer_current = as.Date(date_transfer_current, format = "%Y-%m-%d"),
+      date_transfer_last = as.Date(date_transfer_last, format = "%Y-%m-%d")) |>
     dplyr::distinct(patient_id, .keep_all = TRUE)
 
   raw_catheters <- raw_a3 |>
-    dplyr::select(patient_id, insertion_date, procedure_type,
+    dplyr::select(patient_id, catheter_id, insertion_date, procedure_type,
                   pd_start_date, pd_stop_date, removal_reason,
                   peritonitis_date_first_episode,
                   peritonitis_episodes_count) |>
     dplyr::mutate(
-      insertion_date = as.Date(insertion_date, format = "%d-%m-%Y"),
-      pd_start_date = as.Date(pd_start_date, format = "%d-%m-%Y"),
-      pd_stop_date = as.Date(pd_stop_date, format = "%d-%m-%Y"),
-      peritonitis_date_first_episode = as.Date(peritonitis_date_first_episode, format = "%d-%m-%Y")
+      insertion_date = as.Date(insertion_date, format = "%Y-%m-%d"),
+      pd_start_date = as.Date(pd_start_date, format = "%Y-%m-%d"),
+      pd_stop_date = as.Date(pd_stop_date, format = "%Y-%m-%d"),
+      peritonitis_date_first_episode = as.Date(peritonitis_date_first_episode, format = "%Y-%m-%d")
     )
 
   raw_pe <- readxl::read_excel(infection_data_path) |>
-  dplyr::select(patient_id, catheter_id, date_of_infection,
+  dplyr::select(patient_id, date_of_infection,
                 relapse_recurrence_code, organism, last_dose_antibiotic,
                 overnight_hospitalisation, days_hospitalised,
                 catheter_removed, catheter_removed_date,
                 interim_hd, permanent_hd, first_dialysis_date, last_dialysis_date) |>
   dplyr::mutate(
-    date_of_infection = as.Date(date_of_infection, format = "%d-%m-%Y"),
-    last_dose_antibiotic = as.Date(last_dose_antibiotic, format = "%d-%m-%Y"),
-    catheter_removed_date = as.Date(catheter_removed_date, format = "%d-%m-%Y"),
-    first_dialysis_date = as.Date(first_dialysis_date, format = "%d-%m-%Y"),
-    last_dialysis_date = as.Date(last_dialysis_date, format = "%d-%m-%Y")
+    date_of_infection = as.Date(date_of_infection, format = "%Y-%m-%d"),
+    last_dose_antibiotic = as.Date(last_dose_antibiotic, format = "%Y-%m-%d"),
+    catheter_removed_date = as.Date(catheter_removed_date, format = "%Y-%m-%d"),
+    first_dialysis_date = as.Date(first_dialysis_date, format = "%Y-%m-%d"),
+    last_dialysis_date = as.Date(last_dialysis_date, format = "%Y-%m-%d")
   )
 
-  # create catheter_id for raw_pe
-
-  # build pd_catheter object and add catheter_id from pd_infection for infection within [t0, t1]
-
   # Derive organism_list and outcome for each episode
-  # ASSUMPTION: raw_pe already has one row per peritonitis episode.
-  # Multiple organism peritonitis are made into a list in a single column
-  # as a comma-separated string (e.g. "E. coli, Staph aureus") -- that
-  # gets split into a list column here.
-  #
-  # ASSUMPTION: outcome priority is catheter removal > permanent HD >
-  # temporary HD > hospitalisation, i.e. if more than one outcome flag is
-  # set for an episode the "most severe" one wins.
-  #
-  # outcome/outcome_date are deliberately nullable: an episode that resolves
-  # without catheter removal, HD transfer, or hospitalisation has none of
-  # those flags set, so it falls through both case_when()s to NA. That's
-  # not a missing-data gap -- it's the "peritonitis resolved" case, and
-  # validate_pd_infection() already treats NA outcome as implied good
-  # recovery (it only errors if outcome_date is set without an outcome, or
-  # if outcome == "catheter removed" is set without a date).
-
   # Build a label per row by checking if catheter removed, permanent HD, interim HD, hospitalisation or none/resolved
   raw_pe_episodes <- raw_pe |>
     dplyr::mutate(
@@ -119,19 +136,12 @@ pd_unit <- function(unit_data_path,
 
 
   # Build infection objects by patients
-  # Using chaining of episodes chronologically per patient
-  # get_episode_type() (see pd_infection.R) needs the immediately preceding
-  # episode for the same patient, so this has to walk each patient's
-  # episodes in date order, feeding each pd_infection() call the object
-  # built just before it.
-
   build_patient_infections <- function(df) {
     infections <- vector("list", nrow(df))
     prior <- NULL
     for (i in seq_len(nrow(df))) {
       infections[[i]] <- pd_infection(
         patient_id = df$patient_id[i],
-        catheter_id = df$catheter_id[i],
         infection_date = df$date_of_infection[i],
         organism_list = df$organism_list[[i]],
         last_dose_antibiotic = df$last_dose_antibiotic[i],
@@ -148,16 +158,47 @@ pd_unit <- function(unit_data_path,
     split(raw_pe_episodes$patient_id) |>
     purrr::map(build_patient_infections)
 
-  # Regroup the same pd_infection objects by catheter_id instead of
-  # patient_id, since pd_catheter (not pd_patient) owns its infections --
-  # see the composition in the design proposal's Figure 2. The
-  # patient-chronological build above is still needed first: get_episode_type()
-  # has to compare each episode against the *patient's* immediately
-  # preceding episode, which can span a catheter change.
+  # Match each pd_infection to the PD catheter that was active on its infection_date.
+  match_active_catheter_id <- function(pid, infection_date) {
+    cath <- raw_catheters[raw_catheters$patient_id == pid, ]
+    active <- cath$pd_start_date <= infection_date &
+      (is.na(cath$pd_stop_date) | infection_date <= cath$pd_stop_date)
+    candidates <- cath$catheter_id[active]
+
+    if (length(candidates) == 0) {
+      warning("No active PD catheter found for patient ", pid,
+              " on infection_date ", infection_date,
+              "; this infection will not be attached to a catheter.",
+              call. = FALSE)
+      return(NA_character_)
+    }
+    if (length(candidates) > 1) {
+      detail <- paste0(
+        candidates, " (insertion_date=", cath$insertion_date[active],
+        ", pd_start_date=", cath$pd_start_date[active],
+        ", pd_stop_date=", cath$pd_stop_date[active], ")"
+      )
+      stop("Multiple active PD catheters found for patient ", pid,
+           " on infection_date ", infection_date, ":\n",
+           paste("  -", detail, collapse = "\n"),
+           "\nPlease check and correct these catheters' insertion_date, ",
+           "pd_start_date and/or pd_stop_date in the source data so each ",
+           "patient's catheter windows don't overlap, then re-run.")
+    }
+    candidates[1]
+  }
+
   all_infections <- unlist(infections_by_patient, recursive = FALSE, use.names = FALSE)
 
+  # Flatten to one list of pd_infection objects, match each to its active catheter_id,
+  # then regroup by that id
   infections_by_catheter <- if (length(all_infections) > 0) {
-    split(all_infections, vapply(all_infections, function(inf) inf$catheter_id, character(1)))
+    matched_catheter_id <- vapply(all_infections, function(inf) {
+      match_active_catheter_id(inf$patient_id, inf$infection_date)
+    }, character(1))
+
+    matched <- !is.na(matched_catheter_id)
+    split(all_infections[matched], matched_catheter_id[matched])
   } else {
     list()
   }
@@ -183,9 +224,8 @@ pd_unit <- function(unit_data_path,
         pd_stop_date = pd_stop_date,
         removal_reason = removal_reason,
         infections = cath_infections,
-        # t0/t1 come from pd_unit()'s own arguments (in scope here as a
-        # closure) so n_peritonitis_episodes/peritonitis_flag are scoped to
-        # the survey period, not just "every episode ever on this catheter"
+        # included t0/t1 come from pd_unit() so n_peritonitis_episodes/peritonitis_flag
+        # are in scope of the survey period
         t0 = t0,
         t1 = t1
       )
@@ -193,8 +233,7 @@ pd_unit <- function(unit_data_path,
   }
 
 
-  # Build patient objects, nesting catheters (which themselves nest their
-  # own infections -- there is no separate flat infection_list here anymore)
+  # Build patient objects, nesting catheters
   patient_list <- purrr::map(raw_patients$patient_id, function(pid) {
     row <- raw_patients[raw_patients$patient_id == pid, ]
 
@@ -232,8 +271,10 @@ pd_unit <- function(unit_data_path,
     vapply(patient_list, function(p) isTRUE(p$new_patient_flag), logical(1))
   )
 
-  # Total patient-years at risk
-  tpyar <- total_patient_years(raw_catheters)
+  # Total patient-years at risk, censored to [t0, t1] and to each patient's
+  # tau. Computed from patient_list, not raw_catheters, because tau lives on
+  # the pd_patient objects -- see total_patient_years() in indicators.R.
+  tpyar <- total_patient_years(patient_list, t0, t1)
 
 
   x <- new_pd_unit(
