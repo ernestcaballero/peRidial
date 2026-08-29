@@ -60,7 +60,6 @@ for consistency.}
 An object of class \code{pd_patient}.
 }
 \description{
-User-facing constructor: builds a \code{pd_patient} via
-\code{new_pd_patient()} and checks it with \code{validate_pd_patient()}
-before returning it.
+Builds a \code{pd_patient} via \code{new_pd_patient()} and checks it with
+\code{validate_pd_patient()} before returning it.
 }

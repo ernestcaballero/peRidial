@@ -30,7 +30,8 @@ pd_catheter(
 \item{procedure_type}{Character. Type of insertion technique (eg. \code{"open surgical"},
 \code{"laparoscopic"}, \code{"percutaneous"}).}
 
-\item{pd_start_date}{Date. Date PD therapy started on this catheter.}
+\item{pd_start_date}{Date. Date of start of PD therapy of this catheter,
+usually 2-4 weeks after insertion.}
 
 \item{pd_stop_date}{Date. Date PD therapy stopped on this catheter, or
 \code{NA} if the catheter is still in active use.}
@@ -74,7 +75,6 @@ period, \code{FALSE} otherwise.}
 An object of class \code{pd_catheter}.
 }
 \description{
-User-facing constructor: builds a \code{pd_catheter} via
-\code{new_pd_catheter()} and checks it with \code{validate_pd_catheter()}
-before returning it.
+Builds a \code{pd_catheter} via \code{new_pd_catheter()} and checks it with
+\code{validate_pd_catheter()} before returning it.
 }

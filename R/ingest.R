@@ -27,7 +27,7 @@ pd_unit <- function(unit_data_path,
 
   stopifnot(inherits(t0, "Date"), inherits(t1, "Date"))
 
-  # Read raw files
+  # Read raw files, change date format %d-%m-%Y
   raw_a3 <- readxl::read_excel(unit_data_path)
 
   # standardise column names here (can use function)
@@ -41,20 +41,42 @@ pd_unit <- function(unit_data_path,
                   current_centre_name, date_transfer_current,
                   last_centre_name, date_transfer_last,
                   dialysis_type_code, dry_weight_at_last_dx_kg) |>
+    dplyr::mutate(
+      date_of_birth = as.Date(date_of_birth, format = "%d-%m-%Y"),
+      date_of_death = as.Date(date_of_death, format = "%d-%m-%Y"),
+      date_transfer_current = as.Date(date_transfer_current, format = "%d-%m-%Y"),
+      date_transfer_last = as.Date(date_transfer_last, format = "%d-%m-%Y")) |>
     dplyr::distinct(patient_id, .keep_all = TRUE)
 
   raw_catheters <- raw_a3 |>
-    dplyr::select(patient_id, catheter_id, insertion_date, procedure_type,
+    dplyr::select(patient_id, insertion_date, procedure_type,
                   pd_start_date, pd_stop_date, removal_reason,
                   peritonitis_date_first_episode,
-                  peritonitis_episodes_count)
+                  peritonitis_episodes_count) |>
+    dplyr::mutate(
+      insertion_date = as.Date(insertion_date, format = "%d-%m-%Y"),
+      pd_start_date = as.Date(pd_start_date, format = "%d-%m-%Y"),
+      pd_stop_date = as.Date(pd_stop_date, format = "%d-%m-%Y"),
+      peritonitis_date_first_episode = as.Date(peritonitis_date_first_episode, format = "%d-%m-%Y")
+    )
 
   raw_pe <- readxl::read_excel(infection_data_path) |>
-    dplyr::select(patient_id, catheter_id, date_of_infection,
-                  relapse_recurrence_code, organism, last_dose_antibiotic,
-                  overnight_hospitalisation, days_hospitalised,
-                  catheter_removed, catheter_removed_date,
-                  interim_hd, permanent_hd, first_dialysis_date, last_dialysis_date)
+  dplyr::select(patient_id, catheter_id, date_of_infection,
+                relapse_recurrence_code, organism, last_dose_antibiotic,
+                overnight_hospitalisation, days_hospitalised,
+                catheter_removed, catheter_removed_date,
+                interim_hd, permanent_hd, first_dialysis_date, last_dialysis_date) |>
+  dplyr::mutate(
+    date_of_infection = as.Date(date_of_infection, format = "%d-%m-%Y"),
+    last_dose_antibiotic = as.Date(last_dose_antibiotic, format = "%d-%m-%Y"),
+    catheter_removed_date = as.Date(catheter_removed_date, format = "%d-%m-%Y"),
+    first_dialysis_date = as.Date(first_dialysis_date, format = "%d-%m-%Y"),
+    last_dialysis_date = as.Date(last_dialysis_date, format = "%d-%m-%Y")
+  )
+
+  # create catheter_id for raw_pe
+
+  # build pd_catheter object and add catheter_id from pd_infection for infection within [t0, t1]
 
   # Derive organism_list and outcome for each episode
   # ASSUMPTION: raw_pe already has one row per peritonitis episode.

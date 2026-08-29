@@ -1,6 +1,5 @@
 
 
-
 #' Create pd_catheter object
 #'
 #' A single PD catheter episode for a patient: when it was inserted,
@@ -52,14 +51,14 @@
 #'
 new_pd_catheter <- function(patient_id = NA_character_,
                             catheter_id = NA_character_,
-                            insertion_date = as.Date(NA),
+                            insertion_date = as.Date(NA, format = "%d-%m-%Y"),
                             procedure_type = NA_character_,
-                            pd_start_date = as.Date(NA),
-                            pd_stop_date = as.Date(NA),
+                            pd_start_date = as.Date(NA, format = "%d-%m-%Y"),
+                            pd_stop_date = as.Date(NA, format = "%d-%m-%Y"),
                             removal_reason = NA_character_,
                             infections = list(),
-                            t0 = as.Date(NA),
-                            t1 = as.Date(NA),
+                            t0 = as.Date(NA, format = "%d-%m-%Y"),
+                            t1 = as.Date(NA, format = "%d-%m-%Y"),
                             total_exposure_days = NA_integer_,
                             n_peritonitis_episodes = NULL,
                             peritonitis_flag = NULL) {
@@ -68,8 +67,13 @@ new_pd_catheter <- function(patient_id = NA_character_,
   stopifnot(length(catheter_id) == 1, is.character(catheter_id) || is.na(catheter_id))
   stopifnot(inherits(insertion_date, "Date"))
   stopifnot(is.character(procedure_type) || is.na(procedure_type))
-  stopifnot(inherits(pd_start_date, "Date"))
-  stopifnot(inherits(pd_stop_date, "Date"))
+  if (!inherits(pd_start_date, "Date")) {
+    stop("pd_start_date must be a Date. If PD therapy hasn't started yet, use as.Date(NA) rather than NA.")
+  }
+
+  if (!inherits(pd_stop_date, "Date")) {
+    stop("pd_stop_date must be a Date. If the catheter is still active (no stop date), use as.Date(NA) rather than NA.")
+  }
   stopifnot(is.character(removal_reason) || is.na(removal_reason))
   stopifnot(is.list(infections))
   stopifnot(inherits(t0, "Date"), inherits(t1, "Date"))
