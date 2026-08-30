@@ -92,7 +92,7 @@ pd_unit <- function(unit_data_path,
       insertion_date = as.Date(insertion_date, format = "%Y-%m-%d"),
       pd_start_date = as.Date(pd_start_date, format = "%Y-%m-%d"),
       pd_stop_date = as.Date(pd_stop_date, format = "%Y-%m-%d"),
-      peritonitis_date_first_episode = as.Date(peritonitis_date_first_episode, format = "%Y-%m-%d")
+      peritonitis_date_first_episode = as.Date(peritonitis_date_first_episode, format = "%Y-%m-%d"),
       catheter_id = create_catheter_id(patient_id, insertion_date)
     )
 
