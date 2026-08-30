@@ -6,20 +6,16 @@
 \usage{
 new_pd_infection(
   patient_id = NA_character_,
-  catheter_id = NA_character_,
-  infection_date = as.Date(NA, format = "\%d-\%m-\%Y"),
+  infection_date = as.Date(NA),
   organism_list = list(),
   episode_type = NA_character_,
-  last_dose_antibiotic = as.Date(NA, format = "\%d-\%m-\%Y"),
+  last_dose_antibiotic = as.Date(NA),
   outcome = NA_character_,
-  outcome_date = as.Date(NA, format = "\%d-\%m-\%Y")
+  outcome_date = as.Date(NA)
 )
 }
 \arguments{
 \item{patient_id}{Character. The patient's unique identifier (NHI).}
-
-\item{catheter_id}{Character. Identifier of the catheter through which this
-infection occurred.}
 
 \item{infection_date}{Date. The date the peritonitis episode was diagnosed.}
 
@@ -38,7 +34,7 @@ treatment given for this episode.}
 
 \item{outcome}{Character. Clinical outcome of this episode (e.g.
 \code{"hospitalisation"}, \code{"catheter removed"}, \code{"temporary transfer to HD"}).
-If supplied, \code{outcome_date} must also be supplied.}
+If supplied, \code{outcome_date} must also be supplied. \code{NA} when resolved.}
 
 \item{outcome_date}{Date. Date of the outcome. Required whenever
 \code{outcome} is supplied, and specifically required when \code{outcome} is \code{"catheter removed"}.}

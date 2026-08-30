@@ -4,21 +4,31 @@
 \alias{total_patient_years}
 \title{Calculate total patient-years-at-risk for a unit}
 \usage{
-total_patient_years(catheters)
+total_patient_years(patient_list, t0, t1)
 }
 \arguments{
-\item{catheters}{Data frame. One row per catheter episode, with columns
-\code{patient_id} (patient identifier), \code{pd_start_date} (Date), and
-\code{pd_stop_date} (Date). Assumed to already be validated by the object's
-constructor.}
+\item{patient_list}{List of \code{pd_patient} objects, each carrying its
+own \code{catheters} and \code{transfer_date}. Assumed already validated
+by the objects' constructors.}
+
+\item{t0}{Date. Start of the reporting period.}
+
+\item{t1}{Date. End of the reporting period.}
 }
 \value{
 A single non-negative numeric value: total patient-years-at-risk
 across all patients.
 }
 \description{
-Computes the total exposure time, in patient-years, across all catheter
-episodes for a unit. Exposure days for each episode are calculated via
-\code{exposure_days()}, summed per patient (\code{patient_id}) using
-\code{rowsum()}, and converted to years using a 365.25-day year.
+Computes the denominator for the unit's peritonitis rate: total exposure
+time in patient-years across every catheter in the cohort, censored to the
+reporting period and to each patient's own \code{tau}, and converted to
+years using a 365.25-day year.
+}
+\details{
+This takes \code{patient_list} rather than a raw catheters data frame
+because censoring is a patient-level property: \code{tau} lives on
+\code{pd_patient} (as \code{transfer_date}), while the PD windows live on
+the \code{pd_catheter} objects nested inside it. Walking the objects keeps
+each catheter paired with the \code{tau} that applies to it.
 }

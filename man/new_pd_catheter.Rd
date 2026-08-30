@@ -23,7 +23,8 @@ new_pd_catheter(
 \arguments{
 \item{patient_id}{Character. The patient's unique identifier (NHI).}
 
-\item{catheter_id}{Character. Unique identifier for this catheter.}
+\item{catheter_id}{Character. Unique identifier for this catheter. Generated as per
+insertion date per patient (e.g. XYZ1234_01).}
 
 \item{insertion_date}{Date. Date the catheter was surgically inserted.}
 
