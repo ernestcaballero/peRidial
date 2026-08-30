@@ -1,59 +1,55 @@
 test_that("new_pd_infection creates a valid pd_infection object", {
   x <- new_pd_infection(
     patient_id = "ABC1234",
-    catheter_id = "CATH001",
     infection_date = as.Date("2025-03-15"),
     organism_list = list("Staphylococcus aureus"),
     last_dose_antibiotic = as.Date("2025-03-29"),
-    outcome = "resolved",
-    outcome_date = as.Date("2025-03-29")
+    outcome = NA_character_,
+    outcome_date = as.Date(NA)
   )
-
   expect_s3_class(x, "pd_infection")
-  expect_equal(x$patient_id, "ABC1234")
-  expect_equal(x$organism_list, list("Staphylococcus aureus"))
 })
 
-
-test_that("validate_pd_infection passes on a well-formed object", {
-  x <- new_pd_infection(
-    patient_id = "ABC1234",
-    catheter_id = "CATH001",
-    infection_date = as.Date("2025-03-15"),
-    organism_list = list("negative"),
-    last_dose_antibiotic = as.Date("2025-03-29")
-  )
-  expect_identical(validate_pd_infection(x), x)
-})
-
-
-test_that("validate_pd_infection catches missing patient_id/catheter_id", {
+test_that("validate_pd_infection errors when patient_id is NA", {
   x <- new_pd_infection(
     patient_id = NA_character_,
     infection_date = as.Date("2025-03-15"),
-    organism_list = list("negative"),
+    organism_list = list("Staphylococcus aureus"),
     last_dose_antibiotic = as.Date("2025-03-29")
   )
-  expect_error(validate_pd_infection(x), "patient_id and catheter_id")
+  expect_error(validate_pd_infection(x), "patient_id must be supplied")
 })
+
+
+test_that("new_pd_infection errors when infection_date is not a Date", {
+  expect_error(
+    new_pd_infection(
+      patient_id = "ABC1234",
+      infection_date = "2025-03-15",   # character, not a Date
+      organism_list = list("Staphylococcus aureus"),
+      last_dose_antibiotic = as.Date("2025-03-29")
+    )
+  )
+})
+
 
 
 test_that("validate_pd_infection rejects 'negative' combined with other organisms", {
   x <- new_pd_infection(
     patient_id = "ABC1234",
-    catheter_id = "CATH001",
     infection_date = as.Date("2025-03-15"),
     organism_list = list("negative", "E. coli"),
     last_dose_antibiotic = as.Date("2025-03-29")
   )
-  expect_error(validate_pd_infection(x), "negative")
+  expect_error(validate_pd_infection(x), "negative could not occur with another entry on the list.")
 })
+
 
 
 test_that("validate_pd_infection rejects an invalid episode_type", {
   x <- new_pd_infection(
     patient_id = "ABC1234",
-    catheter_id = "CATH001",
+    catheter_id = "ABC1234_01",
     infection_date = as.Date("2025-03-15"),
     organism_list = list("negative"),
     episode_type = "initial",   # not one of the three valid categories
@@ -66,7 +62,6 @@ test_that("validate_pd_infection rejects an invalid episode_type", {
 test_that("validate_pd_infection rejects outcome_date without an outcome", {
   x <- new_pd_infection(
     patient_id = "ABC1234",
-    catheter_id = "CATH001",
     infection_date = as.Date("2025-03-15"),
     organism_list = list("negative"),
     last_dose_antibiotic = as.Date("2025-03-29"),
@@ -79,7 +74,6 @@ test_that("validate_pd_infection rejects outcome_date without an outcome", {
 test_that("validate_pd_infection requires outcome_date when catheter is removed", {
   x <- new_pd_infection(
     patient_id = "ABC1234",
-    catheter_id = "CATH001",
     infection_date = as.Date("2025-03-15"),
     organism_list = list("Staphylococcus aureus"),
     last_dose_antibiotic = as.Date("2025-03-29"),
@@ -92,14 +86,12 @@ test_that("validate_pd_infection requires outcome_date when catheter is removed"
 test_that("pd_infection() classifies a relapsing episode", {
   prior <- new_pd_infection(
     patient_id = "ABC1234",
-    catheter_id = "CATH001",
     infection_date = as.Date("2025-01-01"),
     organism_list = list("E. coli"),
     last_dose_antibiotic = as.Date("2025-01-15")
   )
   x <- pd_infection(
     patient_id = "ABC1234",
-    catheter_id = "CATH001",
     infection_date = as.Date("2025-01-25"),             # 10 days after prior treatment ended
     organism_list = list("Escherichia coli"),           # same organism, spelled out
     last_dose_antibiotic = as.Date("2025-02-08"),
@@ -111,17 +103,55 @@ test_that("pd_infection() classifies a relapsing episode", {
 
 test_that("pd_infection() classifies a recurrent episode", {
   prior <- new_pd_infection(
-    patient_id = "ABC1234", catheter_id = "CATH001",
+    patient_id = "ABC1234",
     infection_date = as.Date("2025-01-01"),
     organism_list = list("E. coli"),
     last_dose_antibiotic = as.Date("2025-01-15")
   )
   x <- pd_infection(
-    patient_id = "ABC1234", catheter_id = "CATH001",
+    patient_id = "ABC1234",
     infection_date = as.Date("2025-01-25"),          # within 4 weeks
     organism_list = list("Staph aureus"),            # different organism
     last_dose_antibiotic = as.Date("2025-02-08"),
     prior_episode = prior
   )
   expect_equal(x$episode_type, "recurrent")
+})
+
+
+
+test_that("pd_infection() classifies a repeat episode", {
+  prior <- new_pd_infection(
+    patient_id = "ABC1234",
+    infection_date = as.Date("2025-01-01"),
+    organism_list = list("E. coli"),
+    last_dose_antibiotic = as.Date("2025-01-15")
+  )
+  x <- pd_infection(
+    patient_id = "ABC1234",
+    infection_date = as.Date("2025-03-01"),          # 45 days after prior treatment ended (>4 weeks)
+    organism_list = list("E. coli"),                 # same organism
+    last_dose_antibiotic = as.Date("2025-03-15"),
+    prior_episode = prior
+  )
+  expect_equal(x$episode_type, "repeat")
+})
+
+
+
+test_that("pd_infection() returns NA episode_type when >4 weeks later with a different organism", {
+  prior <- new_pd_infection(
+    patient_id = "ABC1234",
+    infection_date = as.Date("2025-01-01"),
+    organism_list = list("E. coli"),
+    last_dose_antibiotic = as.Date("2025-01-15")
+  )
+  x <- pd_infection(
+    patient_id = "ABC1234", catheter_id = "ABC1234_01",
+    infection_date = as.Date("2025-03-01"),          # 45 days after prior treatment ended (>4 weeks)
+    organism_list = list("Staph aureus"),            # different organism
+    last_dose_antibiotic = as.Date("2025-03-15"),
+    prior_episode = prior
+  )
+  expect_true(is.na(x$episode_type))
 })

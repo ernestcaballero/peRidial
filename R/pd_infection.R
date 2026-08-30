@@ -21,7 +21,7 @@
 #'   treatment given for this episode.
 #' @param outcome Character. Clinical outcome of this episode (e.g.
 #'   \code{"hospitalisation"}, \code{"catheter removed"}, \code{"temporary transfer to HD"}).
-#'   If supplied, \code{outcome_date} must also be supplied.
+#'   If supplied, \code{outcome_date} must also be supplied. \code{NA} when resolved.
 #' @param outcome_date Date. Date of the outcome. Required whenever
 #'   \code{outcome} is supplied, and specifically required when \code{outcome} is \code{"catheter removed"}.
 #'
@@ -29,9 +29,6 @@
 #' @export
 #'
 #' @examples
-#'
-#'
-#'
 #'
 
 new_pd_infection <- function(patient_id = NA_character_,
@@ -76,7 +73,7 @@ validate_pd_infection <- function(x) {
   #   stop("Both patient_id and catheter_id must be supplied.")
   # }
   if (is.na(x$patient_id)) {
-    stop("patient_id and catheter_id must be supplied.")
+    stop("patient_id must be supplied.")
   }
   if (is.na(x$infection_date)) {
     stop("Missing infection date. Must be supplied.")
