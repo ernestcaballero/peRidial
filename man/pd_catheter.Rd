@@ -46,10 +46,13 @@ catheter's \code{catheter_id}). Defaults to an empty list for a catheter
 with no recorded peritonitis episodes. This is restricted to the reporting
 period itself (\code{t0} and \code{t1}).}
 
-\item{t0}{Date. Start of the reporting period, used only to scope
-\code{n_peritonitis_episodes}/\code{peritonitis_flag} to episodes that
-fall inside \code{[t0, t1]}. Defaults to \code{NA}, which counts every
-episode in \code{infections} with no period filtering.}
+\item{t0}{Date. Start of the reporting period, used (together with
+\code{t1}, \code{pd_start_date}, and \code{pd_stop_date} -- see
+\code{count_episodes_in_period()}) to scope
+\code{n_peritonitis_episodes}/\code{peritonitis_flag} to episodes
+falling inside this catheter's active window \emph{and} the reporting
+period. Defaults to \code{NA}, which leaves that side of the window
+unfiltered.}
 
 \item{t1}{Date. End of the reporting period. See \code{t0}.}
 
@@ -63,14 +66,15 @@ supplied here; defaults to \code{NA_integer_} until that computation is
 wired in.}
 
 \item{n_peritonitis_episodes}{Integer. Count of peritonitis episodes that
-occurred on this catheter \emph{within the reporting period} \code{[t0, t1]}
--- 0, 1, 2, etc. Relapsing episodes are excluded from this count (see
-\code{count_episodes_in_period()}); recurrent/repeat episodes are
-included.}
+occurred on this catheter within its active window
+(\code{pd_start_date}/\code{pd_stop_date}) and the reporting period
+(\code{t0}/\code{t1}) -- 0, 1, 2, etc. See \code{count_episodes_in_period()}
+for exactly how that window is derived. Relapsing episodes are excluded
+from this count; recurrent/repeat episodes are included.}
 
 \item{peritonitis_flag}{Logical. \code{TRUE} if
-\code{n_peritonitis_episodes > 0} for this catheter within the reporting
-period, \code{FALSE} otherwise.}
+\code{n_peritonitis_episodes > 0} for this catheter within that window,
+\code{FALSE} otherwise.}
 }
 \value{
 An object of class \code{pd_catheter}.

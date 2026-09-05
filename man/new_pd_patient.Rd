@@ -13,7 +13,7 @@ new_pd_patient(
   transfer_date = as.Date(NA),
   new_patient_flag = NULL,
   n_catheters = NULL,
-  n_infections = NULL
+  n_episodes = NULL
 )
 }
 \arguments{
@@ -48,13 +48,13 @@ consistency.}
 to \code{NULL}, which derives it as \code{length(catheters)}; if supplied
 explicitly it is checked for consistency.}
 
-\item{n_infections}{Integer. Count of countable peritonitis episodes across
-all of this patient's catheters within the reporting period -- the
-\eqn{n_i} of Equation (3). Relapsing episodes are excluded and the count
-is scoped to \code{[t0, t1]}, both inherited from each catheter's own
-\code{n_peritonitis_episodes}. Defaults to \code{NULL}, which derives it
-via \code{count_patient_episodes()}; if supplied explicitly it is checked
-for consistency.}
+\item{n_episodes}{Integer. Count of countable (non-relapsing) peritonitis
+episodes across all of this patient's catheters within the reporting
+period -- the \eqn{n_i} of Equation (3). Relapsing episodes are excluded
+and the count is scoped to \code{[t0, t1]}, both inherited from each
+catheter's own \code{n_peritonitis_episodes}. Defaults to \code{NULL},
+which derives it via \code{count_patient_episodes()}; if supplied
+explicitly it is checked for consistency.}
 }
 \value{
 An object of class \code{pd_patient}.
