@@ -119,6 +119,7 @@ validate_pd_infection <- function(x) {
 #'
 #' @returns Character: one of \code{"relapsing"}, \code{"recurrent"},
 #'   \code{"repeat"}, or \code{NA_character_}.
+#' @export
 #'
 get_episode_type <- function(current_infection_date,
                              current_organism_list,
@@ -164,9 +165,16 @@ get_episode_type <- function(current_infection_date,
 #' Construct and validate a pd_infection object
 #'
 #' Builds a \code{pd_infection} via \code{new_pd_infection()} and checks it with
-#' \code{validate_pd_infection()} before returning it.
+#' \code{validate_pd_infection()} before returning it. \code{episode_type} is
+#' derived automatically from \code{prior_episode} via \code{get_episode_type()}
+#' rather than supplied directly (contrast \code{new_pd_infection()}, which takes
+#' \code{episode_type} as-is).
 #'
 #' @inheritParams new_pd_infection
+#' @param prior_episode A \code{pd_infection} object for the same patient's
+#'   immediately preceding episode, or \code{NULL} if this is their first
+#'   recorded episode. Passed straight through to \code{get_episode_type()}
+#'   to derive this episode's \code{episode_type}.
 #'
 #' @return An object of class \code{pd_infection}.
 #' @export
