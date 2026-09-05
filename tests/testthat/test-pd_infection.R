@@ -21,6 +21,7 @@ test_that("validate_pd_infection errors when patient_id is NA", {
 })
 
 
+# Checks for Date formatting
 test_that("new_pd_infection errors when infection_date is not a Date", {
   expect_error(
     new_pd_infection(
@@ -28,6 +29,30 @@ test_that("new_pd_infection errors when infection_date is not a Date", {
       infection_date = "2025-03-15",   # character, not a Date
       organism_list = list("Staphylococcus aureus"),
       last_dose_antibiotic = as.Date("2025-03-29")
+    )
+  )
+})
+
+test_that("new_pd_infection errors when last_dose_antibiotic is not a Date", {
+  expect_error(
+    new_pd_infection(
+      patient_id = "ABC1234",
+      infection_date = as.Date("2025-03-15"),
+      organism_list = list("Staphylococcus aureus"),
+      last_dose_antibiotic = "2025-03-29"   # character, not a Date
+    )
+  )
+})
+
+test_that("new_pd_infection errors when outcome_date is not a Date", {
+  expect_error(
+    new_pd_infection(
+      patient_id = "ABC1234",
+      infection_date = as.Date("2025-03-15"),
+      organism_list = list("Staphylococcus aureus"),
+      last_dose_antibiotic = as.Date("2025-03-29"),
+      outcome = "resolved",
+      outcome_date = "2025-03-29"   # character, not a Date
     )
   )
 })

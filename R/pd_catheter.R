@@ -25,10 +25,13 @@
 #'   catheter's \code{catheter_id}). Defaults to an empty list for a catheter
 #'   with no recorded peritonitis episodes. This is restricted to the reporting
 #'   period itself (\code{t0} and \code{t1}).
-#' @param t0 Date. Start of the reporting period, used only to scope
-#'   \code{n_peritonitis_episodes}/\code{peritonitis_flag} to episodes that
-#'   fall inside \code{[t0, t1]}. Defaults to \code{NA}, which counts every
-#'   episode in \code{infections} with no period filtering.
+#' @param t0 Date. Start of the reporting period, used (together with
+#'   \code{t1}, \code{pd_start_date}, and \code{pd_stop_date} -- see
+#'   \code{count_episodes_in_period()}) to scope
+#'   \code{n_peritonitis_episodes}/\code{peritonitis_flag} to episodes
+#'   falling inside this catheter's active window \emph{and} the reporting
+#'   period. Defaults to \code{NA}, which leaves that side of the window
+#'   unfiltered.
 #' @param t1 Date. End of the reporting period. See \code{t0}.
 #' @param total_exposure_days Integer. Total days this catheter is at risk,
 #'   i.e. \code{exposure_days} from Equation (1) of the design proposal
@@ -39,13 +42,14 @@
 #'   supplied here; defaults to \code{NA_integer_} until that computation is
 #'   wired in.
 #' @param n_peritonitis_episodes Integer. Count of peritonitis episodes that
-#'   occurred on this catheter \emph{within the reporting period} \code{[t0, t1]}
-#'   -- 0, 1, 2, etc. Relapsing episodes are excluded from this count (see
-#'   \code{count_episodes_in_period()}); recurrent/repeat episodes are
-#'   included.
+#'   occurred on this catheter within its active window
+#'   (\code{pd_start_date}/\code{pd_stop_date}) and the reporting period
+#'   (\code{t0}/\code{t1}) -- 0, 1, 2, etc. See \code{count_episodes_in_period()}
+#'   for exactly how that window is derived. Relapsing episodes are excluded
+#'   from this count; recurrent/repeat episodes are included.
 #' @param peritonitis_flag Logical. \code{TRUE} if
-#'   \code{n_peritonitis_episodes > 0} for this catheter within the reporting
-#'   period, \code{FALSE} otherwise.
+#'   \code{n_peritonitis_episodes > 0} for this catheter within that window,
+#'   \code{FALSE} otherwise.
 #'
 #' @returns An object of class \code{pd_catheter}.
 #' @export
@@ -83,7 +87,7 @@ new_pd_catheter <- function(patient_id = NA_character_,
 
   # n_peritonitis_episodes / peritonitis_flag count episodes within the survey period [t0, t1]
   if (is.null(n_peritonitis_episodes)) {
-    n_peritonitis_episodes <- count_episodes_in_period(infections, t0, t1)
+    n_peritonitis_episodes <- count_episodes_in_period(infections, t0, t1, pd_start_date, pd_stop_date)
   }
   if (is.null(peritonitis_flag)) {
     peritonitis_flag <- n_peritonitis_episodes > 0
@@ -139,12 +143,15 @@ validate_pd_catheter <- function(x) {
   if (!is.na(x$removal_reason) && is.na(x$pd_stop_date)) {
     stop("pd_stop_date must be supplied when removal_reason is given.")
   }
-  # reporting period, if known, must be ordered sensibly
-  if (!is.na(x$t0) && !is.na(x$t1) && x$t0 > x$t1) {
-    stop("t0 must be on or before t1.")
-  }
-  # total_exposure_days, if known, can't be negative, and can't exceed the
-  # raw exposure days the catheter was actually open for (further censored against t0/t1/tau)
+
+  # # ALREADY IN pd_unit.R
+  # # reporting period, if known, must be ordered sensibly
+  # if (!is.na(x$t0) && !is.na(x$t1) && x$t0 > x$t1) {
+  #   stop("t0 must be on or before t1.")
+  # }
+
+  # total_exposure_days, if known, can't be negative, and can't exceed the raw exposure days
+  # the catheter was actually open for, further censored against t0/t1/tau if no stop date.
   if (!is.na(x$total_exposure_days)) {
     if (x$total_exposure_days < 0) {
       stop("total_exposure_days cannot be negative.")
@@ -152,8 +159,12 @@ validate_pd_catheter <- function(x) {
     if (!is.na(x$pd_stop_date)) {
       raw_exposure_days <- as.numeric(x$pd_stop_date - x$pd_start_date)
       if (x$total_exposure_days > raw_exposure_days) {
-        stop("total_exposure_days cannot exceed the span between ",
-             "pd_start_date and pd_stop_date.")
+        stop("total_exposure_days cannot exceed the span between pd_start_date and pd_stop_date.")
+      }
+    } else if (!is.na(x$t1)) {
+      raw_exposure_days <- as.numeric(x$t1 - x$pd_start_date)
+      if (x$total_exposure_days > raw_exposure_days) {
+        stop("total_exposure_days cannot exceed the span between pd_start_date and the reporting period's end (t1), for a still-active catheter with no pd_stop_date.")
       }
     }
   }
@@ -190,16 +201,17 @@ validate_pd_catheter <- function(x) {
     }
   }
 
-  # n_peritonitis_episodes / peritonitis_flag must stay consistent with infections *within [t0, t1]*
-  expected_n <- count_episodes_in_period(x$infections, x$t0, x$t1)
+  # n_peritonitis_episodes / peritonitis_flag must stay consistent with
+  # infections within this catheter's active window intersected with [t0, t1]
+  expected_n <- count_episodes_in_period(x$infections, x$t0, x$t1, x$pd_start_date, x$pd_stop_date)
   if (!is.na(x$n_peritonitis_episodes) && x$n_peritonitis_episodes != expected_n) {
     stop("n_peritonitis_episodes does not match the number of infections ",
-         "falling within [t0, t1].")
+         "falling within this catheter's active window and [t0, t1].")
   }
   if (!is.na(x$peritonitis_flag) &&
       !identical(x$peritonitis_flag, expected_n > 0)) {
     stop("peritonitis_flag does not match whether any infection falls ",
-         "within [t0, t1].")
+         "within this catheter's active window and [t0, t1].")
   }
 
   x
@@ -210,44 +222,77 @@ validate_pd_catheter <- function(x) {
 #' Count peritonitis episodes falling inside a reporting period
 #'
 #' Counts how many \code{pd_infection} objects in
-#' \code{infections} both (a) have an \code{infection_date} inside
-#' \code{[t0, t1]}, and (b) are not a \strong{relapsing} episode. Per ISPD, a
-#' relapsing episode (same organism, occurring within 4 weeks of completing
-#' antibiotics for the immediately preceding episode -- see
-#' \code{get_episode_type()} in pd_infection.R) is a continuation of that
-#' prior episode rather than a distinct new one, so it is excluded from the
-#' count used for rate/free-percentage calculations. \code{"recurrent"} and
+#' \code{infections} both (a) have an \code{infection_date} inside this
+#' catheter's own active window (\code{pd_start_date}/\code{pd_stop_date}),
+#' further bounded by the reporting period (\code{t0}/\code{t1}), and
+#' (b) are not a \strong{relapsing} episode. Per ISPD, a relapsing episode
+#' (same organism, occurring within 4 weeks of completing antibiotics for
+#' the immediately preceding episode -- see \code{get_episode_type()} in
+#' pd_infection.R) is a continuation of that prior episode rather than a
+#' distinct new one, so it is excluded from the count used for
+#' rate/free-percentage calculations. \code{"recurrent"} and
 #' \code{"repeat"} episodes ARE distinct new episodes and stay counted, as
 #' does an episode with \code{NA} \code{episode_type} (e.g. a patient's
 #' first-ever recorded episode, with nothing prior to compare against).
 #'
-#' Either t0/t1 boundary can be \code{NA}, in which case that side is left
-#' unfiltered. If both are \code{NA} this only filters out relapses.
+#' The effective window is \code{[lower, upper]}, where:
+#' \itemize{
+#'   \item \code{lower} is \code{pd_start_date}, raised to \code{t0} if the
+#'     catheter's PD therapy started before the reporting period began (a
+#'     catheter that opened before the period shouldn't have pre-period
+#'     episodes counted against it).
+#'   \item \code{upper} is \code{pd_stop_date} if the catheter has one. If
+#'     the catheter is still active (\code{pd_stop_date} is \code{NA}), the
+#'     reporting period's end (\code{t1}) is used instead, since a
+#'     still-open catheter's episodes are only in scope up to the period
+#'     being reported on.
+#' }
+#'
+#' Any of \code{t0}/\code{t1}/\code{pd_start_date}/\code{pd_stop_date} can be
+#' \code{NA}; a missing bound is simply left unfiltered on that side. If all
+#' four are \code{NA} this only filters out relapses.
 #'
 #' @param infections List of \code{pd_infection} objects.
 #' @param t0 Date. Start of the reporting period, or \code{NA}.
 #' @param t1 Date. End of the reporting period, or \code{NA}.
+#' @param pd_start_date Date. This catheter's own PD start date, or
+#'   \code{NA}.
+#' @param pd_stop_date Date. This catheter's own PD stop date, or \code{NA}
+#'   if it is still active.
 #'
 #' @return A single non-negative integer count.
 #' @noRd
 #'
 count_episodes_in_period <- function(infections,
                                      t0 = as.Date(NA),
-                                     t1 = as.Date(NA)) {
+                                     t1 = as.Date(NA),
+                                     pd_start_date = as.Date(NA),
+                                     pd_stop_date = as.Date(NA)) {
   if (length(infections) == 0) {
     return(0L)
   }
+
+  # Lower bound: this catheter's own pd_start_date, raised to t0 if the catheter's PD therapy
+  # started before the reporting period began.
+  lower <- pd_start_date
+  if (!is.na(t0) && (is.na(lower) || t0 > lower)) {
+    lower <- t0
+  }
+
+  # Upper bound: this catheter's own pd_stop_date if it has one, otherwise
+  # the reporting period's end (t1) for a still-active catheter.
+  upper <- if (!is.na(pd_stop_date)) pd_stop_date else t1
 
   counts <- vapply(infections, function(inf) {
     if (!inherits(inf, "pd_infection")) {
       return(FALSE)
     }
-    # Infection counter (within the reporting window)
+    # Infection counter
     in_window <- TRUE
 
-    # Checks if episode is on or after t0, on or before t1
-    if (!is.na(t0)) in_window <- in_window && inf$infection_date >= t0
-    if (!is.na(t1)) in_window <- in_window && inf$infection_date <= t1
+    # Checks if episode is on or after the lower bound, on or before the upper bound
+    if (!is.na(lower)) in_window <- in_window && inf$infection_date >= lower
+    if (!is.na(upper)) in_window <- in_window && inf$infection_date <= upper
 
     # ISPD: a relapsing episode is a continuation of the preceding episode,
     # not a new one, so exclude it from the count. Recurrent/repeat/NA episodes are counted.
@@ -258,6 +303,7 @@ count_episodes_in_period <- function(infections,
 
   sum(counts)
 }
+
 
 
 
