@@ -41,7 +41,7 @@ test_that("validate_pd_infection rejects 'negative' combined with other organism
     organism_list = list("negative", "E. coli"),
     last_dose_antibiotic = as.Date("2025-03-29")
   )
-  expect_error(validate_pd_infection(x), "negative could not occur with another entry on the list.")
+  expect_error(validate_pd_infection(x), "'negative' cannot be combined with other organisms in the organism_list.")
 })
 
 
@@ -49,7 +49,6 @@ test_that("validate_pd_infection rejects 'negative' combined with other organism
 test_that("validate_pd_infection rejects an invalid episode_type", {
   x <- new_pd_infection(
     patient_id = "ABC1234",
-    catheter_id = "ABC1234_01",
     infection_date = as.Date("2025-03-15"),
     organism_list = list("negative"),
     episode_type = "initial",   # not one of the three valid categories
@@ -93,7 +92,7 @@ test_that("pd_infection() classifies a relapsing episode", {
   x <- pd_infection(
     patient_id = "ABC1234",
     infection_date = as.Date("2025-01-25"),             # 10 days after prior treatment ended
-    organism_list = list("Escherichia coli"),           # same organism, spelled out
+    organism_list = list("E. coli"),                    # can add variation here like organism name spelled out
     last_dose_antibiotic = as.Date("2025-02-08"),
     prior_episode = prior
   )
@@ -147,7 +146,7 @@ test_that("pd_infection() returns NA episode_type when >4 weeks later with a dif
     last_dose_antibiotic = as.Date("2025-01-15")
   )
   x <- pd_infection(
-    patient_id = "ABC1234", catheter_id = "ABC1234_01",
+    patient_id = "ABC1234",
     infection_date = as.Date("2025-03-01"),          # 45 days after prior treatment ended (>4 weeks)
     organism_list = list("Staph aureus"),            # different organism
     last_dose_antibiotic = as.Date("2025-03-15"),
