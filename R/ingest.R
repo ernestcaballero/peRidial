@@ -19,7 +19,8 @@
 
 
 
-#' INPUT HELPERS
+# Input helpers
+
 #' Standardise raw column names to snake_case
 #'
 #' Raw A3/PE exports arrive with names like "Patient ID", "PD Start Date" or
@@ -84,7 +85,7 @@ ensure_cols <- function(df, cols, type = NA) {
 }
 
 
-#' Coerce a raw column to Date, whatever readxl handed back
+#' Coerce a raw column to Date
 #'
 #' \code{readxl} returns date-ish columns as \code{POSIXct}, as a bare
 #' numeric Excel serial, or as character, depending on how the cell was
@@ -316,7 +317,7 @@ PD_TO_HD <- "any pd to hd"
 derive_patient_tau <- function(demo, mod, cath, censor_on_last_stop = TRUE) {
   dates <- as.Date(character(0))
   reasons <- character(0)
-  # details <- character(0)
+  details <- character(0)
 
   # (1) death
   if ("date_of_death" %in% names(demo) && nrow(demo) > 0 &&
@@ -425,14 +426,14 @@ on_pd_in_period <- function(cath, t0, t1, tau = as.Date(NA)) {
 #' @return A tibble, one row per patient.
 #' @noRd
 #'
-patients_to_tibble <- function(patient_list, t0, t1) {
+patients_to_tibble <- function(patient_list, t0, t1, details = character(0)) {
   if (length(patient_list) == 0) {
     return(tibble::tibble(
       patient_id = character(0), t0 = as.Date(character(0)),
       t1 = as.Date(character(0)), new_patient_flag = logical(0),
       n_catheters = integer(0), n_episodes = numeric(0),
       transfer_reason = character(0), transfer_date = as.Date(character(0)),
-      # transfer_detail = character(0),
+      transfer_detail = character(0),
       first_pd_start_date = as.Date(character(0)),
       patient_years_at_risk = numeric(0)
     ))
@@ -465,8 +466,8 @@ patients_to_tibble <- function(patient_list, t0, t1) {
                              function(p) as.character(p$transfer_reason),
                              character(1)),
     transfer_date = do.call(c, lapply(patient_list, function(p) p$transfer_date)),
-    # transfer_detail = unname(ifelse(ids %in% names(details),
-    #                                 details[ids], NA_character_)),
+    transfer_detail = unname(ifelse(ids %in% names(details),
+                                    details[ids], NA_character_)),
     first_pd_start_date = first_start,
     patient_years_at_risk = py
   )
@@ -580,8 +581,8 @@ infections_to_tibble <- function(patient_list, t0, t1) {
 
 
 
-#' USER FACING BUILDER
-#'
+# USER-FACING BUILDER
+
 #' Build a pd_unit object from raw data files
 #'
 #' Reads a unit's raw dialysis (A3) file and peritonitis-episode (PE) file and
@@ -920,7 +921,7 @@ pd_unit <- function(unit_data_path,
 
   # Build pd_patient objects, each owning its catheters
   patient_list <- list()
-  # transfer_details <- character(0)
+  transfer_details <- character(0)
 
   for (pid in pids) {
     tau <- taus[[pid]]
@@ -950,21 +951,20 @@ pd_unit <- function(unit_data_path,
     )
     if (!is.null(p)) {
       patient_list[[length(patient_list) + 1]] <- p
-      # transfer_details[pid] <- if (is.null(tau$detail)) NA_character_ else tau$detail
+      transfer_details[pid] <- if (is.null(tau$detail)) NA_character_ else tau$detail
     }
   }
 
   # Flatten the object graph into the unit's three tibbles
-  patients_tbl <- patients_to_tibble(patient_list, t0, t1, details)
+  patients_tbl <- patients_to_tibble(patient_list, t0, t1, transfer_details)
   catheters_tbl <- catheters_to_tibble(patient_list, t0, t1)
   infections_tbl <- infections_to_tibble(patient_list, t0, t1)
 
-  # ---- 10. unit-level numbers ---------------------------------------------
+  # Unit-level numbers
   # Cohort size: everyone on PD at any point in [t0, t1].
   n_patients <- length(patient_list)
 
-  # Incident ("new") patients: earliest PD start inside [t0, t1]. Each
-  # pd_patient already derived this as new_patient_flag via
+  # Incident ("new") patients: earliest PD start inside [t0, t1]. Derived from new_patient_flag via
   # is_incident_patient(), so summing the flags keeps one definition of
   # "incident" rather than recomputing it from the raw table. A patient with
   # no usable start dates has flag NA and is not counted.

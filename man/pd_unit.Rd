@@ -2,31 +2,76 @@
 % Please edit documentation in R/ingest.R
 \name{pd_unit}
 \alias{pd_unit}
-\title{Build pd_unit object from raw data files}
+\title{Build a pd_unit object from raw data files}
 \usage{
-pd_unit(unit_data_path, infection_data_path, t0, t1, unit_id = NA_character_)
+pd_unit(
+  unit_data_path,
+  infection_data_path,
+  t0,
+  t1,
+  unit_id = NA_character_,
+  censor_on_last_stop = TRUE,
+  strict = FALSE
+)
 }
 \arguments{
-\item{unit_data_path}{Character. Path to the raw unit Excel file
+\item{unit_data_path}{Character. Path to the raw unit (A3) Excel file
 containing both patient and catheter data.}
 
 \item{infection_data_path}{Character. Path to the raw infection/peritonitis
-episode Excel file.}
+episode (PE) Excel file.}
 
 \item{t0}{Date. Start of the reporting period.}
 
 \item{t1}{Date. End of the reporting period.}
 
-\item{unit_id}{Character. Optional identifier for the unit. Defaults to
-\code{NA_character_} if not supplied.}
+\item{unit_id}{Character. Identifier for the unit, e.g.
+\code{"Auckland PD Unit"}. Defaults to \code{NA_character_}.}
+
+\item{censor_on_last_stop}{Logical. Treat a patient whose every catheter
+has closed, with none reopened, as having left PD on the last
+\code{pd_stop_date}. Defaults to \code{TRUE}. Set \code{FALSE} if your
+unit records genuine breaks from PD, since a break and a permanent exit
+look identical in the raw data.}
+
+\item{strict}{Logical. Raise collected data-quality issues as an error
+rather than a warning. Defaults to \code{FALSE}.}
 }
 \value{
-A \code{pd_unit} object containing the patient, catheter, and
-peritonitis episode data for the unit over the reporting period
-\code{t0} to \code{t1}.
+A validated \code{pd_unit} object.
 }
 \description{
-Reads a unit's raw dialysis data file and infection data file
-and builds patient, catheter, and peritonitis-episode data
-for a reporting period.
+Reads a unit's raw dialysis (A3) file and peritonitis-episode (PE) file and
+builds the full nested object graph for a reporting period:
+peritonitis episodes owned by the catheter that was active when they occurred,
+catheters owned by their patient, and every patient who was on PD at any
+point in \code{[t0, t1]} collected into one \code{pd_unit}.
+}
+\details{
+The returned object carries both the nested \code{patient_list} and three
+flat tibbles (\code{patients}, \code{catheters}, \code{infections})
+derived from it, plus the headline numbers the ISPD indicators need:
+\code{n_new}, \code{n_patients} and \code{tpyar}.
+
+Data-quality problems (a missing modality-change reason, an episode that
+can't be attached to a catheter, an organism-free episode) are collected
+across the whole file and reported together as a single warning, rather
+than aborting on the first one. Set \code{strict = TRUE} to make them an
+error instead.
+}
+\examples{
+\dontrun{
+auckland <- pd_unit(
+  unit_data_path      = "data-raw/a3_2025.xlsx",
+  infection_data_path = "data-raw/pe_2025.xlsx",
+  t0      = as.Date("2025-01-01"),
+  t1      = as.Date("2025-12-31"),
+  unit_id = "Auckland PD Unit"
+)
+auckland
+auckland$tpyar
+}
+}
+\seealso{
+\code{\link{new_pd_unit}()} for the underlying constructor.
 }

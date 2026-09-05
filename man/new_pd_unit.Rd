@@ -10,7 +10,7 @@ new_pd_unit(
   t1 = as.Date(NA),
   n_new = NA_integer_,
   n_patients = NA_integer_,
-  tpyar = NA_integer_,
+  tpyar = NA_real_,
   patients = tibble::tibble(),
   catheters = tibble::tibble(),
   infections = tibble::tibble(),
@@ -18,34 +18,67 @@ new_pd_unit(
 )
 }
 \arguments{
-\item{unit_id}{Character. The name of PD Unit (e.g. "XYZ PD Unit")}
+\item{unit_id}{Character. Name of the PD unit (e.g. "XYZ PD Unit").}
 
-\item{n_new}{Integer. Number of incident patients in the reporting period.}
+\item{t0}{Date. Start of the reporting period.}
 
-\item{n_patients}{Integer. Number of prevalent patients in the reporting period.}
+\item{t1}{Date. End of the reporting period.}
 
-\item{catheters}{Tibble. A dataframe of catheter insertions.}
+\item{n_new}{Integer. Number of incident ("new") patients in the reporting
+period, i.e. the count of \code{patient_list} entries whose
+\code{new_patient_flag} is \code{TRUE}.}
 
-\item{infections}{Tibble. A dataframe of peritonitis infections.}
+\item{n_patients}{Integer. Size of the reporting cohort: every patient who
+was on PD at any point during \code{[t0, t1]} (prevalent at \code{t0}
+plus incident within the period), including those who died or left PD
+part-way through. Must equal both \code{nrow(patients)} and
+\code{length(patient_list)}.}
 
-\item{patient_list}{List. A list of patient objects.}
+\item{tpyar}{Numeric. Total patient-years at risk across the cohort: the
+time patients actively spent on PD within \code{[t0, t1]}, censored at
+each patient's \code{tau}, expressed in years. This is the denominator
+(PY) of the peritonitis rate. Derived by
+\code{\link{total_patient_years}()}.}
 
-\item{period_start}{Date. Start date of reporting period \code{t_0}.}
+\item{patients}{Tibble. One row per patient, flattened from
+\code{patient_list}.}
 
-\item{period_end}{Date. End date of reporting period \code{t_1}.}
+\item{catheters}{Tibble. One row per catheter, flattened from the
+\code{pd_catheter} objects nested inside \code{patient_list}.}
 
-\item{total_patient_yrs_at_risk}{Integer. The total amount of time (in years) that patients actively spend on PD while vulnerable to complications like peritonitis.}
+\item{infections}{Tibble. One row per peritonitis episode, flattened from
+the \code{pd_infection} objects nested inside each catheter, and carrying
+the \code{catheter_id} of the catheter that owns it.}
 
-\item{patients.}{Tibble. A dataframe of patients.}
+\item{patient_list}{List of \code{pd_patient} objects: the nested object
+graph the three tibbles above are views of.}
 }
 \value{
 An object of class \code{pd_unit}.
 }
 \description{
-Wraps a tibble/data frame with metadata about the name of PD unit,
-the reporting period, etc
+Low-level constructor for the unit-level reporting object. It wraps a PD
+unit's patients, catheters and peritonitis episodes, both as flat tibbles
+and as the nested \code{pd_patient} object list they were derived from;
+together with the reporting period and the headline counts the ISPD
+indicators are built from.
+}
+\details{
+This constructor does no derivation: every count is taken as supplied.
+\code{\link{pd_unit}()} is the user-facing helper that reads the raw files,
+builds the object graph, derives these numbers and validates the result.
 }
 \examples{
-# example code
-
+# An empty unit for a period with no patients.
+new_pd_unit(
+  unit_id = "Auckland PD Unit",
+  t0 = as.Date("2025-01-01"),
+  t1 = as.Date("2025-12-31"),
+  n_new = 0L,
+  n_patients = 0L,
+  tpyar = 0
+)
+}
+\seealso{
+\code{\link{pd_unit}()} to build one from raw data files.
 }
