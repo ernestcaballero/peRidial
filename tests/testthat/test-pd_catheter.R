@@ -38,6 +38,7 @@ test_that("validate_pd_catheter errors when patient_id or catheter_id is missing
 })
 
 
+
 test_that("validate_pd_catheter errors when insertion_date is missing", {
   cath <- new_pd_catheter(
     patient_id = "ABC1234",
@@ -55,6 +56,7 @@ test_that("validate_pd_catheter errors when insertion_date is missing", {
     peritonitis_flag = TRUE)
   expect_error(validate_pd_catheter(cath), "Missing insertion_date. Must be supplied.")
 })
+
 
 
 test_that("validate_pd_catheter errors when pd_start_date is missing", {
@@ -77,6 +79,7 @@ test_that("validate_pd_catheter errors when pd_start_date is missing", {
 
 
 
+
 test_that("validate_pd_catheter errors when insertion_date after pd_start_date", {
   cath <- new_pd_catheter(
     patient_id = "ABC1234",
@@ -94,6 +97,7 @@ test_that("validate_pd_catheter errors when insertion_date after pd_start_date",
     peritonitis_flag = TRUE)
   expect_error(validate_pd_catheter(cath), "insertion_date must be on or before pd_start_date.")
 })
+
 
 
 
@@ -137,6 +141,7 @@ test_that("validate_pd_catheter errors when pd_stop_date is empty when a reason 
 
 
 
+
 test_that("validate_pd_catheter errors exposure days is non-positive", {
   cath <- new_pd_catheter(
     patient_id = "ABC1234",
@@ -154,6 +159,7 @@ test_that("validate_pd_catheter errors exposure days is non-positive", {
     peritonitis_flag = TRUE)
   expect_error(validate_pd_catheter(cath), "total_exposure_days cannot be negative.")
 })
+
 
 
 
@@ -194,6 +200,7 @@ test_that("validate_pd_catheter errors when total_exposure_days exceeds pd_start
     peritonitis_flag = FALSE)
   expect_error(validate_pd_catheter(cath), "total_exposure_days cannot exceed the span between pd_start_date and the reporting period's end \\(t1\\), for a still-active catheter with no pd_stop_date.")
 })
+
 
 
 

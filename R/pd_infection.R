@@ -28,7 +28,6 @@
 #' @returns An object of class \code{pd_infection}.
 #' @export
 #'
-#' @examples
 #'
 
 new_pd_infection <- function(patient_id = NA_character_,

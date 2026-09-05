@@ -29,13 +29,13 @@
 #' @param n_catheters Integer. Number of catheters this patient has. Defaults
 #'   to \code{NULL}, which derives it as \code{length(catheters)}; if supplied
 #'   explicitly it is checked for consistency.
-#' @param n_infections Integer. Count of countable peritonitis episodes across
-#'   all of this patient's catheters within the reporting period -- the
-#'   \eqn{n_i} of Equation (3). Relapsing episodes are excluded and the count
-#'   is scoped to \code{[t0, t1]}, both inherited from each catheter's own
-#'   \code{n_peritonitis_episodes}. Defaults to \code{NULL}, which derives it
-#'   via \code{count_patient_episodes()}; if supplied explicitly it is checked
-#'   for consistency.
+#' @param n_episodes Integer. Count of countable (non-relapsing) peritonitis
+#'   episodes across all of this patient's catheters within the reporting
+#'   period -- the \eqn{n_i} of Equation (3). Relapsing episodes are excluded
+#'   and the count is scoped to \code{[t0, t1]}, both inherited from each
+#'   catheter's own \code{n_peritonitis_episodes}. Defaults to \code{NULL},
+#'   which derives it via \code{count_patient_episodes()}; if supplied
+#'   explicitly it is checked for consistency.
 #'
 #' @returns An object of class \code{pd_patient}.
 #' @export
@@ -49,32 +49,36 @@ new_pd_patient <- function(patient_id = NA_character_,
                            transfer_date = as.Date(NA),
                            new_patient_flag = NULL,
                            n_catheters = NULL,
-                           n_infections = NULL) {
+                           n_episodes = NULL) {
 
   stopifnot(length(patient_id) == 1, is.character(patient_id) || is.na(patient_id))
   # stopifnot(is.list(demographics))
   stopifnot(is.list(catheters))
   stopifnot(inherits(t0, "Date"), inherits(t1, "Date"))
   stopifnot(is.character(transfer_reason) || is.na(transfer_reason))
+  # If NA, coerces to as.Date(NA) for transfer_date
+  if (!inherits(transfer_date, "Date") && length(transfer_date) == 1 && is.na(transfer_date)) {
+    transfer_date <- as.Date(NA)
+  }
   stopifnot(inherits(transfer_date, "Date"))
 
-  # new_patient_flag / n_catheters / n_infections are derived from `catheters` (and t0/t1)
+  # new_patient_flag / n_catheters / n_episodes are derived from `catheters` (and t0/t1)
   if (is.null(new_patient_flag)) {
     new_patient_flag <- is_incident_patient(catheters, t0, t1)
   }
   if (is.null(n_catheters)) {
     n_catheters <- length(catheters)
   }
-  if (is.null(n_infections)) {
-    n_infections <- count_patient_episodes(catheters)
+  if (is.null(n_episodes)) {
+    n_episodes <- count_patient_episodes(catheters)
   }
 
   stopifnot(length(new_patient_flag) == 1,
             is.na(new_patient_flag) || is.logical(new_patient_flag))
   stopifnot(length(n_catheters) == 1,
             is.na(n_catheters) || is.numeric(n_catheters))
-  stopifnot(length(n_infections) == 1,
-            is.na(n_infections) || is.numeric(n_infections))
+  stopifnot(length(n_episodes) == 1,
+            is.na(n_episodes) || is.numeric(n_episodes))
 
   structure(
     list(
@@ -87,7 +91,7 @@ new_pd_patient <- function(patient_id = NA_character_,
       transfer_date = transfer_date,
       new_patient_flag = new_patient_flag,
       n_catheters = n_catheters,
-      n_infections = n_infections
+      n_episodes = n_episodes
     ),
     class = "pd_patient"
   )
@@ -104,7 +108,8 @@ validate_pd_patient <- function(x) {
   if (!is.na(x$t0) && !is.na(x$t1) && x$t0 > x$t1) {
     stop("t0 must be on or before t1.")
   }
-  # No transfer_reason (implied still on PD), but transfer_date supplied -- invalid
+  # No transfer_reason (implied still on PD), but transfer_date supplied means invalid.
+  # Reason needs to be supplied.
   if (is.na(x$transfer_reason) && !is.na(x$transfer_date)) {
     stop("transfer_date must be matched with a transfer_reason.")
   }
@@ -130,16 +135,15 @@ validate_pd_patient <- function(x) {
       if (is.na(catheter$pd_start_date)) {
         stop("catheters[[", i, "]] has a missing pd_start_date. ", "Must be supplied.")
       }
-      # pd_stop_date may be NA, but the element must be present
+      # pd_stop_date may be NA, but not missing
       if (length(catheter$pd_stop_date) != 1) {
-        stop("catheters[[", i, "]] has no pd_stop_date element (it may be NA ",
+        stop("catheters[[", i, "]] has no pd_stop_date (it may be NA ",
              "for an active catheter, but it must be present).")
       }
       # a patient's PD can't continue past their censoring date (tau): death, transplant, or permanent transfer to HD
       if (!is.na(x$transfer_date)) {
         if (catheter$pd_start_date > x$transfer_date) {
-          stop("catheters[[", i, "]] has pd_start_date after this patient's ",
-               "transfer_date (tau).")
+          stop("catheters[[", i, "]] has pd_start_date after this patient's transfer_date.")
         }
         if (is.na(catheter$pd_stop_date)) {
           stop("catheters[[", i, "]] has no pd_stop_date (still active), but ",
@@ -192,7 +196,7 @@ validate_pd_patient <- function(x) {
     }
   }
 
-  # new_patient_flag / n_catheters / n_infections must stay consistent with catheters (and t0/t1)
+  # new_patient_flag / n_catheters / n_episodes must stay consistent with catheters (and t0/t1)
   expected_flag <- is_incident_patient(x$catheters, x$t0, x$t1)
   if (!is.na(x$new_patient_flag) && !is.na(expected_flag) &&
       !identical(x$new_patient_flag, expected_flag)) {
@@ -203,9 +207,9 @@ validate_pd_patient <- function(x) {
     stop("n_catheters does not match length(catheters).")
   }
   expected_n <- count_patient_episodes(x$catheters)
-  if (!is.na(x$n_infections) && x$n_infections != expected_n) {
-    stop("n_infections does not match the total peritonitis episodes across ",
-         "this patient's catheters within [t0, t1].")
+  if (!is.na(x$n_episodes) && x$n_episodes != expected_n) {
+    stop("n_episodes does not match the countable (non-relapsing) peritonitis ",
+         "episodes across this patient's catheters within [t0, t1].")
   }
 
   x
@@ -325,7 +329,7 @@ pd_patient <- function(patient_id,
                        transfer_date = as.Date(NA),
                        new_patient_flag = NULL,
                        n_catheters = NULL,
-                       n_infections = NULL) {
+                       n_episodes = NULL) {
   x <- new_pd_patient(patient_id = patient_id,
                       # demographics = demographics,
                       catheters = catheters,
@@ -335,7 +339,7 @@ pd_patient <- function(patient_id,
                       transfer_date = transfer_date,
                       new_patient_flag = new_patient_flag,
                       n_catheters = n_catheters,
-                      n_infections = n_infections
+                      n_episodes = n_episodes
                       )
 
   validate_pd_patient(x)
