@@ -125,6 +125,60 @@ test_that("pd_infection() classifies a relapsing episode", {
 })
 
 
+test_that("pd_infection() classifies a relapsing episode: negative culture followed by a specific organism", {
+  prior <- new_pd_infection(
+    patient_id = "ABC1234",
+    infection_date = as.Date("2025-01-01"),
+    organism_list = list("negative"),
+    last_dose_antibiotic = as.Date("2025-01-15")
+  )
+  x <- pd_infection(
+    patient_id = "ABC1234",
+    infection_date = as.Date("2025-01-25"),             # 10 days after prior treatment ended
+    organism_list = list("E. coli"),                    # specific organism after a negative culture
+    last_dose_antibiotic = as.Date("2025-02-08"),
+    prior_episode = prior
+  )
+  expect_equal(x$episode_type, "relapsing")
+})
+
+
+test_that("pd_infection() classifies a relapsing episode: specific organism followed by a negative culture", {
+  prior <- new_pd_infection(
+    patient_id = "ABC1234",
+    infection_date = as.Date("2025-01-01"),
+    organism_list = list("E. coli"),
+    last_dose_antibiotic = as.Date("2025-01-15")
+  )
+  x <- pd_infection(
+    patient_id = "ABC1234",
+    infection_date = as.Date("2025-01-25"),             # 10 days after prior treatment ended
+    organism_list = list("negative"),                   # negative culture after a specific organism
+    last_dose_antibiotic = as.Date("2025-02-08"),
+    prior_episode = prior
+  )
+  expect_equal(x$episode_type, "relapsing")
+})
+
+
+test_that("pd_infection() classifies a relapsing episode: negative culture followed by another negative culture", {
+  prior <- new_pd_infection(
+    patient_id = "ABC1234",
+    infection_date = as.Date("2025-01-01"),
+    organism_list = list("negative"),
+    last_dose_antibiotic = as.Date("2025-01-15")
+  )
+  x <- pd_infection(
+    patient_id = "ABC1234",
+    infection_date = as.Date("2025-01-25"),             # 10 days after prior treatment ended
+    organism_list = list("negative"),
+    last_dose_antibiotic = as.Date("2025-02-08"),
+    prior_episode = prior
+  )
+  expect_equal(x$episode_type, "relapsing")
+})
+
+
 test_that("pd_infection() classifies a recurrent episode", {
   prior <- new_pd_infection(
     patient_id = "ABC1234",
