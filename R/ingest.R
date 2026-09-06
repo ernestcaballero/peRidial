@@ -53,7 +53,22 @@ create_catheter_id <- function(patient_id, insertion_date) {
 #'   \code{t0} to \code{t1}.
 #' @export
 #'
+<<<<<<< Updated upstream
 
+=======
+#' @examples
+#' \dontrun{
+#' auckland <- pd_unit(
+#'   unit_data_path = "data-raw/a3_2025.xlsx",
+#'   infection_data_path = "data-raw/pe_2025.xlsx",
+#'   t0 = as.Date("2025-01-01"),
+#'   t1 = as.Date("2025-12-31"),
+#'   unit_id = "Auckland PD Unit"
+#' )
+#' auckland
+#' auckland$tpyar
+#' }
+>>>>>>> Stashed changes
 pd_unit <- function(unit_data_path,
                     infection_data_path,
                     t0,
