@@ -111,6 +111,18 @@ validate_pd_infection <- function(x) {
 #' based on its organism(s) and timing relative to the immediately preceding episode's antibiotic
 #' completion date, per ISPD 2022 definitions.
 #'
+#' \strong{Relapsing}: within 4 weeks of completing therapy for the prior
+#' episode, AND either the same specific organism as the prior episode, or a
+#' culture-negative/specific-organism pairing in either direction (negative
+#' then specific, specific then negative, or negative then negative).
+#'
+#' \strong{Recurrent}: within 4 weeks of completing therapy, but with a
+#' different specific organism to the prior episode (and not a
+#' culture-negative pairing).
+#'
+#' \strong{Repeat}: more than 4 weeks after completing therapy, with the same
+#' specific organism as the prior episode.
+#'
 #' @param current_infection_date Date. Infection date of the episode being classified.
 #' @param current_organism_list A list of organism name(s) for this episode.
 #' @param prior_episode A \code{pd_infection} object for the same patient's
@@ -142,14 +154,18 @@ get_episode_type <- function(current_infection_date,
   days_since_treatment <- as.numeric(current_infection_date - prior_episode$last_dose_antibiotic)
   within_4_weeks <- days_since_treatment <= 28               # LOGICAL: TRUE if less than or equal to 28 days/4 weeks
 
-  same_organism <- identical(
-    sort(tolower(unlist(current_organism_list))),
-    sort(tolower(unlist(prior_episode$organism_list)))
-  )
+  current_organisms <- sort(tolower(unlist(current_organism_list)))
+  prior_organisms <- sort(tolower(unlist(prior_episode$organism_list)))
 
-  if (within_4_weeks && same_organism) {
+  same_organism <- identical(current_organisms, prior_organisms)
+  current_negative <- identical(current_organisms, "negative")
+  prior_negative <- identical(prior_organisms, "negative")
+
+  is_relapse_pair <- same_organism || current_negative || prior_negative
+
+  if (within_4_weeks && is_relapse_pair) {
     "relapsing"
-  } else if (within_4_weeks && !same_organism) {
+  } else if (within_4_weeks && !is_relapse_pair) {
     "recurrent"
   } else if (!within_4_weeks && same_organism) {
     "repeat"
@@ -181,7 +197,6 @@ get_episode_type <- function(current_infection_date,
 #'
 
 pd_infection <- function(patient_id,
-                         # catheter_id,
                          infection_date,
                          organism_list,
                          last_dose_antibiotic = as.Date(NA),
@@ -190,12 +205,10 @@ pd_infection <- function(patient_id,
                          prior_episode = NULL) {
   episode_type <- get_episode_type(current_infection_date = infection_date,
                                    current_organism_list = organism_list,
-                                   prior_episode = prior_episode
-                                   )
+                                   prior_episode = prior_episode)
 
   x <- new_pd_infection(
     patient_id = patient_id,
-    # catheter_id = catheter_id,
     infection_date = infection_date,
     organism_list = organism_list,
     episode_type = episode_type,

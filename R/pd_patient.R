@@ -344,3 +344,33 @@ pd_patient <- function(patient_id,
 
   validate_pd_patient(x)
 }
+
+
+
+#' Print a pd_patient object
+#'
+#' A single patient's own snapshot: their id, reporting window, incident/
+#' prevalent status, catheter and countable-episode counts, and whether
+#' (and how) they were censored within the period.
+#'
+#' @param x A \code{pd_patient} object.
+#' @param ... Ignored.
+#'
+#' @return \code{x}, invisibly.
+#' @export
+#'
+print.pd_patient <- function(x, ...) {
+  cat("<pd_patient>", if (is.na(x$patient_id)) "(unknown id)" else x$patient_id, "\n")
+  cat("  Reporting window        : ", format(x$t0), " to ", format(x$t1), "\n", sep = "")
+  cat("  Status                  : ",
+      if (is.na(x$new_patient_flag)) "unknown" else if (x$new_patient_flag) "incident" else "prevalent",
+      "\n", sep = "")
+  cat("  Catheters               : ", x$n_catheters, "\n", sep = "")
+  cat("  Peritonitis (countable) : ", x$n_episodes, "\n", sep = "")
+  if (is.na(x$transfer_reason)) {
+    cat("  Censoring             : still active on PD\n")
+  } else {
+    cat("  Censoring             : ", x$transfer_reason, " on ", format(x$transfer_date), "\n", sep = "")
+  }
+  invisible(x)
+}

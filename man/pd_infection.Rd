@@ -33,11 +33,19 @@ If supplied, \code{outcome_date} must also be supplied. \code{NA} when resolved.
 
 \item{outcome_date}{Date. Date of the outcome. Required whenever
 \code{outcome} is supplied, and specifically required when \code{outcome} is \code{"catheter removed"}.}
+
+\item{prior_episode}{A \code{pd_infection} object for the same patient's
+immediately preceding episode, or \code{NULL} if this is their first
+recorded episode. Passed straight through to \code{get_episode_type()}
+to derive this episode's \code{episode_type}.}
 }
 \value{
 An object of class \code{pd_infection}.
 }
 \description{
 Builds a \code{pd_infection} via \code{new_pd_infection()} and checks it with
-\code{validate_pd_infection()} before returning it.
+\code{validate_pd_infection()} before returning it. \code{episode_type} is
+derived automatically from \code{prior_episode} via \code{get_episode_type()}
+rather than supplied directly (contrast \code{new_pd_infection()}, which takes
+\code{episode_type} as-is).
 }
