@@ -236,14 +236,110 @@ require_unit_cols <- function(df, cols, what) {
 #' @export
 #'
 print.pd_unit <- function(x, ...) {
-  cat("<pd_unit>", if (is.na(x$unit_id)) "(unnamed unit)" else x$unit_id, "\n")
-  cat("  Reporting period : ", format(x$t0), " to ", format(x$t1), "\n", sep = "")
-  cat("  Patients         : ", x$n_patients,
+  cat("<pd_unit>", if (is.na(x$unit_id)) "(Unnamed unit)" else x$unit_id, "\n")
+  cat("  Reporting period      : ", format(x$t0), " to ", format(x$t1), "\n", sep = "")
+  cat("  Patients              : ", x$n_patients,
       " (", x$n_new, " incident)\n", sep = "")
-  cat("  Catheters        : ", nrow(x$catheters), "\n", sep = "")
-  cat("  Episodes         : ", nrow(x$infections), "\n", sep = "")
-  cat("  Patient-years    : ", format(round(x$tpyar, 2), nsmall = 2), "\n", sep = "")
+  cat("  Catheters             : ", nrow(x$catheters), "\n", sep = "")
+  cat("  Peritonitis episodes  : ", nrow(x$infections), "\n", sep = "")
+  cat("  Total patient-years   : ", format(round(x$tpyar, 2), nsmall = 2), "\n", sep = "")
   invisible(x)
+}
+
+
+#' Summarise a pd_unit object
+#'
+#' Reports the unit's headline peritonitis indicators
+#'
+#' @param object A \code{pd_unit} object.
+#' @param ... Ignored.
+#'
+#' @return Invisibly, a list with components \code{rate}, \code{rate_num},
+#'   \code{rate_den}, \code{rate_benchmark}, \code{rate_met}, \code{pf},
+#'   \code{pf_num}, \code{pf_den}, \code{pf_benchmark}, \code{pf_met},
+#'   \code{episode_types} (a table of episode counts by \code{episode_type})
+#'   and \code{cohort} (a named integer vector of \code{incident}/
+#'   \code{prevalent} counts).
+#' @export
+#'
+summary.pd_unit <- function(object, ...) {
+  x <- object
+
+  has_col <- function(df, col) nrow(df) > 0 && col %in% names(df)
+
+  # peritonitis rate
+  rate_num <- if (has_col(x$infections, "counts_toward_rate")) {
+    sum(x$infections$counts_toward_rate, na.rm = TRUE)
+  } else {
+    0
+  }
+  rate_den <- x$tpyar
+  rate <- if (is.na(rate_den) || rate_den == 0) NA_real_ else rate_num / rate_den
+  rate_benchmark <- 0.40
+  rate_met <- !is.na(rate) && rate <= rate_benchmark
+
+  # peritonitis-free percentage
+  pf_num <- if (has_col(x$patients, "n_episodes")) {
+    sum(x$patients$n_episodes == 0, na.rm = TRUE)
+  } else {
+    0
+  }
+  pf_den <- x$n_patients
+  pf <- if (is.na(pf_den) || pf_den == 0) NA_real_ else pf_num / pf_den
+  pf_benchmark <- 0.80
+  pf_met <- !is.na(pf) && pf > pf_benchmark
+
+  # episodes by type
+  episode_types <- if (has_col(x$infections, "episode_type")) {
+    types <- x$infections$episode_type
+    types[is.na(types)] <- "uncategorised"
+    table(types)
+  } else {
+    table(character(0))
+  }
+
+  # incident / prevalent split
+  cohort <- c(incident = x$n_new, prevalent = x$n_patients - x$n_new)
+
+  cat("<summary.pd_unit>", if (is.na(x$unit_id)) "(Unnamed unit)" else x$unit_id, "\n")
+  cat("  Reporting period : ", format(x$t0), " to ", format(x$t1), "\n\n", sep = "")
+
+  cat("  Peritonitis rate       : ",
+      if (is.na(rate)) "NA" else sprintf("%.3f", rate),
+      " episodes/patient-year\n", sep = "")
+  cat("    numerator (countable episodes)      : ", rate_num, "\n", sep = "")
+  cat("    denominator (patient-years at risk) : ", sprintf("%.2f", rate_den), "\n", sep = "")
+  cat("    ISPD benchmark <= ", sprintf("%.2f", rate_benchmark),
+      "  [ ", if (rate_met) "MET" else "NOT MET", " ]\n\n", sep = "")
+
+  cat("  Peritonitis-free (PF)  : ",
+      if (is.na(pf)) "NA" else sprintf("%.1f%%", pf * 100), "\n", sep = "")
+  cat("    numerator (patients with zero countable episodes)   : ", pf_num, "\n", sep = "")
+  cat("    denominator (total patients, N)                     : ", pf_den, "\n", sep = "")
+  cat("    ISPD benchmark >  ", sprintf("%.0f%%", pf_benchmark * 100),
+      "  [ ", if (pf_met) "MET" else "NOT MET", " ]\n\n", sep = "")
+
+  cat("  Episodes by type:\n")
+  if (length(episode_types) == 0) {
+    cat("    (no episodes recorded)\n")
+  } else {
+    for (nm in names(episode_types)) {
+      cat("    ", nm, " : ", episode_types[[nm]], "\n", sep = "")
+    }
+  }
+  cat("\n")
+
+  cat("  Cohort : ", x$n_patients, " patients (",
+      cohort[["incident"]], " incident, ", cohort[["prevalent"]], " prevalent)\n", sep = "")
+
+  invisible(list(
+    rate = rate, rate_num = rate_num, rate_den = rate_den,
+    rate_benchmark = rate_benchmark, rate_met = rate_met,
+    pf = pf, pf_num = pf_num, pf_den = pf_den,
+    pf_benchmark = pf_benchmark, pf_met = pf_met,
+    episode_types = episode_types,
+    cohort = cohort
+  ))
 }
 
 

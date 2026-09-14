@@ -28,3 +28,16 @@ Classifies a peritonitis episode as \code{"relapsing"}, \code{"recurrent"}, \cod
 based on its organism(s) and timing relative to the immediately preceding episode's antibiotic
 completion date, per ISPD 2022 definitions.
 }
+\details{
+\strong{Relapsing}: within 4 weeks of completing therapy for the prior
+episode, AND either the same specific organism as the prior episode, or a
+culture-negative/specific-organism pairing in either direction (negative
+then specific, specific then negative, or negative then negative).
+
+\strong{Recurrent}: within 4 weeks of completing therapy, but with a
+different specific organism to the prior episode (and not a
+culture-negative pairing).
+
+\strong{Repeat}: more than 4 weeks after completing therapy, with the same
+specific organism as the prior episode.
+}
