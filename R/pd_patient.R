@@ -380,11 +380,12 @@ print.pd_patient <- function(x, ...) {
 #' Summarise a pd_patient object
 #'
 #' A single patient's clinical snapshot: reporting window, incident/
-#' prevalent status, each catheter's active window and outcome, this
+#' prevalent status, each catheter's active window and outcome (with that
+#' catheter's own countable peritonitis episodes listed underneath it), this
 #' patient's total time-at-risk within \code{[t0, t1]} (each catheter's
 #' exposure, censored at this patient's own \code{transfer_date}), a
-#' breakdown of countable peritonitis episodes by \code{episode_type}, and
-#' how (or whether) this patient was censored.
+#' breakdown of countable peritonitis episodes by \code{episode_type}
+#' across every catheter, and how (or whether) this patient was censored.
 #'
 #' "Countable" here means exactly what it means for \code{n_episodes}: not a
 #' relapsing episode, and falling within the owning catheter's active window
@@ -428,22 +429,28 @@ summary.pd_patient <- function(object, ...) {
   }
   total_years <- total_days / 365.25
 
-  # countable episode_types across every catheter -- reuses
-  # count_episodes_in_period() one infection at a time so "countable" here
-  # means exactly what it means for n_episodes
-  episode_types_of <- function(cath) {
+  # countable infections per catheter -- reuses count_episodes_in_period()
+  # one infection at a time so "countable" here means exactly what it means
+  # for n_episodes. Returns the infection objects themselves (not just their
+  # episode_type) so this same countable set can both build the aggregate
+  # episode_types table below and list each catheter's own episodes in the
+  # per-catheter breakdown further down -- one definition of "countable",
+  # used in both places.
+  countable_infections_of <- function(cath) {
     if (length(cath$infections) == 0) {
-      return(character(0))
+      return(list())
     }
     countable <- vapply(cath$infections, function(inf) {
       count_episodes_in_period(list(inf), x$t0, x$t1,
                                cath$pd_start_date, cath$pd_stop_date) > 0
     }, logical(1))
-    vapply(cath$infections[countable], function(inf) {
-      if (is.na(inf$episode_type)) "uncategorised" else inf$episode_type
-    }, character(1))
+    cath$infections[countable]
   }
-  all_types <- unlist(lapply(x$catheters, episode_types_of), use.names = FALSE)
+  all_countable <- unlist(lapply(x$catheters, countable_infections_of),
+                          recursive = FALSE, use.names = FALSE)
+  all_types <- vapply(all_countable, function(inf) {
+    if (is.na(inf$episode_type)) "uncategorised" else inf$episode_type
+  }, character(1))
   episode_types <- table(if (length(all_types) == 0) character(0) else all_types)
 
   cat("<summary.pd_patient>", if (is.na(x$patient_id)) "(unknown id)" else x$patient_id, "\n")
@@ -464,6 +471,18 @@ summary.pd_patient <- function(object, ...) {
     cat("    ", cath$catheter_id, " : inserted ", format(cath$insertion_date),
         ", PD ", format(cath$pd_start_date), " to ", end_str,
         "\n", sep = "")
+
+    cath_infections <- countable_infections_of(cath)
+    if (length(cath_infections) == 0) {
+      cat("        (no countable peritonitis episodes)\n")
+    } else {
+      for (inf in cath_infections) {
+        organisms <- paste(unlist(inf$organism_list), collapse = ", ")
+        type_label <- if (is.na(inf$episode_type)) "uncategorised" else inf$episode_type
+        cat("        - ", format(inf$infection_date), " : ", organisms,
+            " (", type_label, ")\n", sep = "")
+      }
+    }
   }
   cat("  ", pad("Total exposure"), " ", total_days, " days (",
       sprintf("%.2f", total_years), " patient-years)\n", sep = "")
