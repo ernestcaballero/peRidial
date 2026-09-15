@@ -257,9 +257,11 @@ print.pd_unit <- function(x, ...) {
 #' @return Invisibly, a list with components \code{rate}, \code{rate_num},
 #'   \code{rate_den}, \code{rate_benchmark}, \code{rate_met}, \code{pf},
 #'   \code{pf_num}, \code{pf_den}, \code{pf_benchmark}, \code{pf_met},
-#'   \code{episode_types} (a table of episode counts by \code{episode_type})
-#'   and \code{cohort} (a named integer vector of \code{incident}/
-#'   \code{prevalent} counts).
+#'   \code{episode_types} (a table of episode counts by \code{episode_type}),
+#'   \code{outcomes} (a table of patient counts by how their PD ended --
+#'   \code{death}, \code{transplant}, \code{permanent transfer to HD},
+#'   \code{pd stopped}, or \code{still active}) and \code{cohort} (a named
+#'   integer vector of \code{incident}/\code{prevalent} counts).
 #' @export
 #'
 summary.pd_unit <- function(object, ...) {
@@ -301,10 +303,20 @@ summary.pd_unit <- function(object, ...) {
   # incident / prevalent split
   cohort <- c(incident = x$n_new, prevalent = x$n_patients - x$n_new)
 
+  # cohort outcomes: how each patient's PD ended, from transfer_reason
+  # (death, transplant, permanent transfer to HD, pd stopped, or still active)
+  outcomes <- if (has_col(x$patients, "transfer_reason")) {
+    reasons <- x$patients$transfer_reason
+    reasons[is.na(reasons)] <- "still active"
+    table(reasons)
+  } else {
+    table(character(0))
+  }
+
   cat("<summary.pd_unit>", if (is.na(x$unit_id)) "(Unnamed unit)" else x$unit_id, "\n")
   cat("  Reporting period : ", format(x$t0), " to ", format(x$t1), "\n\n", sep = "")
 
-  cat("  Peritonitis rate       : ",
+  cat("  Peritonitis rate : ",
       if (is.na(rate)) "NA" else sprintf("%.3f", rate),
       " episodes/patient-year\n", sep = "")
   cat("    numerator (countable episodes)      : ", rate_num, "\n", sep = "")
@@ -312,19 +324,29 @@ summary.pd_unit <- function(object, ...) {
   cat("    ISPD benchmark <= ", sprintf("%.2f", rate_benchmark),
       "  [ ", if (rate_met) "MET" else "NOT MET", " ]\n\n", sep = "")
 
-  cat("  Peritonitis-free (PF)  : ",
+  cat("  Peritonitis-free (PF) : ",
       if (is.na(pf)) "NA" else sprintf("%.1f%%", pf * 100), "\n", sep = "")
   cat("    numerator (patients with zero countable episodes)   : ", pf_num, "\n", sep = "")
   cat("    denominator (total patients, N)                     : ", pf_den, "\n", sep = "")
   cat("    ISPD benchmark >  ", sprintf("%.0f%%", pf_benchmark * 100),
       "  [ ", if (pf_met) "MET" else "NOT MET", " ]\n\n", sep = "")
 
-  cat("  Episodes by type:\n")
+  cat("  Peritonitis episodes by type:\n")
   if (length(episode_types) == 0) {
     cat("    (no episodes recorded)\n")
   } else {
     for (nm in names(episode_types)) {
       cat("    ", nm, " : ", episode_types[[nm]], "\n", sep = "")
+    }
+  }
+  cat("\n")
+
+  cat("  Cohort outcomes:\n")
+  if (length(outcomes) == 0) {
+    cat("    (no patients recorded)\n")
+  } else {
+    for (nm in names(outcomes)) {
+      cat("    ", nm, " : ", outcomes[[nm]], "\n", sep = "")
     }
   }
   cat("\n")
@@ -338,6 +360,7 @@ summary.pd_unit <- function(object, ...) {
     pf = pf, pf_num = pf_num, pf_den = pf_den,
     pf_benchmark = pf_benchmark, pf_met = pf_met,
     episode_types = episode_types,
+    outcomes = outcomes,
     cohort = cohort
   ))
 }

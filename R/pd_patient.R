@@ -366,11 +366,155 @@ print.pd_patient <- function(x, ...) {
       if (is.na(x$new_patient_flag)) "unknown" else if (x$new_patient_flag) "incident" else "prevalent",
       "\n", sep = "")
   cat("  Catheters               : ", x$n_catheters, "\n", sep = "")
-  cat("  Peritonitis (countable) : ", x$n_episodes, "\n", sep = "")
+  cat("  Peritonitis             : ", x$n_episodes, "\n", sep = "")
   if (is.na(x$transfer_reason)) {
     cat("  Censoring             : still active on PD\n")
   } else {
     cat("  Censoring             : ", x$transfer_reason, " on ", format(x$transfer_date), "\n", sep = "")
   }
   invisible(x)
+}
+
+
+
+#' Summarise a pd_patient object
+#'
+#' A single patient's clinical snapshot: reporting window, incident/
+#' prevalent status, each catheter's active window and outcome (with that
+#' catheter's own countable peritonitis episodes listed underneath it), this
+#' patient's total time-at-risk within \code{[t0, t1]} (each catheter's
+#' exposure, censored at this patient's own \code{transfer_date}), a
+#' breakdown of countable peritonitis episodes by \code{episode_type}
+#' across every catheter, and how (or whether) this patient was censored.
+#'
+#' "Countable" here means exactly what it means for \code{n_episodes}: not a
+#' relapsing episode, and falling within the owning catheter's active window
+#' intersected with \code{[t0, t1]}. Each infection is re-checked with
+#' \code{count_episodes_in_period()} one at a time, so this never drifts out
+#' of sync with the definition \code{n_episodes} is validated against.
+#'
+#' @param object A \code{pd_patient} object.
+#' @param ... Ignored.
+#'
+#' @returns Invisibly, a list with components \code{status}, \code{catheters}
+#'   (a data frame with one row per catheter), \code{total_exposure_days},
+#'   \code{total_exposure_years}, \code{n_episodes}, and \code{episode_types}
+#'   (a table of countable-episode counts by \code{episode_type}).
+#' @export
+#'
+summary.pd_patient <- function(object, ...) {
+  x <- object
+
+  # pads a label to column 20 so every ":" lines up
+  pad <- function(label) sprintf("%-19s:", label)
+
+  status <- if (is.na(x$new_patient_flag)) {
+    "unknown"
+  } else if (isTRUE(x$new_patient_flag)) {
+    "incident"
+  } else {
+    "prevalent"
+  }
+
+  # this patient's own censoring point (tau) used to cap exposure days
+  tau <- x$transfer_date
+  if (is.null(tau)) tau <- as.Date(NA)
+
+  # per-catheter exposure within [t0, t1], censored at tau
+  total_days <- if (length(x$catheters) == 0) {
+    0
+  } else {
+    sum(vapply(x$catheters, catheter_exposure_days, numeric(1),
+               t0 = x$t0, t1 = x$t1, tau = tau))
+  }
+  total_years <- total_days / 365.25
+
+  # countable infections per catheter -- reuses count_episodes_in_period()
+  # one infection at a time so "countable" here means exactly what it means
+  # for n_episodes. Returns the infection objects themselves (not just their
+  # episode_type) so this same countable set can both build the aggregate
+  # episode_types table below and list each catheter's own episodes in the
+  # per-catheter breakdown further down -- one definition of "countable",
+  # used in both places.
+  countable_infections_of <- function(cath) {
+    if (length(cath$infections) == 0) {
+      return(list())
+    }
+    countable <- vapply(cath$infections, function(inf) {
+      count_episodes_in_period(list(inf), x$t0, x$t1,
+                               cath$pd_start_date, cath$pd_stop_date) > 0
+    }, logical(1))
+    cath$infections[countable]
+  }
+  all_countable <- unlist(lapply(x$catheters, countable_infections_of),
+                          recursive = FALSE, use.names = FALSE)
+  all_types <- vapply(all_countable, function(inf) {
+    if (is.na(inf$episode_type)) "uncategorised" else inf$episode_type
+  }, character(1))
+  episode_types <- table(if (length(all_types) == 0) character(0) else all_types)
+
+  cat("<summary.pd_patient>", if (is.na(x$patient_id)) "(unknown id)" else x$patient_id, "\n")
+  cat("  ", pad("Reporting window"), " ", format(x$t0), " to ", format(x$t1), "\n", sep = "")
+  cat("  ", pad("Status"), " ", status, "\n", sep = "")
+  cat("  ", pad(paste0("Catheters (", length(x$catheters), ")")), "\n", sep = "")
+  for (cath in x$catheters) {
+    end_str <- if (is.na(cath$pd_stop_date)) {
+      "(active)"
+    } else {
+      paste0(format(cath$pd_stop_date),
+             if (!is.na(cath$removal_reason)) {
+               paste0(" (removed, ", cath$removal_reason, ")")
+             } else {
+               ""
+             })
+    }
+    cat("    ", cath$catheter_id, " : inserted ", format(cath$insertion_date),
+        ", PD ", format(cath$pd_start_date), " to ", end_str,
+        "\n", sep = "")
+
+    cath_infections <- countable_infections_of(cath)
+    if (length(cath_infections) == 0) {
+      cat("        (no countable peritonitis episodes)\n")
+    } else {
+      for (inf in cath_infections) {
+        organisms <- paste(unlist(inf$organism_list), collapse = ", ")
+        type_label <- if (is.na(inf$episode_type)) "uncategorised" else inf$episode_type
+        cat("        - ", format(inf$infection_date), " : ", organisms,
+            " (", type_label, ")\n", sep = "")
+      }
+    }
+  }
+  cat("  ", pad("Total exposure"), " ", total_days, " days (",
+      sprintf("%.2f", total_years), " patient-years)\n", sep = "")
+  type_str <- if (length(all_types) == 0) {
+    ""
+  } else {
+    paste0(" (", paste(sprintf("%d %s", episode_types, names(episode_types)),
+                       collapse = ", "), ")")
+  }
+  cat("  ", pad("Peritonitis history"), " ", length(all_types), " countable episode",
+      if (length(all_types) == 1) "" else "s", type_str, "\n", sep = "")
+  invisible(list(
+    status = status,
+    catheters = data.frame(
+      catheter_id = vapply(x$catheters, function(c) c$catheter_id, character(1)),
+      pd_start_date = if (length(x$catheters) == 0) {
+        as.Date(character(0))
+      } else {
+        do.call(c, lapply(x$catheters, function(c) c$pd_start_date))
+      },
+      pd_stop_date = if (length(x$catheters) == 0) {
+        as.Date(character(0))
+      } else {
+        do.call(c, lapply(x$catheters, function(c) c$pd_stop_date))
+      },
+      removal_reason = vapply(x$catheters, function(c) as.character(c$removal_reason),
+                              character(1)),
+      stringsAsFactors = FALSE
+    ),
+    total_exposure_days = total_days,
+    total_exposure_years = total_years,
+    n_episodes = length(all_types),
+    episode_types = episode_types
+  ))
 }
