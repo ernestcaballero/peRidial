@@ -15,9 +15,11 @@
 Invisibly, a list with components \code{rate}, \code{rate_num},
 \code{rate_den}, \code{rate_benchmark}, \code{rate_met}, \code{pf},
 \code{pf_num}, \code{pf_den}, \code{pf_benchmark}, \code{pf_met},
-\code{episode_types} (a table of episode counts by \code{episode_type})
-and \code{cohort} (a named integer vector of \code{incident}/
-\code{prevalent} counts).
+\code{episode_types} (a table of episode counts by \code{episode_type}),
+\code{outcomes} (a table of patient counts by how their PD ended --
+\code{death}, \code{transplant}, \code{permanent transfer to HD},
+\code{pd stopped}, or \code{still active}) and \code{cohort} (a named
+integer vector of \code{incident}/\code{prevalent} counts).
 }
 \description{
 Reports the unit's headline peritonitis indicators
