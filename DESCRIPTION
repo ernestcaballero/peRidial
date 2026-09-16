@@ -16,6 +16,7 @@ Imports:
     dplyr,
     purrr,
     readxl (>= 1.5.0),
+    stats,
     tibble
 Config/roxygen2/version: 8.1.0
 Suggests: 

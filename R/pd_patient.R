@@ -13,6 +13,21 @@
 #' @param t0 Date. Start of the reporting period, used to derive
 #'   \code{new_patient_flag}. Defaults to \code{NA}.
 #' @param t1 Date. End of the reporting period. See \code{t0}.
+#' @param gender Character. This patient's recorded gender, or \code{NA}.
+#' @param ethnicity Character. This patient's recorded ethnicity, or
+#'   \code{NA}.
+#' @param date_of_birth Date. This patient's date of birth, or \code{NA}.
+#'   Used to derive age (e.g. for a cohort's median age).
+#' @param primary_kidney_disease Character. The condition underlying this
+#'   patient's kidney failure, or \code{NA}.
+#' @param diabetes_status Character. This patient's recorded diabetes status
+#'   (e.g. \code{"Type 1"}, \code{"Type 2"}, \code{"None"}), or \code{NA}.
+#' @param smoking_status Character. This patient's recorded cigarette
+#'   smoking status (e.g. \code{"Never"}, \code{"Former"},
+#'   \code{"Current"}), or \code{NA}.
+#' @param dialysis_type Character. The mode of PD therapy this patient
+#'   uses -- \code{"APD"} (Automated PD), \code{"CAPD"} (Continuous
+#'   Ambulatory PD), or \code{"Hybrid"} (both) -- or \code{NA}.
 #' @param transfer_reason Character. Reason the patient left PD permanently
 #'   (e.g. \code{"death"}, \code{"transplant"}, \code{"permanent transfer to HD"}),
 #'   or \code{NA} if they are still on PD. This together with
@@ -41,10 +56,16 @@
 #' @export
 #'
 new_pd_patient <- function(patient_id = NA_character_,
-                           # demographics = list(),
                            catheters = list(),
                            t0 = as.Date(NA),
                            t1 = as.Date(NA),
+                           gender = NA_character_,
+                           ethnicity = NA_character_,
+                           date_of_birth = as.Date(NA),
+                           primary_kidney_disease = NA_character_,
+                           diabetes_status = NA_character_,
+                           smoking_status = NA_character_,
+                           dialysis_type = NA_character_,
                            transfer_reason = NA_character_,
                            transfer_date = as.Date(NA),
                            new_patient_flag = NULL,
@@ -52,9 +73,19 @@ new_pd_patient <- function(patient_id = NA_character_,
                            n_episodes = NULL) {
 
   stopifnot(length(patient_id) == 1, is.character(patient_id) || is.na(patient_id))
-  # stopifnot(is.list(demographics))
   stopifnot(is.list(catheters))
   stopifnot(inherits(t0, "Date"), inherits(t1, "Date"))
+  stopifnot(is.character(gender) || is.na(gender))
+  stopifnot(is.character(ethnicity) || is.na(ethnicity))
+  # allow a bare NA for date_of_birth too, same reasoning as transfer_date
+  if (!inherits(date_of_birth, "Date") && length(date_of_birth) == 1 && is.na(date_of_birth)) {
+    date_of_birth <- as.Date(NA)
+  }
+  stopifnot(inherits(date_of_birth, "Date"))
+  stopifnot(is.character(primary_kidney_disease) || is.na(primary_kidney_disease))
+  stopifnot(is.character(diabetes_status) || is.na(diabetes_status))
+  stopifnot(is.character(smoking_status) || is.na(smoking_status))
+  stopifnot(is.character(dialysis_type) || is.na(dialysis_type))
   stopifnot(is.character(transfer_reason) || is.na(transfer_reason))
   # If NA, coerces to as.Date(NA) for transfer_date
   if (!inherits(transfer_date, "Date") && length(transfer_date) == 1 && is.na(transfer_date)) {
@@ -83,10 +114,16 @@ new_pd_patient <- function(patient_id = NA_character_,
   structure(
     list(
       patient_id = patient_id,
-      # demographics = demographics,
       catheters = catheters,
       t0 = t0,
       t1 = t1,
+      gender = gender,
+      ethnicity = ethnicity,
+      date_of_birth = date_of_birth,
+      primary_kidney_disease = primary_kidney_disease,
+      diabetes_status = diabetes_status,
+      smoking_status = smoking_status,
+      dialysis_type = dialysis_type,
       transfer_reason = transfer_reason,
       transfer_date = transfer_date,
       new_patient_flag = new_patient_flag,
@@ -321,20 +358,32 @@ count_patient_episodes <- function(catheters) {
 #' @export
 #'
 pd_patient <- function(patient_id,
-                       # demographics = list(),
                        catheters = list(),
                        t0 = as.Date(NA),
                        t1 = as.Date(NA),
+                       gender = NA_character_,
+                       ethnicity = NA_character_,
+                       date_of_birth = as.Date(NA),
+                       primary_kidney_disease = NA_character_,
+                       diabetes_status = NA_character_,
+                       smoking_status = NA_character_,
+                       dialysis_type = NA_character_,
                        transfer_reason = NA_character_,
                        transfer_date = as.Date(NA),
                        new_patient_flag = NULL,
                        n_catheters = NULL,
                        n_episodes = NULL) {
   x <- new_pd_patient(patient_id = patient_id,
-                      # demographics = demographics,
                       catheters = catheters,
                       t0 = t0,
                       t1 = t1,
+                      gender = gender,
+                      ethnicity = ethnicity,
+                      date_of_birth = date_of_birth,
+                      primary_kidney_disease = primary_kidney_disease,
+                      diabetes_status = diabetes_status,
+                      smoking_status = smoking_status,
+                      dialysis_type = dialysis_type,
                       transfer_reason = transfer_reason,
                       transfer_date = transfer_date,
                       new_patient_flag = new_patient_flag,
@@ -396,7 +445,8 @@ print.pd_patient <- function(x, ...) {
 #' @param object A \code{pd_patient} object.
 #' @param ... Ignored.
 #'
-#' @returns Invisibly, a list with components \code{status}, \code{catheters}
+#' @returns Invisibly, a list with components \code{status}, \code{age_years}
+#'   (age at \code{t0}, the reporting-window start), \code{catheters}
 #'   (a data frame with one row per catheter), \code{total_exposure_days},
 #'   \code{total_exposure_years}, \code{n_episodes}, and \code{episode_types}
 #'   (a table of countable-episode counts by \code{episode_type}).
@@ -429,13 +479,7 @@ summary.pd_patient <- function(object, ...) {
   }
   total_years <- total_days / 365.25
 
-  # countable infections per catheter -- reuses count_episodes_in_period()
-  # one infection at a time so "countable" here means exactly what it means
-  # for n_episodes. Returns the infection objects themselves (not just their
-  # episode_type) so this same countable set can both build the aggregate
-  # episode_types table below and list each catheter's own episodes in the
-  # per-catheter breakdown further down -- one definition of "countable",
-  # used in both places.
+  # Countable infections per catheter (n_episodes). Returns the infection objects
   countable_infections_of <- function(cath) {
     if (length(cath$infections) == 0) {
       return(list())
@@ -453,9 +497,27 @@ summary.pd_patient <- function(object, ...) {
   }, character(1))
   episode_types <- table(if (length(all_types) == 0) character(0) else all_types)
 
+  fmt_field <- function(v) if (is.na(v)) "unknown" else v
+
+  # age at t0 (reporting-window start), not Sys.Date(), so a summary printed
+  # today vs next year for the same cohort/window reports the same age
+  age_years <- if (is.na(x$date_of_birth) || is.na(x$t0)) {
+    NA_real_
+  } else {
+    as.numeric(difftime(x$t0, x$date_of_birth, units = "days")) / 365.25
+  }
+  age_str <- if (is.na(age_years)) "unknown" else sprintf("%.0f (at t0)", age_years)
+
   cat("<summary.pd_patient>", if (is.na(x$patient_id)) "(unknown id)" else x$patient_id, "\n")
   cat("  ", pad("Reporting window"), " ", format(x$t0), " to ", format(x$t1), "\n", sep = "")
   cat("  ", pad("Status"), " ", status, "\n", sep = "")
+  cat("  ", pad("Age"), " ", age_str, "\n", sep = "")
+  cat("  ", pad("Gender"), " ", fmt_field(x$gender), "\n", sep = "")
+  cat("  ", pad("Ethnicity"), " ", fmt_field(x$ethnicity), "\n", sep = "")
+  cat("  ", pad("Kidney disease"), " ", fmt_field(x$primary_kidney_disease), "\n", sep = "")
+  cat("  ", pad("Diabetes"), " ", fmt_field(x$diabetes_status), "\n", sep = "")
+  cat("  ", pad("Smoking status"), " ", fmt_field(x$smoking_status), "\n", sep = "")
+  cat("  ", pad("Dialysis type"), " ", fmt_field(x$dialysis_type), "\n", sep = "")
   cat("  ", pad(paste0("Catheters (", length(x$catheters), ")")), "\n", sep = "")
   for (cath in x$catheters) {
     end_str <- if (is.na(cath$pd_stop_date)) {
@@ -474,7 +536,7 @@ summary.pd_patient <- function(object, ...) {
 
     cath_infections <- countable_infections_of(cath)
     if (length(cath_infections) == 0) {
-      cat("        (no countable peritonitis episodes)\n")
+      cat("        (no countable peritonitis episodes for this catheter)\n")
     } else {
       for (inf in cath_infections) {
         organisms <- paste(unlist(inf$organism_list), collapse = ", ")
@@ -496,6 +558,7 @@ summary.pd_patient <- function(object, ...) {
       if (length(all_types) == 1) "" else "s", type_str, "\n", sep = "")
   invisible(list(
     status = status,
+    age_years = age_years,
     catheters = data.frame(
       catheter_id = vapply(x$catheters, function(c) c$catheter_id, character(1)),
       pd_start_date = if (length(x$catheters) == 0) {

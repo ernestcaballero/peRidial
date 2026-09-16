@@ -275,6 +275,55 @@ find_transplant_date <- function(demo, cath) {
 
 
 
+#' Read one demographic value for a patient off their A3 form row
+#'
+#' Small helper behind the \code{gender}/\code{ethnicity}/
+#' \code{primary_kidney_disease}/\code{diabetes_type}/
+#' \code{cigarette_smoking_status} lookups in \code{pd_unit()}: guards
+#' against a patient with no matching row in \code{raw_patients} (returns
+#' \code{NA} rather than erroring) and normalises a blank/\code{NA} cell to
+#' \code{NA_character_}.
+#'
+#' @param demo One-row data frame of this patient's demographic fields (see
+#'   \code{raw_patients} in \code{pd_unit()}).
+#' @param col Character. Column name to read from \code{demo}.
+#'
+#' @return A single character value, or \code{NA_character_}.
+#' @noRd
+#'
+patient_demo_value <- function(demo, col) {
+  if (nrow(demo) == 0 || !(col %in% names(demo))) {
+    return(NA_character_)
+  }
+  val <- as.character(demo[[col]][1])
+  if (is.na(val) || !nzchar(trimws(val))) NA_character_ else trimws(val)
+}
+
+
+#' Read this patient's date of birth off their A3 form row
+#'
+#' Date-typed counterpart to \code{patient_demo_value()}: guards against a
+#' patient with no matching row in \code{raw_patients} (returns
+#' \code{as.Date(NA)} rather than erroring), while keeping the \code{Date}
+#' class that \code{date_of_birth} needs -- \code{patient_demo_value()}
+#' always returns character, so it can't be reused for this column.
+#'
+#' @param demo One-row data frame of this patient's demographic fields (see
+#'   \code{raw_patients} in \code{pd_unit()}).
+#'
+#' @return A single \code{Date} value, or \code{as.Date(NA)}.
+#' @noRd
+#'
+patient_dob_value <- function(demo) {
+  if (nrow(demo) == 0 || !("date_of_birth" %in% names(demo))) {
+    return(as.Date(NA))
+  }
+  val <- demo$date_of_birth[1]
+  if (is.na(val)) as.Date(NA) else val
+}
+
+
+
 #' Derive a patient's censoring point (tau)
 #'
 #' \eqn{tau} is the date a patient permanently stopped being at risk of PD
@@ -432,6 +481,10 @@ patients_to_tibble <- function(patient_list, t0, t1, details = character(0)) {
       patient_id = character(0), t0 = as.Date(character(0)),
       t1 = as.Date(character(0)), new_patient_flag = logical(0),
       n_catheters = integer(0), n_episodes = numeric(0),
+      gender = character(0), ethnicity = character(0),
+      date_of_birth = as.Date(character(0)),
+      primary_kidney_disease = character(0), diabetes_status = character(0),
+      smoking_status = character(0), dialysis_type = character(0),
       transfer_reason = character(0), transfer_date = as.Date(character(0)),
       transfer_detail = character(0),
       first_pd_start_date = as.Date(character(0)),
@@ -462,6 +515,18 @@ patients_to_tibble <- function(patient_list, t0, t1, details = character(0)) {
                          function(p) as.integer(p$n_catheters), integer(1)),
     n_episodes = vapply(patient_list,
                         function(p) as.numeric(p$n_episodes), numeric(1)),
+    gender = vapply(patient_list, function(p) as.character(p$gender), character(1)),
+    ethnicity = vapply(patient_list, function(p) as.character(p$ethnicity), character(1)),
+    date_of_birth = do.call(c, lapply(patient_list, function(p) p$date_of_birth)),
+    primary_kidney_disease = vapply(patient_list,
+                                    function(p) as.character(p$primary_kidney_disease),
+                                    character(1)),
+    diabetes_status = vapply(patient_list,
+                             function(p) as.character(p$diabetes_status), character(1)),
+    smoking_status = vapply(patient_list,
+                            function(p) as.character(p$smoking_status), character(1)),
+    dialysis_type = vapply(patient_list,
+                           function(p) as.character(p$dialysis_type), character(1)),
     transfer_reason = vapply(patient_list,
                              function(p) as.character(p$transfer_reason),
                              character(1)),
@@ -933,6 +998,7 @@ pd_unit <- function(unit_data_path,
     }
 
     catheters <- build_patient_catheters(pid)
+    demo <- raw_patients[raw_patients$patient_id == pid, , drop = FALSE]
 
     p <- tryCatch(
       pd_patient(
@@ -940,6 +1006,13 @@ pd_unit <- function(unit_data_path,
         catheters = catheters,
         t0 = t0,
         t1 = t1,
+        gender = patient_demo_value(demo, "gender"),
+        ethnicity = patient_demo_value(demo, "ethnicity"),
+        date_of_birth = patient_dob_value(demo),
+        primary_kidney_disease = patient_demo_value(demo, "primary_kidney_disease"),
+        diabetes_status = patient_demo_value(demo, "diabetes_type"),
+        smoking_status = patient_demo_value(demo, "cigarette_smoking_status"),
+        dialysis_type = patient_demo_value(demo, "dialysis_type"),
         transfer_reason = tau$reason,
         transfer_date = tau$date
       ),

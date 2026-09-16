@@ -219,3 +219,36 @@ pd_infection <- function(patient_id,
 
   validate_pd_infection(x)
 }
+
+
+
+#' Print a pd_infection object
+#'
+#' A single peritonitis episode's snapshot: patient id, infection date,
+#' causative organism(s), episode type, date of last antibiotic dose, and
+#' outcome.
+#'
+#' \code{episode_type} is shown as \code{"(none)"} when \code{NA}: either
+#' this is the patient's first recorded episode (nothing prior to classify
+#' against) or, per \code{get_episode_type()}, the pairing of organism and
+#' timing against the prior episode doesn't match an ISPD-defined category.
+#' \code{outcome} is shown as \code{"resolved"} when \code{NA}, matching
+#' \code{new_pd_infection()}'s documented convention that a missing outcome
+#' implies the episode resolved without hospitalisation, catheter removal,
+#' or transfer to haemodialysis.
+#'
+#' @param x A \code{pd_infection} object.
+#' @param ... Ignored.
+#'
+#' @return \code{x}, invisibly.
+#' @export
+#'
+print.pd_infection <- function(x, ...) {
+  cat("<pd_infection>", if (is.na(x$patient_id)) "(unknown patient)" else x$patient_id, "\n")
+  cat(sprintf("  %-21s: %s\n", "Infection date", format(x$infection_date)))
+  cat(sprintf("  %-21s: %s\n", "Organism", paste(unlist(x$organism_list), collapse = ", ")))
+  cat(sprintf("  %-21s: %s\n", "Episode type", if (is.na(x$episode_type)) "(none)" else x$episode_type))
+  cat(sprintf("  %-21s: %s\n", "Last dose antibiotic", format(x$last_dose_antibiotic)))
+  cat(sprintf("  %-21s: %s\n", "Outcome", if (is.na(x$outcome)) "resolved" else x$outcome))
+  invisible(x)
+}

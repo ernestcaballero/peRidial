@@ -260,8 +260,13 @@ print.pd_unit <- function(x, ...) {
 #'   \code{episode_types} (a table of episode counts by \code{episode_type}),
 #'   \code{outcomes} (a table of patient counts by how their PD ended --
 #'   \code{death}, \code{transplant}, \code{permanent transfer to HD},
-#'   \code{pd stopped}, or \code{still active}) and \code{cohort} (a named
-#'   integer vector of \code{incident}/\code{prevalent} counts).
+#'   \code{pd stopped}, or \code{still active}), \code{cohort} (a named
+#'   integer vector of \code{incident}/\code{prevalent} counts), and
+#'   \code{median_age_years} (this cohort's median patient age at \code{t0}),
+#'   \code{demographics} (a list of tables -- \code{gender}, \code{ethnicity},
+#'   \code{primary_kidney_disease}, \code{diabetes_status},
+#'   \code{smoking_status}, \code{dialysis_type} -- each a count of patients
+#'   by that field).
 #' @export
 #'
 summary.pd_unit <- function(object, ...) {
@@ -313,6 +318,33 @@ summary.pd_unit <- function(object, ...) {
     table(character(0))
   }
 
+  # median age at t0 (reporting-window start), not Sys.Date(), so this
+  # matches how summary.pd_patient() reports a single patient's own age
+  median_age_years <- if (has_col(x$patients, "date_of_birth")) {
+    ages <- as.numeric(difftime(x$t0, x$patients$date_of_birth, units = "days")) / 365.25
+    if (all(is.na(ages))) NA_real_ else stats::median(ages, na.rm = TRUE)
+  } else {
+    NA_real_
+  }
+
+  # patient demographics -- one table per field, "unknown" standing in for NA
+  demo_table <- function(col) {
+    if (!has_col(x$patients, col)) {
+      return(table(character(0)))
+    }
+    vals <- x$patients[[col]]
+    vals[is.na(vals)] <- "unknown"
+    table(vals)
+  }
+  demographics <- list(
+    gender = demo_table("gender"),
+    ethnicity = demo_table("ethnicity"),
+    primary_kidney_disease = demo_table("primary_kidney_disease"),
+    diabetes_status = demo_table("diabetes_status"),
+    smoking_status = demo_table("smoking_status"),
+    dialysis_type = demo_table("dialysis_type")
+  )
+
   cat("<summary.pd_unit>", if (is.na(x$unit_id)) "(Unnamed unit)" else x$unit_id, "\n")
   cat("  Reporting period : ", format(x$t0), " to ", format(x$t1), "\n\n", sep = "")
 
@@ -351,6 +383,22 @@ summary.pd_unit <- function(object, ...) {
   }
   cat("\n")
 
+  fmt_demo <- function(tbl) {
+    if (length(tbl) == 0) return("(no data)")
+    paste(sprintf("%s %d", names(tbl), tbl), collapse = ", ")
+  }
+  cat("  Patient demographics:\n")
+  cat("    Median age      : ",
+      if (is.na(median_age_years)) "unknown" else sprintf("%.0f (at t0)", median_age_years),
+      "\n", sep = "")
+  cat("    Gender          : ", fmt_demo(demographics$gender), "\n", sep = "")
+  cat("    Ethnicity       : ", fmt_demo(demographics$ethnicity), "\n", sep = "")
+  cat("    Kidney disease  : ", fmt_demo(demographics$primary_kidney_disease), "\n", sep = "")
+  cat("    Diabetes        : ", fmt_demo(demographics$diabetes_status), "\n", sep = "")
+  cat("    Smoking status  : ", fmt_demo(demographics$smoking_status), "\n", sep = "")
+  cat("    Dialysis type   : ", fmt_demo(demographics$dialysis_type), "\n", sep = "")
+  cat("\n")
+
   cat("  Cohort : ", x$n_patients, " patients (",
       cohort[["incident"]], " incident, ", cohort[["prevalent"]], " prevalent)\n", sep = "")
 
@@ -361,7 +409,9 @@ summary.pd_unit <- function(object, ...) {
     pf_benchmark = pf_benchmark, pf_met = pf_met,
     episode_types = episode_types,
     outcomes = outcomes,
-    cohort = cohort
+    cohort = cohort,
+    median_age_years = median_age_years,
+    demographics = demographics
   ))
 }
 

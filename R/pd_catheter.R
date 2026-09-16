@@ -352,11 +352,15 @@ pd_catheter <- function(patient_id,
 
 #' Print a pd_catheter object
 #'
-#' A single catheter's snapshot, headed by its \code{patient_id} (the
-#' more recognizable identifier) rather than the synthetic
-#' \code{catheter_id}, which still appears in the body: insertion, PD
-#' window and outcome, reporting window, and peritonitis episode count
-#' within that window.
+#' A single catheter's snapshot: procedure type,
+#' insertion, PD window and outcome, reporting window, and peritonitis
+#' episode count within that window, followed by each countable episode's
+#' \code{infection_date}, \code{episode_type} (if any), and \code{outcome}
+#' (if any), and then any relapsing episodes -- listed separately since
+#' ISPD treats a relapse as a continuation of the preceding episode rather
+#' than a distinct new one, so it doesn't count toward
+#' \code{n_peritonitis_episodes} (see \code{count_episodes_in_period()}
+#' for what "countable" means here).
 #'
 #' @param x A \code{pd_catheter} object.
 #' @param ... Ignored.
@@ -368,9 +372,8 @@ print.pd_catheter <- function(x, ...) {
   cat("<pd_catheter>", if (is.na(x$patient_id)) "(unknown patient)" else x$patient_id, "\n")
   cat("  Reporting window   : ", format(x$t0), " to ", format(x$t1), "\n", sep = "")
   cat("  Catheter           : ", if (is.na(x$catheter_id)) "(unknown id)" else x$catheter_id, "\n", sep = "")
-  cat("  Inserted           : ", format(x$insertion_date),
-      if (!is.na(x$procedure_type)) paste0(" (", x$procedure_type, ")") else "",
-      "\n", sep = "")
+  cat("  Inserted           : ", format(x$insertion_date), "\n", sep = "")
+  cat("  Procedure type     : ", if (is.na(x$procedure_type)) "(unknown)" else x$procedure_type, "\n", sep = "")
   end_str <- if (is.na(x$pd_stop_date)) {
     "(active)"
   } else {
@@ -380,96 +383,40 @@ print.pd_catheter <- function(x, ...) {
   cat("  PD window          : ", format(x$pd_start_date), " to ", end_str, "\n", sep = "")
 
   cat("  Peritonitis        : ", x$n_peritonitis_episodes,
-      if (isTRUE(x$peritonitis_flag)) " (flagged)" else "",
       "\n", sep = "")
-  invisible(x)
-}
 
-
-
-#' Summarise a pd_catheter object
-#'
-#' A single catheter's clinical snapshot, headed by its \code{patient_id}
-#' rather than the synthetic \code{catheter_id} (which still appears in the
-#' body): its PD window and outcome,
-#' exposure days within the reporting period (\code{[t0, t1]} -- no
-#' patient-level \code{tau} censoring is applied here, since a
-#' \code{pd_catheter} in isolation doesn't know its patient's censoring
-#' date; see \code{catheter_exposure_days()}), and a breakdown of its
-#' countable peritonitis episodes by \code{episode_type}.
-#'
-#' "Countable" here means exactly what it means for
-#' \code{n_peritonitis_episodes}: not a relapsing episode, and falling
-#' within this catheter's active window intersected with \code{[t0, t1]}.
-#' Each infection is re-checked with \code{count_episodes_in_period()} one
-#' at a time, so this never drifts out of sync with the definition
-#' \code{n_peritonitis_episodes} is validated against.
-#'
-#' @param object A \code{pd_catheter} object.
-#' @param ... Ignored.
-#'
-#' @returns Invisibly, a list with components \code{status},
-#'   \code{exposure_days}, \code{exposure_years},
-#'   \code{n_peritonitis_episodes}, and \code{episode_types} (a table of
-#'   countable-episode counts by \code{episode_type}).
-#' @export
-#'
-summary.pd_catheter <- function(object, ...) {
-  x <- object
-
-  # pads a label to column 20 so every ":" lines up
-  pad <- function(label) sprintf("%-19s:", label)
-
-  status <- if (is.na(x$pd_stop_date)) {
-    "active"
-  } else if (!is.na(x$removal_reason)) {
-    paste0("removed (", x$removal_reason, ")")
-  } else {
-    "stopped"
+  # describes one infection as "date (episode_type, outcome: outcome)",
+  # dropping episode_type/outcome when they're NA
+  describe_episode <- function(inf) {
+    details <- character(0)
+    if (!is.na(inf$episode_type)) details <- c(details, inf$episode_type)
+    if (!is.na(inf$outcome)) details <- c(details, paste0("outcome: ", inf$outcome))
+    if (length(details) == 0) {
+      format(inf$infection_date)
+    } else {
+      paste0(format(inf$infection_date), " (", paste(details, collapse = ", "), ")")
+    }
   }
 
-  # this catheter's own exposure within [t0, t1] -- no tau, since a lone
-  # pd_catheter doesn't know its patient's censoring date (see
-  # catheter_exposure_days()'s own docs)
-  exposure_days_in_period <- catheter_exposure_days(x, x$t0, x$t1)
-  exposure_years <- exposure_days_in_period / 365.25
-
-  # countable episode_types -- reuses count_episodes_in_period() one
-  # infection at a time so "countable" here means exactly what it means for
-  # n_peritonitis_episodes
+  # countable episodes: reuses count_episodes_in_period(), always exactly the episodes counted in
+  # n_peritonitis_episodes above
   countable <- vapply(x$infections, function(inf) {
     count_episodes_in_period(list(inf), x$t0, x$t1, x$pd_start_date, x$pd_stop_date) > 0
   }, logical(1))
-  types_vec <- vapply(x$infections[countable], function(inf) {
-    if (is.na(inf$episode_type)) "uncategorised" else inf$episode_type
-  }, character(1))
-  episode_types <- table(if (length(types_vec) == 0) character(0) else types_vec)
-
-  cat("<summary.pd_catheter>", if (is.na(x$patient_id)) "(unknown patient)" else x$patient_id, "\n")
-  cat("  ", pad("Reporting window"), " ", format(x$t0), " to ", format(x$t1), "\n", sep = "")
-  cat("  ", pad("Catheter"), " ", if (is.na(x$catheter_id)) "(unknown id)" else x$catheter_id, "\n", sep = "")
-  cat("  ", pad("Inserted"), " ", format(x$insertion_date),
-      if (!is.na(x$procedure_type)) paste0(" (", x$procedure_type, ")") else "",
-      "\n", sep = "")
-  end_str <- if (is.na(x$pd_stop_date)) "(active)" else format(x$pd_stop_date)
-  cat("  ", pad("PD window"), " ", format(x$pd_start_date), " to ", end_str, "\n", sep = "")
-  cat("  ", pad("Status"), " ", status, "\n", sep = "")
-  cat("  ", pad("Exposure"), " ", exposure_days_in_period, " days (",
-      sprintf("%.2f", exposure_years), " patient-years)\n", sep = "")
-  type_str <- if (length(types_vec) == 0) {
-    ""
-  } else {
-    paste0(" (", paste(sprintf("%d %s", episode_types, names(episode_types)),
-                       collapse = ", "), ")")
+  countable_infections <- x$infections[countable]
+  if (length(countable_infections) > 0) {
+    cat("    Episodes                : ",
+        paste(vapply(countable_infections, describe_episode, character(1)), collapse = "; "),
+        "\n", sep = "")
   }
-  cat("  ", pad("Peritonitis"), " ", length(types_vec), " countable episode",
-      if (length(types_vec) == 1) "" else "s", type_str, "\n", sep = "")
 
-  invisible(list(
-    status = status,
-    exposure_days = exposure_days_in_period,
-    exposure_years = exposure_years,
-    n_peritonitis_episodes = length(types_vec),
-    episode_types = episode_types
-  ))
+  # show relapsing peritonitis
+  relapses <- Filter(function(inf) identical(inf$episode_type, "relapsing"), x$infections)
+  if (length(relapses) > 0) {
+    cat("    Not countable (relapse) : ",
+        paste(vapply(relapses, describe_episode, character(1)), collapse = "; "),
+        "\n", sep = "")
+  }
+
+  invisible(x)
 }

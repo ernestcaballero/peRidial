@@ -12,7 +12,8 @@
 \item{...}{Ignored.}
 }
 \value{
-Invisibly, a list with components \code{status}, \code{catheters}
+Invisibly, a list with components \code{status}, \code{age_years}
+(age at \code{t0}, the reporting-window start), \code{catheters}
 (a data frame with one row per catheter), \code{total_exposure_days},
 \code{total_exposure_years}, \code{n_episodes}, and \code{episode_types}
 (a table of countable-episode counts by \code{episode_type}).

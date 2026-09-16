@@ -9,6 +9,13 @@ new_pd_patient(
   catheters = list(),
   t0 = as.Date(NA),
   t1 = as.Date(NA),
+  gender = NA_character_,
+  ethnicity = NA_character_,
+  date_of_birth = as.Date(NA),
+  primary_kidney_disease = NA_character_,
+  diabetes_status = NA_character_,
+  smoking_status = NA_character_,
+  dialysis_type = NA_character_,
   transfer_reason = NA_character_,
   transfer_date = as.Date(NA),
   new_patient_flag = NULL,
@@ -27,6 +34,28 @@ this patient (i.e. each has \code{patient_id} equal to this patient's
 \code{new_patient_flag}. Defaults to \code{NA}.}
 
 \item{t1}{Date. End of the reporting period. See \code{t0}.}
+
+\item{gender}{Character. This patient's recorded gender, or \code{NA}.}
+
+\item{ethnicity}{Character. This patient's recorded ethnicity, or
+\code{NA}.}
+
+\item{date_of_birth}{Date. This patient's date of birth, or \code{NA}.
+Used to derive age (e.g. for a cohort's median age).}
+
+\item{primary_kidney_disease}{Character. The condition underlying this
+patient's kidney failure, or \code{NA}.}
+
+\item{diabetes_status}{Character. This patient's recorded diabetes status
+(e.g. \code{"Type 1"}, \code{"Type 2"}, \code{"None"}), or \code{NA}.}
+
+\item{smoking_status}{Character. This patient's recorded cigarette
+smoking status (e.g. \code{"Never"}, \code{"Former"},
+\code{"Current"}), or \code{NA}.}
+
+\item{dialysis_type}{Character. The mode of PD therapy this patient
+uses -- \code{"APD"} (Automated PD), \code{"CAPD"} (Continuous
+Ambulatory PD), or \code{"Hybrid"} (both) -- or \code{NA}.}
 
 \item{transfer_reason}{Character. Reason the patient left PD permanently
 (e.g. \code{"death"}, \code{"transplant"}, \code{"permanent transfer to HD"}),
