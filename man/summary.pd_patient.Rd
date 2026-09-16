@@ -14,17 +14,17 @@
 \value{
 Invisibly, a list with components \code{status}, \code{catheters}
 (a data frame with one row per catheter), \code{total_exposure_days},
-\code{total_exposure_years}, \code{n_episodes}, \code{episode_types} (a
-table of countable-episode counts by \code{episode_type}), and
-\code{censoring} (a list with \code{reason} and \code{date}).
+\code{total_exposure_years}, \code{n_episodes}, and \code{episode_types}
+(a table of countable-episode counts by \code{episode_type}).
 }
 \description{
 A single patient's clinical snapshot: reporting window, incident/
-prevalent status, each catheter's active window and outcome, this
+prevalent status, each catheter's active window and outcome (with that
+catheter's own countable peritonitis episodes listed underneath it), this
 patient's total time-at-risk within \code{[t0, t1]} (each catheter's
 exposure, censored at this patient's own \code{transfer_date}), a
-breakdown of countable peritonitis episodes by \code{episode_type}, and
-how (or whether) this patient was censored.
+breakdown of countable peritonitis episodes by \code{episode_type}
+across every catheter, and how (or whether) this patient was censored.
 }
 \details{
 "Countable" here means exactly what it means for \code{n_episodes}: not a
