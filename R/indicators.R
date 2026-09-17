@@ -47,7 +47,8 @@ catheter_exposure_days <- function(catheter, t0, t1, tau = as.Date(NA)) {
   stopifnot(inherits(t0, "Date"), inherits(t1, "Date"), inherits(tau, "Date"))
   stopifnot(inherits(catheter$pd_start_date, "Date"))
 
-  # Latest of (catheter start, period start); earliest of (catheter stop, period end, tau), ignoring the bounds that aren't set.
+  # Latest of (catheter start, period start);
+  # Earliest of (catheter stop, period end, tau)
   start <- max(catheter$pd_start_date, t0)
   end <- min(c(catheter$pd_stop_date, t1, tau), na.rm = TRUE)
 

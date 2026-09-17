@@ -31,7 +31,6 @@
 #'
 
 new_pd_infection <- function(patient_id = NA_character_,
-                             # catheter_id = NA_character_,
                              infection_date = as.Date(NA),
                              organism_list = list(),
                              episode_type = NA_character_,
@@ -40,7 +39,6 @@ new_pd_infection <- function(patient_id = NA_character_,
                              outcome_date = as.Date(NA)) {
 
   stopifnot(length(patient_id) == 1, is.character(patient_id) || is.na(patient_id))
-  # stopifnot(length(catheter_id) == 1, is.character(catheter_id) || is.na(catheter_id))
   stopifnot(inherits(infection_date, "Date"))
   stopifnot(is.list(organism_list))
   stopifnot(is.character(episode_type) || is.na(episode_type))
@@ -51,7 +49,6 @@ new_pd_infection <- function(patient_id = NA_character_,
   structure(
     list(
       patient_id = patient_id,
-      # catheter_id = catheter_id,
       infection_date = infection_date,
       organism_list = organism_list,
       episode_type = episode_type,
@@ -246,8 +243,8 @@ pd_infection <- function(patient_id,
 print.pd_infection <- function(x, ...) {
   cat("<pd_infection>", if (is.na(x$patient_id)) "(unknown patient)" else x$patient_id, "\n")
   cat(sprintf("  %-21s: %s\n", "Infection date", format(x$infection_date)))
-  cat(sprintf("  %-21s: %s\n", "Organism", paste(unlist(x$organism_list), collapse = ", ")))
-  cat(sprintf("  %-21s: %s\n", "Episode type", if (is.na(x$episode_type)) "(none)" else x$episode_type))
+  cat(sprintf("  %-21s: %s\n", "Organism/s", paste(unlist(x$organism_list), collapse = ", ")))
+  cat(sprintf("  %-21s: %s\n", "Episode type", if (is.na(x$episode_type)) NA_character_ else x$episode_type))
   cat(sprintf("  %-21s: %s\n", "Last dose antibiotic", format(x$last_dose_antibiotic)))
   cat(sprintf("  %-21s: %s\n", "Outcome", if (is.na(x$outcome)) "resolved" else x$outcome))
   invisible(x)

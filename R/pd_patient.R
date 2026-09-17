@@ -417,9 +417,9 @@ print.pd_patient <- function(x, ...) {
   cat("  Catheters               : ", x$n_catheters, "\n", sep = "")
   cat("  Peritonitis             : ", x$n_episodes, "\n", sep = "")
   if (is.na(x$transfer_reason)) {
-    cat("  Censoring             : still active on PD\n")
+    cat("  Censoring             : still active on PD\n", sep = "")
   } else {
-    cat("  Censoring             : ", x$transfer_reason, " on ", format(x$transfer_date), "\n", sep = "")
+    cat("  Censoring               : ", x$transfer_reason, " on ", format(x$transfer_date), "\n", sep = "")
   }
   invisible(x)
 }
@@ -499,14 +499,13 @@ summary.pd_patient <- function(object, ...) {
 
   fmt_field <- function(v) if (is.na(v)) "unknown" else v
 
-  # age at t0 (reporting-window start), not Sys.Date(), so a summary printed
-  # today vs next year for the same cohort/window reports the same age
-  age_years <- if (is.na(x$date_of_birth) || is.na(x$t0)) {
+  # age at t1 (reporting-window end)
+  age_years <- if (is.na(x$date_of_birth) || is.na(x$t1)) {
     NA_real_
   } else {
-    as.numeric(difftime(x$t0, x$date_of_birth, units = "days")) / 365.25
+    as.numeric(difftime(x$t1, x$date_of_birth, units = "days")) / 365.25
   }
-  age_str <- if (is.na(age_years)) "unknown" else sprintf("%.0f (at t0)", age_years)
+  age_str <- if (is.na(age_years)) "unknown" else sprintf("%.0f (at t1)", age_years)
 
   cat("<summary.pd_patient>", if (is.na(x$patient_id)) "(unknown id)" else x$patient_id, "\n")
   cat("  ", pad("Reporting window"), " ", format(x$t0), " to ", format(x$t1), "\n", sep = "")
@@ -541,8 +540,7 @@ summary.pd_patient <- function(object, ...) {
       for (inf in cath_infections) {
         organisms <- paste(unlist(inf$organism_list), collapse = ", ")
         type_label <- if (is.na(inf$episode_type)) "uncategorised" else inf$episode_type
-        cat("        - ", format(inf$infection_date), " : ", organisms,
-            " (", type_label, ")\n", sep = "")
+        cat("        - ", format(inf$infection_date), " : ", organisms,  "\n", sep = "")
       }
     }
   }
@@ -555,7 +553,8 @@ summary.pd_patient <- function(object, ...) {
                        collapse = ", "), ")")
   }
   cat("  ", pad("Peritonitis history"), " ", length(all_types), " countable episode",
-      if (length(all_types) == 1) "" else "s", type_str, "\n", sep = "")
+      if (length(all_types) == 1) "" else "s", type_str, "\n",
+      sep = "")
   invisible(list(
     status = status,
     age_years = age_years,

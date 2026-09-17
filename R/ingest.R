@@ -1,5 +1,5 @@
 
-# ingest.R -- read a PD unit's raw Excel exports and build the pd_unit object
+# ingest.R. Reads a PD unit's raw Excel exports and build the pd_unit object
 #
 # The build runs in one direction:
 #
@@ -14,8 +14,7 @@
 #     -> flat tibbles + headline counts
 #     -> new_pd_unit() -> validate_pd_unit()
 #
-# The three tibbles on the finished object are flattened from the object graph,
-# not carried over from the raw files
+# The three tibbles on the finished object are flattened from the object graph
 
 
 
@@ -87,9 +86,9 @@ ensure_cols <- function(df, cols, type = NA) {
 
 #' Coerce a raw column to Date
 #'
-#' \code{readxl} returns date-ish columns as \code{POSIXct}, as a bare
+#' \code{readxl} returns date columns as \code{POSIXct}, as a bare
 #' numeric Excel serial, or as character, depending on how the cell was
-#' formatted. Plain \code{as.Date(x, format = "%Y-%m-%d")} silently ignores
+#' formatted. Plain \code{as.Date(x, format = "\%Y-\%m-\%d")} silently ignores
 #' \code{format} for the first of those and applies the local timezone,
 #' which can shift the calendar date by a day -- so this branches on the
 #' incoming type instead of coercing blindly. Text values are expected as
@@ -99,7 +98,7 @@ ensure_cols <- function(df, cols, type = NA) {
 #' @param col_name Character. Column name, used in the warning if a value
 #'   can't be parsed.
 #' @param format Character. \code{strptime()}-style format for text dates.
-#'   Defaults to ISO (\code{"%Y-%m-%d"}).
+#'   Defaults to ISO (\code{"\%Y-\%m-\%d"}).
 #'
 #' @return A \code{Date} vector the same length as \code{x}.
 #' @noRd
@@ -109,7 +108,7 @@ as_date_safe <- function(x, col_name = "date", format = "%Y-%m-%d") {
     return(x)
   }
   # readxl reads Excel dates/datetimes as POSIXct in UTC; converting in any
-  # other timezone can shift the calendar date by a day
+  # other timezone can shift the calendar date by 1 day
   if (inherits(x, "POSIXt")) {
     return(as.Date(x, tz = "UTC"))
   }
@@ -234,8 +233,7 @@ create_catheter_id <- function(patient_id, insertion_date) {
 
   for (pid in unique(patient_id[!is.na(patient_id)])) {
     rows <- which(patient_id == pid)
-    # NAs sort last, so a catheter with no insertion_date gets the highest
-    # sequence number rather than silently displacing a dated one
+    # NAs sort last, so a catheter with no insertion_date gets the highest sequence number rather than silently displacing a dated one
     ord <- rows[order(insertion_date[rows], na.last = TRUE)]
     catheter_id[ord] <- paste0(pid, "_", sprintf("%02d", seq_along(ord)))
   }
@@ -305,7 +303,7 @@ patient_demo_value <- function(demo, col) {
 #' Date-typed counterpart to \code{patient_demo_value()}: guards against a
 #' patient with no matching row in \code{raw_patients} (returns
 #' \code{as.Date(NA)} rather than erroring), while keeping the \code{Date}
-#' class that \code{date_of_birth} needs -- \code{patient_demo_value()}
+#' class that \code{date_of_birth} needs. \code{patient_demo_value()}
 #' always returns character, so it can't be reused for this column.
 #'
 #' @param demo One-row data frame of this patient's demographic fields (see
@@ -609,7 +607,8 @@ infections_to_tibble <- function(patient_list, t0, t1) {
   for (p in patient_list) {
     for (cath in p$catheters) {
       for (inf in cath$infections) {
-        # an episode counts towards the rate if it is inside this catheter's active window within [t0, t1] and is not a relapse
+        # an episode counts towards the rate if it is inside this catheter's
+        # active window within [t0, t1] and is not a relapse
         counts <- count_episodes_in_period(list(inf), t0, t1,
                                            cath$pd_start_date,
                                            cath$pd_stop_date) > 0
@@ -795,8 +794,7 @@ pd_unit <- function(unit_data_path,
         dplyr::coalesce(overnight_hospitalisation, FALSE) ~ "hospitalisation",
         TRUE ~ NA_character_
       ),
-      # outcome/outcome_date are deliberately nullable: an episode that
-      # resolved without any of the above falls through to NA, which validate_pd_infection() reads as implied good recovery.
+      # outcome/outcome_date can be nullable: resolved episode falls through to NA, which validate_pd_infection() reads as implied good recovery
       outcome_date = dplyr::case_when(
         dplyr::coalesce(catheter_removed, FALSE) ~ catheter_removed_date,
         dplyr::coalesce(permanent_hd, FALSE) |
@@ -819,7 +817,7 @@ pd_unit <- function(unit_data_path,
     tau <- taus[[pid]]$date
 
     # tau is the authority on when PD ended: close any catheter left open past it,
-    # and pull back any that claims to have run on beyond it
+    # and pull back any that claims to have ran beyond it
     if (!is.na(tau)) {
       rows <- which(raw_catheters$patient_id == pid)
       open <- rows[is.na(raw_catheters$pd_stop_date[rows])]
@@ -868,9 +866,7 @@ pd_unit <- function(unit_data_path,
 
 
   # Build pd_infection objects, chained per patient
-  # get_episode_type() classifies each episode against the patient's
-  # immediately preceding one, which can span a catheter change, so the chain
-  # has to be walked per patient in date order.
+  # get_episode_type() classifies each episode against the patient's immediately preceding one
   build_patient_infections <- function(df) {
     infections <- list()
     prior <- NULL
@@ -1033,13 +1029,10 @@ pd_unit <- function(unit_data_path,
   catheters_tbl <- catheters_to_tibble(patient_list, t0, t1)
   infections_tbl <- infections_to_tibble(patient_list, t0, t1)
 
-  # Unit-level numbers
-  # Cohort size: everyone on PD at any point in [t0, t1].
+  # Unit-level numbers, cohort size: everyone on PD at any point in [t0, t1].
   n_patients <- length(patient_list)
 
-  # Incident ("new") patients: earliest PD start inside [t0, t1]. Derived from new_patient_flag via
-  # is_incident_patient(), so summing the flags keeps one definition of
-  # "incident" rather than recomputing it from the raw table. A patient with
+  # Incident ("new") patients: earliest PD start inside [t0, t1]. A patient with
   # no usable start dates has flag NA and is not counted.
   n_new <- sum(vapply(patient_list, function(p) isTRUE(p$new_patient_flag),
                       logical(1)))

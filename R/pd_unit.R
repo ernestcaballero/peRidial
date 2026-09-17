@@ -247,9 +247,309 @@ print.pd_unit <- function(x, ...) {
 }
 
 
+
+# HELPER FUNCTIONS FOR SUMMARY METHOD
+
+#' Check that a unit-level tibble carries a usable column
+#'
+#' @param df A data frame.
+#' @param col Character. Column name to look for.
+#'
+#' @return \code{TRUE} if \code{df} has at least one row and a column named
+#'   \code{col}; \code{FALSE} otherwise.
+#' @noRd
+#'
+has_col <- function(df, col) nrow(df) > 0 && col %in% names(df)
+
+
+#' Peritonitis rate (Equation \eqref{eq:rate}) against its ISPD benchmark
+#'
+#' @param x A \code{pd_unit} object.
+#'
+#' @return A list with \code{rate}, \code{rate_num}, \code{rate_den},
+#'   \code{rate_benchmark} and \code{rate_met}.
+#' @noRd
+#'
+summarise_rate <- function(x) {
+  rate_num <- if (has_col(x$infections, "counts_toward_rate")) {
+    sum(x$infections$counts_toward_rate, na.rm = TRUE)
+  } else {
+    0
+  }
+  rate_den <- x$tpyar
+  rate <- if (is.na(rate_den) || rate_den == 0) NA_real_ else rate_num / rate_den
+  rate_benchmark <- 0.40
+  list(rate = rate, rate_num = rate_num, rate_den = rate_den,
+       rate_benchmark = rate_benchmark,
+       rate_met = !is.na(rate) && rate <= rate_benchmark)
+}
+
+
+#' Peritonitis-free percentage (Equation \eqref{eq:pf}) against its ISPD benchmark
+#'
+#' @param x A \code{pd_unit} object.
+#'
+#' @return A list with \code{pf}, \code{pf_num}, \code{pf_den},
+#'   \code{pf_benchmark} and \code{pf_met}.
+#' @noRd
+#'
+summarise_pf <- function(x) {
+  pf_num <- if (has_col(x$patients, "n_episodes")) {
+    sum(x$patients$n_episodes == 0, na.rm = TRUE)
+  } else {
+    0
+  }
+  pf_den <- x$n_patients
+  pf <- if (is.na(pf_den) || pf_den == 0) NA_real_ else pf_num / pf_den
+  pf_benchmark <- 0.80
+  list(pf = pf, pf_num = pf_num, pf_den = pf_den,
+       pf_benchmark = pf_benchmark,
+       pf_met = !is.na(pf) && pf > pf_benchmark)
+}
+
+
+#' Episode counts by \code{episode_type}
+#'
+#' @param x A \code{pd_unit} object.
+#'
+#' @return A table, NA episode types relabelled \code{"uncategorised"}.
+#' @noRd
+#'
+summarise_episode_types <- function(x) {
+  if (has_col(x$infections, "episode_type")) {
+    types <- x$infections$episode_type
+    types[is.na(types)] <- "uncategorised"
+    table(types)
+  } else {
+    table(character(0))
+  }
+}
+
+
+#' Patient counts by how their PD ended
+#'
+#' @param x A \code{pd_unit} object.
+#'
+#' @return A table by \code{transfer_reason} (\code{death},
+#'   \code{transplant}, \code{permanent transfer to HD}, \code{pd stopped}),
+#'   with \code{NA} (not yet censored) relabelled \code{"still active"}.
+#' @noRd
+#'
+summarise_outcomes <- function(x) {
+  if (has_col(x$patients, "transfer_reason")) {
+    reasons <- x$patients$transfer_reason
+    reasons[is.na(reasons)] <- "still active"
+    table(reasons)
+  } else {
+    table(character(0))
+  }
+}
+
+
+#' Incident / prevalent split of the cohort
+#'
+#' @param x A \code{pd_unit} object.
+#'
+#' @return A named integer vector, \code{incident} and \code{prevalent}.
+#' @noRd
+#'
+summarise_cohort <- function(x) {
+  c(incident = x$n_new, prevalent = x$n_patients - x$n_new)
+}
+
+
+#' Median patient age at \code{t0}
+#'
+#' @param x A \code{pd_unit} object.
+#'
+#' @return A single numeric (years), or \code{NA} if \code{date_of_birth}
+#'   isn't available.
+#' @noRd
+#'
+summarise_median_age <- function(x) {
+  if (!has_col(x$patients, "date_of_birth")) {
+    return(NA_real_)
+  }
+  ages <- as.numeric(difftime(x$t0, x$patients$date_of_birth, units = "days")) / 365.25
+  if (all(is.na(ages))) NA_real_ else stats::median(ages, na.rm = TRUE)
+}
+
+
+#' Patient demographics, one table per field
+#'
+#' @param x A \code{pd_unit} object.
+#'
+#' @return A list of tables -- \code{gender}, \code{ethnicity},
+#'   \code{primary_kidney_disease}, \code{diabetes_status},
+#'   \code{smoking_status}, \code{dialysis_type} -- \code{NA} relabelled
+#'   \code{"unknown"} in each.
+#' @noRd
+#'
+summarise_demographics <- function(x) {
+  demo_table <- function(col) {
+    if (!has_col(x$patients, col)) {
+      return(table(character(0)))
+    }
+    vals <- x$patients[[col]]
+    vals[is.na(vals)] <- "unknown"
+    table(vals)
+  }
+  list(
+    gender = demo_table("gender"),
+    ethnicity = demo_table("ethnicity"),
+    primary_kidney_disease = demo_table("primary_kidney_disease"),
+    diabetes_status = demo_table("diabetes_status"),
+    smoking_status = demo_table("smoking_status"),
+    dialysis_type = demo_table("dialysis_type")
+  )
+}
+
+
+#' Quartiles (Q1, median, Q3) of a numeric vector
+#'
+#' A small formatting-friendly wrapper around \code{stats::quantile()}: always
+#' returns a length-3 named vector, \code{NA} when there's nothing to
+#' summarise rather than an error or a zero-length result.
+#'
+#' @param v Numeric vector. \code{NA}s are dropped before summarising.
+#'
+#' @return A named numeric vector, \code{Q1}/\code{Median}/\code{Q3}.
+#' @noRd
+#'
+days_quartiles <- function(v) {
+  v <- v[!is.na(v)]
+  if (length(v) == 0) {
+    return(c(Q1 = NA_real_, Median = NA_real_, Q3 = NA_real_))
+  }
+  q <- stats::quantile(v, probs = c(0.25, 0.5, 0.75), na.rm = TRUE, type = 7)
+  stats::setNames(as.numeric(q), c("Q1", "Median", "Q3"))
+}
+
+
+#' Catheter summary: counts, procedure type, and two timing gaps
+#'
+#' @param x A \code{pd_unit} object.
+#'
+#' @return A list with \code{n_catheters}, \code{procedure_type} (a table,
+#'   \code{NA} relabelled \code{"unknown"}), \code{insertion_to_start_days}
+#'   (Q1/median/Q3 of insertion date to PD start date, in days) and
+#'   \code{start_to_infection_days} (Q1/median/Q3 of each catheter's PD start
+#'   date to the infection date of every episode recorded against it, in
+#'   days).
+#' @noRd
+#'
+summarise_catheters <- function(x) {
+  n_catheters <- nrow(x$catheters)
+
+  procedure_type <- if (has_col(x$catheters, "procedure_type")) {
+    pt <- x$catheters$procedure_type
+    pt[is.na(pt)] <- "unknown"
+    table(pt)
+  } else {
+    table(character(0))
+  }
+
+  insertion_to_start_days <- if (has_col(x$catheters, "insertion_date") &&
+                                 has_col(x$catheters, "pd_start_date")) {
+    days_quartiles(as.numeric(x$catheters$pd_start_date - x$catheters$insertion_date))
+  } else {
+    days_quartiles(numeric(0))
+  }
+
+  # each infection is matched to the catheter that was active when it occurred, join on catheter_id
+  start_to_infection_days <- if (has_col(x$infections, "infection_date") &&
+                                 has_col(x$infections, "catheter_id") &&
+                                 has_col(x$catheters, "pd_start_date") &&
+                                 has_col(x$catheters, "catheter_id")) {
+    starts <- x$catheters$pd_start_date[match(x$infections$catheter_id, x$catheters$catheter_id)]
+    days_quartiles(as.numeric(x$infections$infection_date - starts))
+  } else {
+    days_quartiles(numeric(0))
+  }
+
+  list(n_catheters = n_catheters,
+       procedure_type = procedure_type,
+       insertion_to_start_days = insertion_to_start_days,
+       start_to_infection_days = start_to_infection_days)
+}
+
+
+#' Infection detail: organisms cultured, PE outcomes, culture-negative rate
+#' and peritonitis-related catheter removal
+#'
+#' \code{x$infections$organisms} is a comma-joined string per episode (an
+#' episode can culture more than one organism), so this re-splits it to
+#' tabulate at the organism level rather than the row level. An episode with
+#' no organism recorded serialises to \code{""} or the literal
+#' string \code{"NA"} (a list holding a missing value) -- neither is a real
+#' organism name, so both are dropped before tabulating.
+#'
+#' @param x A \code{pd_unit} object.
+#'
+#' @return A list with \code{organisms} and \code{pe_outcomes} tables
+#'   (\code{pe_outcomes}' \code{NA}, no complication flagged, is relabelled
+#'   \code{"none"}); \code{culture_negative_n} and \code{culture_negative_pct}
+#'   (episodes with no organism identified, out of all episodes); and
+#'   \code{peritonitis_removal_n} and \code{peritonitis_removal_pct}
+#'   (catheters whose \code{removal_reason} mentions peritonitis, out of all
+#'   catheters).
+#' @noRd
+#'
+summarise_infections <- function(x) {
+  organisms <- if (has_col(x$infections, "organisms")) {
+    raw <- x$infections$organisms
+    raw <- raw[!is.na(raw)]
+    tokens <- trimws(unlist(strsplit(raw, ",\\s*")))
+    tokens <- tokens[nzchar(tokens) & tokens != "NA"]
+    if (length(tokens) == 0) table(character(0)) else table(tokens)
+  } else {
+    table(character(0))
+  }
+
+  pe_outcomes <- if (has_col(x$infections, "outcome")) {
+    out <- x$infections$outcome
+    out[is.na(out)] <- "none"
+    table(out)
+  } else {
+    table(character(0))
+  }
+
+  n_infections <- nrow(x$infections)
+  culture_negative_n <- if (has_col(x$infections, "organisms")) {
+    is_negative <- vapply(x$infections$organisms, function(v) {
+      if (is.na(v)) return(TRUE)
+      toks <- trimws(unlist(strsplit(v, ",\\s*")))
+      toks <- toks[nzchar(toks) & toks != "NA"]
+      length(toks) == 0 || all(tolower(toks) == "negative")
+    }, logical(1))
+    sum(is_negative)
+  } else {
+    0L
+  }
+  culture_negative_pct <- if (n_infections == 0) NA_real_ else culture_negative_n / n_infections
+
+  n_catheters <- nrow(x$catheters)
+  peritonitis_removal_n <- if (has_col(x$catheters, "removal_reason")) {
+    sum(grepl("peritonitis", x$catheters$removal_reason, ignore.case = TRUE), na.rm = TRUE)
+  } else {
+    0L
+  }
+  peritonitis_removal_pct <- if (n_catheters == 0) NA_real_ else peritonitis_removal_n / n_catheters
+
+  list(organisms = organisms, pe_outcomes = pe_outcomes,
+       culture_negative_n = culture_negative_n,
+       culture_negative_pct = culture_negative_pct,
+       peritonitis_removal_n = peritonitis_removal_n,
+       peritonitis_removal_pct = peritonitis_removal_pct)
+}
+
+
 #' Summarise a pd_unit object
 #'
-#' Reports the unit's headline peritonitis indicators
+#' Reports the unit's headline peritonitis indicators (Equations
+#' \eqref{eq:rate} and \eqref{eq:pf} against their ISPD benchmarks), a
+#' breakdown of episodes by type, the cohort's outcomes and
+#' incident/prevalent split, patient demographics, a catheter summary, and infection detail (organisms cultured and PE outcomes).
 #'
 #' @param object A \code{pd_unit} object.
 #' @param ... Ignored.
@@ -261,107 +561,63 @@ print.pd_unit <- function(x, ...) {
 #'   \code{outcomes} (a table of patient counts by how their PD ended --
 #'   \code{death}, \code{transplant}, \code{permanent transfer to HD},
 #'   \code{pd stopped}, or \code{still active}), \code{cohort} (a named
-#'   integer vector of \code{incident}/\code{prevalent} counts), and
+#'   integer vector of \code{incident}/\code{prevalent} counts),
 #'   \code{median_age_years} (this cohort's median patient age at \code{t0}),
 #'   \code{demographics} (a list of tables -- \code{gender}, \code{ethnicity},
 #'   \code{primary_kidney_disease}, \code{diabetes_status},
-#'   \code{smoking_status}, \code{dialysis_type} -- each a count of patients
-#'   by that field).
+#'   \code{smoking_status}, \code{dialysis_type}), \code{catheters} (a list
+#'   with \code{n_catheters}, \code{procedure_type}, and the
+#'   \code{insertion_to_start_days} / \code{start_to_infection_days} timing
+#'   gaps as Q1/median/Q3) and \code{infections} (a list with
+#'   \code{organisms} and \code{pe_outcomes} tables, plus
+#'   \code{culture_negative_n}/\code{_pct} and
+#'   \code{peritonitis_removal_n}/\code{_pct}).
 #' @export
 #'
 summary.pd_unit <- function(object, ...) {
   x <- object
 
-  has_col <- function(df, col) nrow(df) > 0 && col %in% names(df)
+  rate <- summarise_rate(x)
+  pf <- summarise_pf(x)
+  episode_types <- summarise_episode_types(x)
+  outcomes <- summarise_outcomes(x)
+  cohort <- summarise_cohort(x)
+  median_age_years <- summarise_median_age(x)
+  demographics <- summarise_demographics(x)
+  catheters <- summarise_catheters(x)
+  infections <- summarise_infections(x)
 
-  # peritonitis rate
-  rate_num <- if (has_col(x$infections, "counts_toward_rate")) {
-    sum(x$infections$counts_toward_rate, na.rm = TRUE)
-  } else {
-    0
-  }
-  rate_den <- x$tpyar
-  rate <- if (is.na(rate_den) || rate_den == 0) NA_real_ else rate_num / rate_den
-  rate_benchmark <- 0.40
-  rate_met <- !is.na(rate) && rate <= rate_benchmark
-
-  # peritonitis-free percentage
-  pf_num <- if (has_col(x$patients, "n_episodes")) {
-    sum(x$patients$n_episodes == 0, na.rm = TRUE)
-  } else {
-    0
-  }
-  pf_den <- x$n_patients
-  pf <- if (is.na(pf_den) || pf_den == 0) NA_real_ else pf_num / pf_den
-  pf_benchmark <- 0.80
-  pf_met <- !is.na(pf) && pf > pf_benchmark
-
-  # episodes by type
-  episode_types <- if (has_col(x$infections, "episode_type")) {
-    types <- x$infections$episode_type
-    types[is.na(types)] <- "uncategorised"
-    table(types)
-  } else {
-    table(character(0))
+  fmt_demo <- function(tbl) {
+    if (length(tbl) == 0) return("(no data)")
+    paste(sprintf("%s %d", names(tbl), tbl), collapse = ", ")
   }
 
-  # incident / prevalent split
-  cohort <- c(incident = x$n_new, prevalent = x$n_patients - x$n_new)
-
-  # cohort outcomes: how each patient's PD ended, from transfer_reason
-  # (death, transplant, permanent transfer to HD, pd stopped, or still active)
-  outcomes <- if (has_col(x$patients, "transfer_reason")) {
-    reasons <- x$patients$transfer_reason
-    reasons[is.na(reasons)] <- "still active"
-    table(reasons)
-  } else {
-    table(character(0))
+  fmt_quartiles <- function(q) {
+    if (all(is.na(q))) return("NA")
+    sprintf("%.1f / %.1f / %.1f", q[["Q1"]], q[["Median"]], q[["Q3"]])
   }
 
-  # median age at t0 (reporting-window start), not Sys.Date(), so this
-  # matches how summary.pd_patient() reports a single patient's own age
-  median_age_years <- if (has_col(x$patients, "date_of_birth")) {
-    ages <- as.numeric(difftime(x$t0, x$patients$date_of_birth, units = "days")) / 365.25
-    if (all(is.na(ages))) NA_real_ else stats::median(ages, na.rm = TRUE)
-  } else {
-    NA_real_
+  fmt_n_pct <- function(n, pct) {
+    if (is.na(pct)) sprintf("%d (NA)", n) else sprintf("%d (%.1f%%)", n, pct * 100)
   }
-
-  # patient demographics -- one table per field, "unknown" standing in for NA
-  demo_table <- function(col) {
-    if (!has_col(x$patients, col)) {
-      return(table(character(0)))
-    }
-    vals <- x$patients[[col]]
-    vals[is.na(vals)] <- "unknown"
-    table(vals)
-  }
-  demographics <- list(
-    gender = demo_table("gender"),
-    ethnicity = demo_table("ethnicity"),
-    primary_kidney_disease = demo_table("primary_kidney_disease"),
-    diabetes_status = demo_table("diabetes_status"),
-    smoking_status = demo_table("smoking_status"),
-    dialysis_type = demo_table("dialysis_type")
-  )
 
   cat("<summary.pd_unit>", if (is.na(x$unit_id)) "(Unnamed unit)" else x$unit_id, "\n")
   cat("  Reporting period : ", format(x$t0), " to ", format(x$t1), "\n\n", sep = "")
 
   cat("  Peritonitis rate : ",
-      if (is.na(rate)) "NA" else sprintf("%.3f", rate),
+      if (is.na(rate$rate)) "NA" else sprintf("%.3f", rate$rate),
       " episodes/patient-year\n", sep = "")
-  cat("    numerator (countable episodes)      : ", rate_num, "\n", sep = "")
-  cat("    denominator (patient-years at risk) : ", sprintf("%.2f", rate_den), "\n", sep = "")
-  cat("    ISPD benchmark <= ", sprintf("%.2f", rate_benchmark),
-      "  [ ", if (rate_met) "MET" else "NOT MET", " ]\n\n", sep = "")
+  cat("    numerator (countable episodes)      : ", rate$rate_num, "\n", sep = "")
+  cat("    denominator (patient-years at risk) : ", sprintf("%.2f", rate$rate_den), "\n", sep = "")
+  cat("    ISPD benchmark <= ", sprintf("%.2f", rate$rate_benchmark),
+      "  [ ", if (rate$rate_met) "MET" else "NOT MET", " ]\n\n", sep = "")
 
   cat("  Peritonitis-free (PF) : ",
-      if (is.na(pf)) "NA" else sprintf("%.1f%%", pf * 100), "\n", sep = "")
-  cat("    numerator (patients with zero countable episodes)   : ", pf_num, "\n", sep = "")
-  cat("    denominator (total patients, N)                     : ", pf_den, "\n", sep = "")
-  cat("    ISPD benchmark >  ", sprintf("%.0f%%", pf_benchmark * 100),
-      "  [ ", if (pf_met) "MET" else "NOT MET", " ]\n\n", sep = "")
+      if (is.na(pf$pf)) "NA" else sprintf("%.1f%%", pf$pf * 100), "\n", sep = "")
+  cat("    numerator (patients with zero countable episodes)   : ", pf$pf_num, "\n", sep = "")
+  cat("    denominator (total patients, N)                     : ", pf$pf_den, "\n", sep = "")
+  cat("    ISPD benchmark >  ", sprintf("%.0f%%", pf$pf_benchmark * 100),
+      "  [ ", if (pf$pf_met) "MET" else "NOT MET", " ]\n\n", sep = "")
 
   cat("  Peritonitis episodes by type:\n")
   if (length(episode_types) == 0) {
@@ -383,10 +639,6 @@ summary.pd_unit <- function(object, ...) {
   }
   cat("\n")
 
-  fmt_demo <- function(tbl) {
-    if (length(tbl) == 0) return("(no data)")
-    paste(sprintf("%s %d", names(tbl), tbl), collapse = ", ")
-  }
   cat("  Patient demographics:\n")
   cat("    Median age      : ",
       if (is.na(median_age_years)) "unknown" else sprintf("%.0f (at t0)", median_age_years),
@@ -399,21 +651,43 @@ summary.pd_unit <- function(object, ...) {
   cat("    Dialysis type   : ", fmt_demo(demographics$dialysis_type), "\n", sep = "")
   cat("\n")
 
+  cat("  Catheters:\n")
+  cat("    Total                                       : ", catheters$n_catheters, "\n", sep = "")
+  cat("    Procedure type                              : ", fmt_demo(catheters$procedure_type), "\n", sep = "")
+  cat("    Insertion to PD start (days, Q1/median/Q3)  : ",
+      fmt_quartiles(catheters$insertion_to_start_days), "\n", sep = "")
+  cat("    PD start to infection (days, Q1/median/Q3)  : ",
+      fmt_quartiles(catheters$start_to_infection_days), "\n", sep = "")
+  cat("\n")
+
+  cat("  Infections:\n")
+  cat("    Organisms cultured                   : ", fmt_demo(infections$organisms), "\n", sep = "")
+  cat("    PE outcome                           : ", fmt_demo(infections$pe_outcomes), "\n", sep = "")
+  cat("    Culture-negative peritonitis         : ",
+      fmt_n_pct(infections$culture_negative_n, infections$culture_negative_pct), "\n", sep = "")
+  cat("    Peritonitis-related catheter removal : ",
+      fmt_n_pct(infections$peritonitis_removal_n, infections$peritonitis_removal_pct), "\n", sep = "")
+  cat("\n")
+
   cat("  Cohort : ", x$n_patients, " patients (",
       cohort[["incident"]], " incident, ", cohort[["prevalent"]], " prevalent)\n", sep = "")
 
   invisible(list(
-    rate = rate, rate_num = rate_num, rate_den = rate_den,
-    rate_benchmark = rate_benchmark, rate_met = rate_met,
-    pf = pf, pf_num = pf_num, pf_den = pf_den,
-    pf_benchmark = pf_benchmark, pf_met = pf_met,
+    rate = rate$rate, rate_num = rate$rate_num, rate_den = rate$rate_den,
+    rate_benchmark = rate$rate_benchmark, rate_met = rate$rate_met,
+    pf = pf$pf, pf_num = pf$pf_num, pf_den = pf$pf_den,
+    pf_benchmark = pf$pf_benchmark, pf_met = pf$pf_met,
     episode_types = episode_types,
     outcomes = outcomes,
     cohort = cohort,
     median_age_years = median_age_years,
-    demographics = demographics
+    demographics = demographics,
+    catheters = catheters,
+    infections = infections
   ))
 }
+
+
 
 
 ## User-facing helper for pd_unit object on separate ingest.R file

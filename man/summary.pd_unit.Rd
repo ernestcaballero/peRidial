@@ -19,13 +19,21 @@ Invisibly, a list with components \code{rate}, \code{rate_num},
 \code{outcomes} (a table of patient counts by how their PD ended --
 \code{death}, \code{transplant}, \code{permanent transfer to HD},
 \code{pd stopped}, or \code{still active}), \code{cohort} (a named
-integer vector of \code{incident}/\code{prevalent} counts), and
+integer vector of \code{incident}/\code{prevalent} counts),
 \code{median_age_years} (this cohort's median patient age at \code{t0}),
 \code{demographics} (a list of tables -- \code{gender}, \code{ethnicity},
 \code{primary_kidney_disease}, \code{diabetes_status},
-\code{smoking_status}, \code{dialysis_type} -- each a count of patients
-by that field).
+\code{smoking_status}, \code{dialysis_type}), \code{catheters} (a list
+with \code{n_catheters}, \code{procedure_type}, and the
+\code{insertion_to_start_days} / \code{start_to_infection_days} timing
+gaps as Q1/median/Q3) and \code{infections} (a list with
+\code{organisms} and \code{pe_outcomes} tables, plus
+\code{culture_negative_n}/\code{_pct} and
+\code{peritonitis_removal_n}/\code{_pct}).
 }
 \description{
-Reports the unit's headline peritonitis indicators
+Reports the unit's headline peritonitis indicators (Equations
+\eqref{eq:rate} and \eqref{eq:pf} against their ISPD benchmarks), a
+breakdown of episodes by type, the cohort's outcomes and
+incident/prevalent split, patient demographics, a catheter summary, and infection detail (organisms cultured and PE outcomes).
 }
