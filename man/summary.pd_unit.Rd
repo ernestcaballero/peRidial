@@ -32,8 +32,9 @@ gaps as Q1/median/Q3) and \code{infections} (a list with
 \code{peritonitis_removal_n}/\code{_pct}).
 }
 \description{
-Reports the unit's headline peritonitis indicators (Equations
-\eqref{eq:rate} and \eqref{eq:pf} against their ISPD benchmarks), a
-breakdown of episodes by type, the cohort's outcomes and
-incident/prevalent split, patient demographics, a catheter summary, and infection detail (organisms cultured and PE outcomes).
+Reports the unit's headline peritonitis indicators (unit's peritonitis rate
+and peritonitis free percentage against their ISPD benchmarks),
+a breakdown of episodes by type, the cohort's outcomes and
+incident/prevalent split, patient demographics, a catheter summary,
+and infection detail (organisms cultured and PE outcomes).
 }

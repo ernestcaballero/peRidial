@@ -687,17 +687,16 @@ infections_to_tibble <- function(patient_list, t0, t1) {
 #' @export
 #'
 #' @examples
-#' \dontrun{
-#' auckland <- pd_unit(
-#'   unit_data_path      = "data-raw/a3_2025.xlsx",
-#'   infection_data_path = "data-raw/pe_2025.xlsx",
-#'   t0      = as.Date("2025-01-01"),
-#'   t1      = as.Date("2025-12-31"),
+#' unit <- pd_unit(
+#'   unit_data_path = system.file("extdata", "a3_2025.xlsx",
+#'                                package = "peridial", mustWork = TRUE),
+#'   infection_data_path = system.file("extdata", "pe_2025.xlsx",
+#'                                     package = "peridial", mustWork = TRUE),
+#'   t0 = as.Date("2025-01-01"),
+#'   t1 = as.Date("2025-12-31"),
 #'   unit_id = "Auckland PD Unit"
 #' )
-#' auckland
-#' auckland$tpyar
-#' }
+#' unit
 pd_unit <- function(unit_data_path,
                     infection_data_path,
                     t0,
@@ -866,7 +865,7 @@ pd_unit <- function(unit_data_path,
 
 
   # Build pd_infection objects, chained per patient
-  # get_episode_type() classifies each episode against the patient's immediately preceding one
+  # get_episode_type() classifies each episode against the patient's prior episode (timing of last antibiotic and what organism)
   build_patient_infections <- function(df) {
     infections <- list()
     prior <- NULL
