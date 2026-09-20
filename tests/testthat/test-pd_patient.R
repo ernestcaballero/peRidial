@@ -427,7 +427,7 @@ test_that("validate_pd_patient errors when n_episodes does not match the total e
     patient_id = "ABC1234",
     catheters = list(cath),
     t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
-    n_episodes = 3   # deliberately wrong -- cath has no recorded infections
+    n_episodes = 3   # deliberately wrong, cath has no recorded infections
   )
   expect_error(validate_pd_patient(p), "n_episodes does not match")
 })

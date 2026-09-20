@@ -1,4 +1,4 @@
-test_that("returns a character vector the same length as its inputs", {
+test_that("classify_episode_types() returns a character vector the same length as its inputs", {
   x <- classify_episode_types(
     patient_id = rep("ABC1234", 3),
     infection_date = as.Date(c("2025-01-01", "2025-01-25", "2025-03-01")),
@@ -11,7 +11,7 @@ test_that("returns a character vector the same length as its inputs", {
 })
 
 
-test_that("classifies a relapsing episode", {
+test_that("classify_episode_type() classifies a relapsing episode", {
   x <- classify_episode_types(
     patient_id = rep("ABC1234", 2),
     infection_date = as.Date(c("2025-01-01", "2025-01-25")),   # 2nd infection 10 days after 1st treatment ended
@@ -22,7 +22,7 @@ test_that("classifies a relapsing episode", {
 })
 
 
-test_that("classify_episode_types() classifies a relapsing episode: negative culture followed by a specific organism", {
+test_that("the function classifies a relapsing episode: negative culture followed by a specific organism", {
   x <- classify_episode_types(
     patient_id = rep("ABC1234", 2),
     infection_date = as.Date(c("2025-01-01", "2025-01-25")),
@@ -33,7 +33,7 @@ test_that("classify_episode_types() classifies a relapsing episode: negative cul
 })
 
 
-test_that("classifies a recurrent episode", {
+test_that("the function classifies a recurrent episode", {
   x <- classify_episode_types(
     patient_id = rep("ABC1234", 2),
     infection_date = as.Date(c("2025-01-01", "2025-01-25")),   # within 4 weeks
@@ -44,7 +44,7 @@ test_that("classifies a recurrent episode", {
 })
 
 
-test_that("classifies a repeat episode", {
+test_that("the function classifies a repeat episode", {
   x <- classify_episode_types(
     patient_id = rep("ABC1234", 2),
     infection_date = as.Date(c("2025-01-01", "2025-03-01")),   # 45 days after prior treatment ended (>4 weeks)
@@ -55,7 +55,7 @@ test_that("classifies a repeat episode", {
 })
 
 
-test_that("returns NA when >4 weeks later with a different organism", {
+test_that("the function returns NA when >4 weeks later with a different organism", {
   x <- classify_episode_types(
     patient_id = rep("ABC1234", 2),
     infection_date = as.Date(c("2025-01-01", "2025-03-01")),   # 45 days after prior treatment ended (>4 weeks)
@@ -67,7 +67,7 @@ test_that("returns NA when >4 weeks later with a different organism", {
 })
 
 
-test_that("matches organisms regardless of case or order", {
+test_that("the function matches organisms regardless of case or order", {
   x <- classify_episode_types(
     patient_id = rep("ABC1234", 2),
     infection_date = as.Date(c("2025-01-01", "2025-01-25")),
@@ -79,7 +79,7 @@ test_that("matches organisms regardless of case or order", {
 })
 
 
-test_that("does not compare episodes across different patients", {
+test_that("the function does not compare episodes across different patients", {
   x <- classify_episode_types(
     patient_id = c("P1", "P2"),
     infection_date = as.Date(c("2025-01-01", "2025-01-20")),   # P2's infection is only 5 days after P1's last dose
@@ -90,7 +90,7 @@ test_that("does not compare episodes across different patients", {
 })
 
 
-test_that("treats a catheter-removed outcome with no outcome_date as invalid", {
+test_that("the function treats a catheter-removed outcome with no outcome_date as invalid", {
   x <- classify_episode_types(
     patient_id = rep("ABC1234", 2),
     infection_date = as.Date(c("2025-01-01", "2025-01-25")),
@@ -102,7 +102,7 @@ test_that("treats a catheter-removed outcome with no outcome_date as invalid", {
 })
 
 
-test_that("treats a missing last_dose_antibiotic as invalid, leaving no prior episode", {
+test_that("the function treats a missing last_dose_antibiotic as invalid, leaving no prior episode", {
   x <- classify_episode_types(
     patient_id = rep("ABC1234", 2),
     infection_date = as.Date(c("2025-01-01", "2025-01-25")),
@@ -113,7 +113,7 @@ test_that("treats a missing last_dose_antibiotic as invalid, leaving no prior ep
 })
 
 
-test_that("errors when infection_date is not a Date", {
+test_that("the function errors when infection_date is not a Date", {
   expect_error(
     classify_episode_types(
       patient_id = "ABC1234",
@@ -126,7 +126,7 @@ test_that("errors when infection_date is not a Date", {
 })
 
 
-test_that("errors when organism_list is not a list", {
+test_that("the function errors when organism_list is not a list", {
   expect_error(
     classify_episode_types(
       patient_id = "ABC1234",
@@ -139,7 +139,7 @@ test_that("errors when organism_list is not a list", {
 })
 
 
-test_that("errors when the inputs are different lengths", {
+test_that("the function errors when the inputs are different lengths", {
   expect_error(
     classify_episode_types(
       patient_id = c("ABC1234", "ABC1234"),
