@@ -71,7 +71,7 @@ builds the object graph, derives these numbers and validates the result.
 \examples{
 # An empty unit for a period with no patients.
 new_pd_unit(
-  unit_id = "Auckland PD Unit",
+  unit_id = "Wellington PD Unit",
   t0 = as.Date("2025-01-01"),
   t1 = as.Date("2025-12-31"),
   n_new = 0L,

@@ -65,9 +65,6 @@ new_pd_infection <- function(patient_id = NA_character_,
 validate_pd_infection <- function(x) {
   stopifnot(inherits(x, "pd_infection"))
 
-  # if (is.na(x$patient_id) || is.na(x$catheter_id)) {
-  #   stop("Both patient_id and catheter_id must be supplied.")
-  # }
   if (is.na(x$patient_id)) {
     stop("patient_id must be supplied.")
   }

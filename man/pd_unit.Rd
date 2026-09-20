@@ -60,17 +60,16 @@ than aborting on the first one. Set \code{strict = TRUE} to make them an
 error instead.
 }
 \examples{
-\dontrun{
-auckland <- pd_unit(
-  unit_data_path      = "data-raw/a3_2025.xlsx",
-  infection_data_path = "data-raw/pe_2025.xlsx",
-  t0      = as.Date("2025-01-01"),
-  t1      = as.Date("2025-12-31"),
+unit <- pd_unit(
+  unit_data_path = system.file("extdata", "a3_2025.xlsx",
+                               package = "peridial", mustWork = TRUE),
+  infection_data_path = system.file("extdata", "pe_2025.xlsx",
+                                    package = "peridial", mustWork = TRUE),
+  t0 = as.Date("2025-01-01"),
+  t1 = as.Date("2025-12-31"),
   unit_id = "Auckland PD Unit"
 )
-auckland
-auckland$tpyar
-}
+unit
 }
 \seealso{
 \code{\link{new_pd_unit}()} for the underlying constructor.

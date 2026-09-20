@@ -44,7 +44,7 @@
 #' @examples
 #' # An empty unit for a period with no patients.
 #' new_pd_unit(
-#'   unit_id = "Auckland PD Unit",
+#'   unit_id = "Wellington PD Unit",
 #'   t0 = as.Date("2025-01-01"),
 #'   t1 = as.Date("2025-12-31"),
 #'   n_new = 0L,
@@ -262,7 +262,7 @@ print.pd_unit <- function(x, ...) {
 has_col <- function(df, col) nrow(df) > 0 && col %in% names(df)
 
 
-#' Peritonitis rate (Equation \eqref{eq:rate}) against its ISPD benchmark
+#' Peritonitis rate against its ISPD benchmark
 #'
 #' @param x A \code{pd_unit} object.
 #'
@@ -285,7 +285,7 @@ summarise_rate <- function(x) {
 }
 
 
-#' Peritonitis-free percentage (Equation \eqref{eq:pf}) against its ISPD benchmark
+#' Peritonitis-free percentage against its ISPD benchmark
 #'
 #' @param x A \code{pd_unit} object.
 #'
@@ -308,7 +308,7 @@ summarise_pf <- function(x) {
 }
 
 
-#' Episode counts by \code{episode_type}
+#' Episode counts
 #'
 #' @param x A \code{pd_unit} object.
 #'
@@ -546,10 +546,11 @@ summarise_infections <- function(x) {
 
 #' Summarise a pd_unit object
 #'
-#' Reports the unit's headline peritonitis indicators (Equations
-#' \eqref{eq:rate} and \eqref{eq:pf} against their ISPD benchmarks), a
-#' breakdown of episodes by type, the cohort's outcomes and
-#' incident/prevalent split, patient demographics, a catheter summary, and infection detail (organisms cultured and PE outcomes).
+#' Reports the unit's headline peritonitis indicators (unit's peritonitis rate
+#' and peritonitis free percentage against their ISPD benchmarks),
+#' a breakdown of episodes by type, the cohort's outcomes and
+#' incident/prevalent split, patient demographics, a catheter summary,
+#' and infection detail (organisms cultured and PE outcomes).
 #'
 #' @param object A \code{pd_unit} object.
 #' @param ... Ignored.
