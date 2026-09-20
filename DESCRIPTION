@@ -5,7 +5,7 @@ Authors@R:
     person("Ernest", "Caballero", , "ernestcabs@gmail.com", role = c("aut", "cre"))
 Description: A standardised R framework for ingesting, validating, and
     summarising clinical peritoneal (PD) unit data. Nested S3
-    classes represent the PD unit, patients, catheters, and peritonitis
+    classes represent the PD patients, catheters, and peritonitis
     episodes, supporting reproducible calculation of ISPD-recommended
     peritonitis rate and peritonitis-free percentage indicators from
     longitudinal catheter and infection records.
@@ -16,8 +16,10 @@ Imports:
     dplyr,
     readxl (>= 1.5.0),
     stats,
-    tibble
-Config/roxygen2/version: 8.1.0
+    tibble,
+    Rcpp
+LinkingTo: Rcpp
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.1.0
