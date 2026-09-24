@@ -1,6 +1,6 @@
 # Peer Assessment Plan — peRidial
 
-**Package:** `peridial` — ingests raw peritoneal dialysis (PD) unit data and calculates ISPD-recommended peritonitis rate and peritonitis-free indicators.
+**Package:** `peridial` — provides a standardised framework to ingest, validate, structure and summarise clinical PD unit data and supporting the reproducible calculation of peritonitis indicators as recommended by the International Society for Peritoneal Dialysis (ISPD). See Reference for the article.
 
 **Repository:** https://github.com/ernestcaballero/peRidial
 
@@ -230,3 +230,8 @@ classify_episode_types(
 ## 6. Test data
 
 The package is developed and distributed using synthetic data only. No real patient records are accessed, stored, or shipped, so no ethics approval is required. Patient identifiers in the sample dataset are synthetic.
+
+## Reference
+Li, Philip Kam-Tao, Kai Ming Chow, Yeoungjee Cho, et al. 2022. “ISPD Peritonitis Guideline
+Recommendations: 2022 Update on Prevention and Treatment.” Peritoneal Dialysis International
+42 (2): 110–53. https://doi.org/10.1177/08968608221080586.
