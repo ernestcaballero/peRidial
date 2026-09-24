@@ -93,3 +93,36 @@ One person receiving PD at any point during the reporting period. Owns the
 catheters belonging to that patient, so a patient's whole PD history lives in one object.
 Each of those catheters in turn owns its own peritonitis episodes, giving the nested structure.
 }
+\examples{
+\dontrun{
+cath <- new_pd_catheter(
+  patient_id = "ABC0110",
+  catheter_id = "ABC0110_01",
+  insertion_date = as.Date("2025-01-25"),
+  procedure_type = "laparoscopic",
+  pd_start_date = as.Date("2025-02-10"),
+  pd_stop_date = as.Date(NA),
+  removal_reason = NA_character_,
+  infections = list(),
+  t0 = as.Date("2025-01-01"),
+  t1 = as.Date("2025-12-31"),
+  total_exposure_days = 324L
+)
+
+new_pd_patient(
+  patient_id = "ABC0110",
+  catheters = list(cath),
+  t0 = as.Date("2025-01-01"),
+  t1 = as.Date("2025-12-31"),
+  gender = "Female",
+  ethnicity = "NZ European",
+  date_of_birth = as.Date("1968-04-12"),
+  primary_kidney_disease = "Diabetic nephropathy",
+  diabetes_status = "Type 2",
+  smoking_status = "Former",
+  dialysis_type = "APD",
+  transfer_reason = NA_character_,
+  transfer_date = as.Date(NA)
+)}
+
+}

@@ -48,3 +48,15 @@ reporting period. Includes date of infection, peritonitis episode type,
 causative organism, and outcome (if resolved, catheter removed or transferred
 to haemodialysis - permanently or temporarily).
 }
+\examples{
+\dontrun{
+new_pd_infection(
+  patient_id = "ABC0110",
+  infection_date = as.Date("2025-06-01"),
+  organism_list = list("Staphylococcus aureus"),
+  episode_type = NA_character_,
+  last_dose_antibiotic = as.Date(NA),
+  outcome = NA_character_,
+  outcome_date = as.Date(NA)
+)}
+}

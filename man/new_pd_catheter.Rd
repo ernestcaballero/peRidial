@@ -86,3 +86,20 @@ when it was removed. Owns the peritonitis episodes ("infections") that
 occurred during this catheter's active PD window, so episode counts and
 their matching denominator live in the same object.
 }
+\examples{
+\dontrun{
+new_pd_catheter(
+  patient_id = "ABC0110",
+  catheter_id = "ABC0110_01",
+  insertion_date = as.Date("2025-01-25"),
+  procedure_type = "laparoscopic",
+  pd_start_date = as.Date("2025-02-10"),
+  pd_stop_date = as.Date(NA),
+  removal_reason = NA_character_,
+  infections = list(),
+  t0 = as.Date("2025-01-01"),
+  t1 = as.Date("2025-12-31"),
+  total_exposure_days = 324L
+)}
+
+}

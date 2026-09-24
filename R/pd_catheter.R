@@ -54,6 +54,22 @@
 #' @returns An object of class \code{pd_catheter}.
 #' @export
 #'
+#' @examples
+#' \dontrun{
+#' new_pd_catheter(
+#'   patient_id = "ABC0110",
+#'   catheter_id = "ABC0110_01",
+#'   insertion_date = as.Date("2025-01-25"),
+#'   procedure_type = "laparoscopic",
+#'   pd_start_date = as.Date("2025-02-10"),
+#'   pd_stop_date = as.Date(NA),
+#'   removal_reason = NA_character_,
+#'   infections = list(),
+#'   t0 = as.Date("2025-01-01"),
+#'   t1 = as.Date("2025-12-31"),
+#'   total_exposure_days = 324L
+#' )}
+#'
 new_pd_catheter <- function(patient_id = NA_character_,
                             catheter_id = NA_character_,
                             insertion_date = as.Date(NA),

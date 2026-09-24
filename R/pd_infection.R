@@ -28,7 +28,17 @@
 #' @returns An object of class \code{pd_infection}.
 #' @export
 #'
-#'
+#' @examples
+#' \dontrun{
+#' new_pd_infection(
+#'   patient_id = "ABC0110",
+#'   infection_date = as.Date("2025-06-01"),
+#'   organism_list = list("Staphylococcus aureus"),
+#'   episode_type = NA_character_,
+#'   last_dose_antibiotic = as.Date(NA),
+#'   outcome = NA_character_,
+#'   outcome_date = as.Date(NA)
+#' )}
 
 new_pd_infection <- function(patient_id = NA_character_,
                              infection_date = as.Date(NA),
