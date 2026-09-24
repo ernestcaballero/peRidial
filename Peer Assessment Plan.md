@@ -54,7 +54,7 @@ print.*() / summary.pd_patient() / summary.pd_unit()
 
 ---
 
-## 3. Function inventory
+## 3. Function inventory (see specific verification lines below)
 
 | Function | Layer | What it does | How to verify |
 |---|---|---|---|
@@ -94,28 +94,104 @@ print.*() / summary.pd_patient() / summary.pd_unit()
 
 ---
 
-## 4. Verify everything
+## 4. Verify
+
+### 4.1 Install + load
 
 ```r
-# 1. Install + load
 install.packages("remotes")
 remotes::install_github("ernestcaballero/peridial")
 library(peridial)
+```
 
-# 2. Run the automated suite 
-devtools::test()   
-# or, against the installed package:
+### 4.2 Run the automated suite and RMD check:
+```r
+devtools::test()      # all files in tests/testthat should pass
 testthat::test_dir(system.file("tests", "testthat", package = "peridial"))
 
-# 3. Using the bundled example data, you can test how each function and method works
+devtools::check()     # expect 0 errors, 0 warnings
+```
+
+
+### 4.3 How to check each function
+
+Run the setup once, then work through the checks. 
+Every check shows the call
+and what you should see. Anything marked *should error* is a deliberate failure case.
+
+```r
+library(peridial)
+t0 <- as.Date("2025-01-01"); t1 <- as.Date("2025-12-31")
+
 unit <- pd_unit(
   unit_data_path      = system.file("extdata", "a3_2025.xlsx", package = "peridial"),
   infection_data_path = system.file("extdata", "pe_2025.xlsx", package = "peridial"),
-  t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
-  unit_id = "Wellington PD Unit"
+  t0 = t0, t1 = t1, unit_id = "Wellington PD Unit"
 )
-print(unit)
-summary(unit)
+```
+
+### 4.3.1 `pd_unit()`, `print()`, `summary()`
+
+| Check | Call | Expected |
+|---|---|---|
+| Unit builds | `class(unit)` | `"pd_unit"` |
+| Print method | `print(unit)` | Header with unit name, period, patient / incident counts, catheters, episodes, patient-years |
+| Summary method | `summary(unit)` | Rate, peritonitis-free %, episode types, outcomes, demographics, catheter and infection summaries |
+| Cohort size agrees | `unit$n_patients == nrow(unit$patients)` and `== length(unit$patient_list)` | `TRUE`, `TRUE` |
+| Incident subset | `unit$n_new <= unit$n_patients` | `TRUE` |
+| Bad counts rejected | `peridial:::validate_pd_unit(new_pd_unit(unit_id = "X", t0 = t0, t1 = t1, n_new = 5L, n_patients = 2L, tpyar = 1))` | *Should error:* "n_new cannot exceed n_patients." |
+
+
+### 4.3.2 Nested objects (`pd_patient`, `pd_catheter`, `pd_infection`)
+
+```r
+pat  <- unit$patient_list[[1]]
+cath <- pat$catheters[[1]]
+```
+
+| Check | Call | Expected |
+|---|---|---|
+| Classes | `class(pat)`, `class(cath)` | `"pd_patient"`, `"pd_catheter"` |
+| Print / summary | `print(pat)`, `summary(pat)`, `print(cath)` | Readable multi-line output, no errors |
+| Child belongs to parent | `cath$patient_id == pat$patient_id` | `TRUE` |
+| Catheter count | `pat$n_catheters == length(pat$catheters)` | `TRUE` |
+| Episode roll-up | `pat$n_episodes == sum(vapply(pat$catheters, function(c) c$n_peritonitis_episodes, numeric(1)))` | `TRUE` |
+| Flag matches count | `cath$peritonitis_flag == (cath$n_peritonitis_episodes > 0)` | `TRUE` |
+| Missing IDs rejected | `peridial:::validate_pd_catheter(new_pd_catheter(patient_id = NA_character_, catheter_id = NA_character_, insertion_date = as.Date("2025-01-25"), pd_start_date = as.Date(NA), pd_stop_date = as.Date(NA), t0 = t0, t1 = t1))` | *Should error* (patient_id / catheter_id required) |
+| Bare `NA` date rejected | `new_pd_catheter(patient_id = "ABC0110", catheter_id = "ABC0110_01", insertion_date = as.Date("2025-01-25"), pd_start_date = NA, t0 = t0, t1 = t1)` | *Should error:* pd_start_date must be a Date |
+| Outcome needs a date | `peridial:::validate_pd_infection(new_pd_infection(patient_id = "ABC0110", infection_date = as.Date("2025-03-01"), organism_list = list("Staphylococcus aureus"), episode_type = NA_character_, last_dose_antibiotic = as.Date("2025-03-15"), outcome = "catheter removed", outcome_date = as.Date(NA)))` | *Should error:* "Missing date of catheter removal. Must be supplied." |
+
+
+### 4.3.3 Exposure functions
+
+| Call | Expected |
+|---|---|
+| `exposure_days(as.Date("2025-01-01"), as.Date("2025-01-10"))` | `10` (both endpoints counted) |
+| `exposure_days(as.Date("2025-02-01"), as.Date("2025-01-01"))` | `0` (never negative) |
+| `catheter_exposure_days(list(pd_start_date = as.Date("2025-02-10"), pd_stop_date = as.Date(NA)), t0, t1)` | `325` (open-ended catheter closes at `t1`) |
+| Same catheter with `tau = as.Date("2025-06-30")` | `141` (censored at patient's leaving date) |
+| `total_patient_years(unit$patient_list, t0, t1)` | Equals `unit$tpyar` |
+
+
+### 4.3.4 Peritonitis episode classification
+
+```r
+prior <- new_pd_infection(
+  patient_id = "ABC0110", infection_date = as.Date("2025-03-01"),
+  organism_list = list("Staphylococcus aureus"), episode_type = NA_character_,
+  last_dose_antibiotic = as.Date("2025-03-15"),
+  outcome = NA_character_, outcome_date = as.Date(NA)
+)
+```
+
+| Call | Expected |
+|---|---|
+| `get_episode_type(as.Date("2025-03-01"), list("Staphylococcus aureus"), NULL)` | `NA` (first episode) |
+| `get_episode_type(as.Date("2025-03-25"), list("Staphylococcus aureus"), prior)` | `"relapsing"` (same organism, within 4 weeks) |
+| `get_episode_type(as.Date("2025-03-25"), list("Escherichia coli"), prior)` | `"recurrent"` (different organism, within 4 weeks) |
+| `get_episode_type(as.Date("2025-06-15"), list("Staphylococcus aureus"), prior)` | `"repeat"` (same organism, after 4 weeks) |
+| `classify_episode_types(rep("ABC0110", 3), as.Date(c("2025-03-01","2025-03-25","2025-06-15")), as.Date(c("2025-03-15","2025-04-08","2025-06-29")), list(list("Staphylococcus aureus"), list("Staphylococcus aureus"), list("Staphylococcus aureus")))` | `NA`, `"relapsing"`, `"repeat"` (matches the scalar function row by row) |
+
 
 # 4. spot-check the Rcpp path directly
 classify_episode_types(
@@ -125,6 +201,44 @@ classify_episode_types(
   organism_list = list(list("E. coli"), list("E. coli"))
 )
 #> [1] NA "relapsing"
+
+
+# 5. Known limitations and assumptions
+
+- **Exposure days on the catheter.** `total_exposure_days` is not derived
+  inside `pd_catheter`, because it needs the patient's leaving date (`tau`),
+  which the catheter doesn't know. It is supplied from higher up, and defaults
+  to `NA` when not supplied. `pd_unit()` fills it for every
+  catheter in the bundled data.
+- **Limited public interface.** The `validate_*()` functions and the summary
+  helpers are internal. The examples above use `peridial:::` to reach the
+  validators. There is no exported function for the individual ISPD
+  indicators beyond `summary()`.
+- **Nothing beyond the 2025 layout.** `pd_unit()` expects the column names and
+  sheet layout of the two bundled Excel files.
+- Relapsing episodes are excluded from `n_peritonitis_episodes` and
+  `n_episodes`; recurrent and repeat episodes are counted. Episodes are
+  counted only when they fall inside both the catheter's active PD window and
+  the reporting period `[t0, t1]`.
+- Episode type is judged against the same patient's immediately preceding
+  valid episode only. A patient's earlier history is not consulted (eg. outside reporting period).
+- An `NA` stop date means the catheter is still in use, and an `NA` transfer
+  date means the patient never left PD. Both close at `t1`.
+- Dates must be genuine `Date` values. A bare `NA` is rejected for
+  `pd_start_date` and `pd_stop_date`, and normalised to `as.Date(NA)` for
+  `date_of_birth` and `transfer_date`.
+
+**Not yet tested or not covered**
+
+- Behaviour with very large units (performance is untested).
+- Patients with several catheters overlapping in time. Not tested whether
+  exposure could be counted twice.
+- Free-text category fields (ethnicity, diabetes status, smoking status,
+  primary kidney disease) are not checked against an allowed list.
 ```
 
+Data:
+The package will be developed and distributed using synthetic data only. No real patient records
+will be accessed, stored, or shipped, so no ethics approval will be required. Patient identifiers in the
+sample dataset will be synthetic.
 ---

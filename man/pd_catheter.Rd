@@ -56,12 +56,12 @@ unfiltered.}
 
 \item{t1}{Date. End of the reporting period. See \code{t0}.}
 
-\item{total_exposure_days}{Integer. Total days this catheter is at risk,
-i.e. \code{exposure_days} from Equation (1) of the design proposal
+\item{total_exposure_days}{Integer. Total days this catheter is at risk for peritonitis
 (censored against \code{t0}, \code{t1}, and the patient's censoring date
-\code{tau} for death, transplant, or permanent HD transfer). Patient-level
-\code{tau} isn't known to a \code{pd_catheter} object in isolation, so
-this is computed upstream (at the \code{pd_unit}/ingest level) and
+\code{tau} for death, transplant, or permanent HD transfer). ISPD 2022 defines
+patient-time-at-risk as beginning on the day PD commences and continuing while
+the patient remains on PD. Patient-level \code{tau} isn't known to a \code{pd_catheter}
+object in isolation, so this is computed upstream (at the \code{pd_unit}/ingest level) and
 supplied here; defaults to \code{NA_integer_} until that computation is
 wired in.}
 

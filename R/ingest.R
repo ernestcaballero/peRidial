@@ -322,7 +322,7 @@ patient_dob_value <- function(demo) {
 
 
 
-#' Derive a patient's censoring point (tau)
+#' Derive a patient's censoring point (\eqn{tau})
 #'
 #' \eqn{tau} is the date a patient permanently stopped being at risk of PD
 #' peritonitis. Four events end PD, and the earliest of them wins:

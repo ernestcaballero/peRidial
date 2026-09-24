@@ -106,7 +106,7 @@ cath <- new_pd_catheter(
   infections = list(),
   t0 = as.Date("2025-01-01"),
   t1 = as.Date("2025-12-31"),
-  total_exposure_days = 324L
+  total_exposure_days = 325L
 )
 
 new_pd_patient(
