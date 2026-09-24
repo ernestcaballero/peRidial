@@ -1,0 +1,39 @@
+---
+title: "Introduction to peRidial"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to peRidial}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+
+## Overview
+
+peRidial is a standardised R framework for ingesting, validating, and
+summarising clinical peritoneal dialysis (PD) unit data. Nested S3 classes
+represent PD patients, catheters, and peritonitis episodes, supporting
+reproducible calculation of International Society for Peritoneal Dialysis (ISPD)-recommended peritonitis rate and peritonitis-free percentage indicators from longitudinal catheter and
+infection records.
+
+This vignette walks through the core classes and a first worked example.
+
+
+## Installation
+
+```r
+# install.packages("remotes")
+remotes::install_github("ernestcaballero/peRidial")
+```
+
+> peRidial includes compiled C++ code (via Rcpp), so installing from source
+> requires a working compiler toolchain — Rtools on Windows, or the Xcode
+> Command Line Tools on macOS (`xcode-select --install`). Linux users
+> typically have a compiler available already.
