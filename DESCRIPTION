@@ -17,9 +17,11 @@ Imports:
     readxl (>= 1.5.0),
     stats,
     tibble,
-    Rcpp
+    Rcpp,
+    rlang
 LinkingTo: Rcpp
 Suggests: 
+    ggplot2,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.1.0
