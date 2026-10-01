@@ -674,6 +674,10 @@ infections_to_tibble <- function(patient_list, t0, t1) {
 #' @param t1 Date. End of the reporting period.
 #' @param unit_id Character. Identifier for the unit, e.g.
 #'   \code{"Auckland PD Unit"}. Defaults to \code{NA_character_}.
+#' @param rate_benchmark Numeric. The ISPD peritonitis-rate benchmark for
+#'   this unit, in episodes per patient-year, used by \code{summary.pd_unit()}
+#'   and \code{plot.pd_unit()} to judge/plot the headline rate against.
+#'   Defaults to 0.40, the ISPD standard.
 #' @param censor_on_last_stop Logical. Treat a patient whose every catheter
 #'   has closed, with none reopened, as having left PD on the last
 #'   \code{pd_stop_date}. Defaults to \code{TRUE}. Set \code{FALSE} if your
@@ -702,6 +706,7 @@ pd_unit <- function(unit_data_path,
                     t0,
                     t1,
                     unit_id = NA_character_,
+                    rate_benchmark = 0.40,
                     censor_on_last_stop = TRUE,
                     strict = FALSE) {
 
@@ -1042,13 +1047,14 @@ pd_unit <- function(unit_data_path,
   report_issues(log, strict = strict)
 
   x <- new_pd_unit(
-    unit_id      = unit_id,
-    t0           = t0,
-    t1           = t1,
-    n_new        = as.integer(n_new),
-    n_patients   = as.integer(n_patients),
-    tpyar        = tpyar,
-    patients     = patients_tbl,
+    unit_id        = unit_id,
+    t0             = t0,
+    t1             = t1,
+    n_new          = as.integer(n_new),
+    n_patients     = as.integer(n_patients),
+    tpyar          = tpyar,
+    rate_benchmark = rate_benchmark,
+    patients       = patients_tbl,
     catheters    = catheters_tbl,
     infections   = infections_tbl,
     patient_list = patient_list

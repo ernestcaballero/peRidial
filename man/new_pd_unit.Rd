@@ -11,6 +11,7 @@ new_pd_unit(
   n_new = NA_integer_,
   n_patients = NA_integer_,
   tpyar = NA_real_,
+  rate_benchmark = 0.4,
   patients = tibble::tibble(),
   catheters = tibble::tibble(),
   infections = tibble::tibble(),
@@ -20,13 +21,12 @@ new_pd_unit(
 \arguments{
 \item{unit_id}{Character. Name of the PD unit (e.g. "XYZ PD Unit").}
 
-\item{t0}{Date. Start of the reporting period.}
+\item{t0}{Date. Start of the reporting period. Usually 1st day of January of the reporting year.}
 
-\item{t1}{Date. End of the reporting period.}
+\item{t1}{Date. End of the reporting period. Usually 31st day of December of the reporting year.}
 
 \item{n_new}{Integer. Number of incident ("new") patients in the reporting
-period, i.e. the count of \code{patient_list} entries whose
-\code{new_patient_flag} is \code{TRUE}.}
+period, i.e. the count of \code{patient_list} entries whose \code{new_patient_flag} is \code{TRUE}.}
 
 \item{n_patients}{Integer. Size of the reporting cohort: every patient who
 was on PD at any point during \code{[t0, t1]} (prevalent at \code{t0}
@@ -37,8 +37,14 @@ part-way through. Must equal both \code{nrow(patients)} and
 \item{tpyar}{Numeric. Total patient-years at risk across the cohort: the
 time patients actively spent on PD within \code{[t0, t1]}, censored at
 each patient's \code{tau}, expressed in years. This is the denominator
-(PY) of the peritonitis rate. Derived by
-\code{\link{total_patient_years}()}.}
+(PY) of the peritonitis rate. Derived by \code{\link{total_patient_years}()}.}
+
+\item{rate_benchmark}{Numeric. The ISPD peritonitis-rate benchmark for
+this unit, in episodes per patient-year: the headline rate is judged
+"MET" when it is at or below this value. Carried on the object so
+\code{summary.pd_unit()} and \code{plot.pd_unit()} judge and plot
+against the same threshold by default. Defaults to 0.40, the ISPD
+standard.}
 
 \item{patients}{Tibble. One row per patient, flattened from
 \code{patient_list}.}

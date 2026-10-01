@@ -58,7 +58,25 @@ test_that("new_pd_unit() returns an object of class pd_unit with all fields", {
   x <- make_unit()
   expect_s3_class(x, "pd_unit")
   expect_named(x, c("unit_id", "t0", "t1", "n_new", "n_patients", "tpyar",
-                    "patients", "catheters", "infections", "patient_list"))
+                    "rate_benchmark", "patients", "catheters", "infections",
+                    "patient_list"))
+})
+
+test_that("new_pd_unit() defaults rate_benchmark to 0.40", {
+  x <- make_unit()
+  expect_equal(x$rate_benchmark, 0.40)
+})
+
+test_that("new_pd_unit() accepts a custom rate_benchmark", {
+  x <- make_unit(rate_benchmark = 0.30)
+  expect_equal(x$rate_benchmark, 0.30)
+})
+
+test_that("validate_pd_unit() rejects a missing or negative rate_benchmark", {
+  expect_error(validate_pd_unit(make_unit(rate_benchmark = NA_real_)),
+               "rate_benchmark is missing")
+  expect_error(validate_pd_unit(make_unit(rate_benchmark = -0.1)),
+               "rate_benchmark cannot be negative")
 })
 
 test_that("new_pd_unit() defaults are empty rather than absent", {

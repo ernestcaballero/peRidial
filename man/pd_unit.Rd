@@ -10,6 +10,7 @@ pd_unit(
   t0,
   t1,
   unit_id = NA_character_,
+  rate_benchmark = 0.4,
   censor_on_last_stop = TRUE,
   strict = FALSE
 )
@@ -27,6 +28,11 @@ episode (PE) Excel file.}
 
 \item{unit_id}{Character. Identifier for the unit, e.g.
 \code{"Auckland PD Unit"}. Defaults to \code{NA_character_}.}
+
+\item{rate_benchmark}{Numeric. The ISPD peritonitis-rate benchmark for
+this unit, in episodes per patient-year, used by \code{summary.pd_unit()}
+and \code{plot.pd_unit()} to judge/plot the headline rate against.
+Defaults to 0.40, the ISPD standard.}
 
 \item{censor_on_last_stop}{Logical. Treat a patient whose every catheter
 has closed, with none reopened, as having left PD on the last

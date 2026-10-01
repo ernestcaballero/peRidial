@@ -12,11 +12,10 @@
 #' builds the object graph, derives these numbers and validates the result.
 #'
 #' @param unit_id Character. Name of the PD unit (e.g. "XYZ PD Unit").
-#' @param t0 Date. Start of the reporting period.
-#' @param t1 Date. End of the reporting period.
+#' @param t0 Date. Start of the reporting period. Usually 1st day of January of the reporting year.
+#' @param t1 Date. End of the reporting period. Usually 31st day of December of the reporting year.
 #' @param n_new Integer. Number of incident ("new") patients in the reporting
-#'   period, i.e. the count of \code{patient_list} entries whose
-#'   \code{new_patient_flag} is \code{TRUE}.
+#'   period, i.e. the count of \code{patient_list} entries whose \code{new_patient_flag} is \code{TRUE}.
 #' @param n_patients Integer. Size of the reporting cohort: every patient who
 #'   was on PD at any point during \code{[t0, t1]} (prevalent at \code{t0}
 #'   plus incident within the period), including those who died or left PD
@@ -25,8 +24,13 @@
 #' @param tpyar Numeric. Total patient-years at risk across the cohort: the
 #'   time patients actively spent on PD within \code{[t0, t1]}, censored at
 #'   each patient's \code{tau}, expressed in years. This is the denominator
-#'   (PY) of the peritonitis rate. Derived by
-#'   \code{\link{total_patient_years}()}.
+#'   (PY) of the peritonitis rate. Derived by \code{\link{total_patient_years}()}.
+#' @param rate_benchmark Numeric. The ISPD peritonitis-rate benchmark for
+#'   this unit, in episodes per patient-year: the headline rate is judged
+#'   "MET" when it is at or below this value. Carried on the object so
+#'   \code{summary.pd_unit()} and \code{plot.pd_unit()} judge and plot
+#'   against the same threshold by default. Defaults to 0.40, the ISPD
+#'   standard.
 #' @param patients Tibble. One row per patient, flattened from
 #'   \code{patient_list}.
 #' @param catheters Tibble. One row per catheter, flattened from the
@@ -57,6 +61,7 @@ new_pd_unit <- function(unit_id = NA_character_,
                         n_new = NA_integer_,
                         n_patients = NA_integer_,
                         tpyar = NA_real_,        # total patient-years-at-risk
+                        rate_benchmark = 0.40,   # ISPD peritonitis-rate benchmark
                         patients = tibble::tibble(),
                         catheters = tibble::tibble(),
                         infections = tibble::tibble(),
@@ -68,6 +73,7 @@ new_pd_unit <- function(unit_id = NA_character_,
   stopifnot(length(n_new) == 1, is.na(n_new) || is.numeric(n_new))
   stopifnot(length(n_patients) == 1, is.na(n_patients) || is.numeric(n_patients))
   stopifnot(length(tpyar) == 1, is.na(tpyar) || is.numeric(tpyar))
+  stopifnot(length(rate_benchmark) == 1, is.numeric(rate_benchmark))
   stopifnot(is.data.frame(patients), is.data.frame(catheters),
             is.data.frame(infections))
   stopifnot(is.list(patient_list))
@@ -80,6 +86,7 @@ new_pd_unit <- function(unit_id = NA_character_,
       n_new = n_new,
       n_patients = n_patients,
       tpyar = tpyar,
+      rate_benchmark = rate_benchmark,
       patients = patients,
       catheters = catheters,
       infections = infections,
@@ -129,6 +136,14 @@ validate_pd_unit <- function(x) {
     stop("Total patient-years-at-risk (", round(x$tpyar, 3), ") exceeds the ",
          "maximum possible for ", x$n_patients, " patients over a reporting ",
          "period of ", round(period_years, 3), " years.")
+  }
+
+  # checks rate_benchmark is present and sane
+  if (is.na(x$rate_benchmark)) {
+    stop("rate_benchmark is missing.")
+  }
+  if (x$rate_benchmark < 0) {
+    stop("rate_benchmark cannot be negative.")
   }
 
   # `patients` and `patient_list` are two views of the same cohort: must match (nrow(patients) = n_patients)
@@ -267,7 +282,8 @@ has_col <- function(df, col) nrow(df) > 0 && col %in% names(df)
 #' @param x A \code{pd_unit} object.
 #'
 #' @return A list with \code{rate}, \code{rate_num}, \code{rate_den},
-#'   \code{rate_benchmark} and \code{rate_met}.
+#'   \code{rate_benchmark} (read from \code{x$rate_benchmark}) and
+#'   \code{rate_met}.
 #' @noRd
 #'
 summarise_rate <- function(x) {
@@ -278,7 +294,7 @@ summarise_rate <- function(x) {
   }
   rate_den <- x$tpyar
   rate <- if (is.na(rate_den) || rate_den == 0) NA_real_ else rate_num / rate_den
-  rate_benchmark <- 0.40
+  rate_benchmark <- x$rate_benchmark
   list(rate = rate, rate_num = rate_num, rate_den = rate_den,
        rate_benchmark = rate_benchmark,
        rate_met = !is.na(rate) && rate <= rate_benchmark)
