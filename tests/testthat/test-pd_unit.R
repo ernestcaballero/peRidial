@@ -1,55 +1,7 @@
-# Helpers
-
-T0 <- as.Date("2025-01-01")
-T1 <- as.Date("2025-12-31")
-
-make_catheter <- function(patient_id = "ABC1234",
-                          catheter_id = "ABC1234_01",
-                          insertion_date = as.Date("2024-12-01"),
-                          pd_start_date = as.Date("2024-12-15"),
-                          pd_stop_date = as.Date(NA),
-                          infections = list(),
-                          t0 = T0, t1 = T1) {
-  pd_catheter(patient_id = patient_id,
-              catheter_id = catheter_id,
-              insertion_date = insertion_date,
-              pd_start_date = pd_start_date,
-              pd_stop_date = pd_stop_date,
-              infections = infections,
-              t0 = t0, t1 = t1)
-}
-
-make_patient <- function(patient_id = "ABC1234", catheters = NULL,
-                         t0 = T0, t1 = T1, ...) {
-  if (is.null(catheters)) {
-    catheters <- list(make_catheter(patient_id = patient_id, t0 = t0, t1 = t1))
-  }
-  pd_patient(patient_id = patient_id, catheters = catheters,
-             t0 = t0, t1 = t1, ...)
-}
-
-# A minimal but internally consistent unit: one prevalent patient, one
-# catheter, no episodes.
-make_unit <- function(...) {
-  p <- make_patient()
-  args <- list(
-    unit_id = "Test PD Unit",
-    t0 = T0, t1 = T1,
-    n_new = 0L,
-    n_patients = 1L,
-    tpyar = total_patient_years(list(p), T0, T1),
-    patients = tibble::tibble(patient_id = "ABC1234"),
-    catheters = tibble::tibble(patient_id = "ABC1234",
-                               catheter_id = "ABC1234_01"),
-    infections = tibble::tibble(),
-    patient_list = list(p)
-  )
-  # plain replacement: modifyList() would recurse into the tibbles and merge
-  # them column-wise instead of swapping them out
-  overrides <- list(...)
-  for (nm in names(overrides)) args[[nm]] <- overrides[[nm]]
-  do.call(new_pd_unit, args)
-}
+# Helpers: T0, T1, make_catheter(), make_patient(), make_unit() now live in
+# helper-fixtures.R, which testthat sources before every test file (so
+# they're available here and in test-plot_pd_unit.R even when a single
+# file is run on its own, not just via the full devtools::test() suite).
 
 
 # Constructor

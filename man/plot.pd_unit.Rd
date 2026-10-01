@@ -17,7 +17,8 @@
 
 \item{y}{Ignored (required by the \code{plot()} generic).}
 
-\item{type}{Character. \code{"monthly"}, \code{"quarterly"}, or \code{"yearly"}.}
+\item{type}{Character. \code{"monthly"}, \code{"quarterly"}, or \code{"yearly"} (a
+cumulative year-to-date line, not a calendar-year bar).}
 
 \item{benchmark}{Numeric. The ISPD peritonitis-rate benchmark to draw as
 a reference line, in episodes per patient-year. Defaults to the unit's
@@ -32,10 +33,18 @@ Pass a value here to override it for this plot only.}
 A \code{ggplot} object, invisibly plotted.
 }
 \description{
-Draws the unit's peritonitis rate trend, binned monthly, quarterly, or
-yearly (\code{type}), with each bin computed by \code{peritonitis_rate_by_period()},
-the rate value printed above each bar, and the unit's ISPD benchmark rate
-drawn as a reference line. Requires the ggplot2 package.
+Draws one of several views of a \code{pd_unit} object, selected by \code{type}:
+\code{"monthly"}/\code{"quarterly"} draw a peritonitis rate trend binned by that
+calendar period (via \code{peritonitis_rate_by_period()}), with the rate
+value printed above each bar and the unit's ISPD benchmark rate drawn as
+a reference line;
+\code{"yearly"} draws a \strong{combined, two-panel figure}: a cumulative (year-to-date)
+rate line on top and a cumulative (year-to-date) peritonitis-free percentage
+line underneath, each on its own correctly-scaled axis. Both lines are
+built by reusing the monthly bins and running a \code{cumsum()}/running
+per-patient tally. Both views reuse \code{summarise_rate()}/\code{summarise_pf()}
+-- the same internal helpers \code{summary.pd_unit()} calls -- rather than recalculating those numbers.
+Requires the ggplot2 package, and also patchwork for \code{type = "yearly"}.
 }
 \examples{
 \donttest{
