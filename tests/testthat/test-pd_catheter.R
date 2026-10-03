@@ -284,3 +284,59 @@ test_that("validate_pd_catheter passes with a valid nested infection matching th
   expect_identical(cath$n_peritonitis_episodes, 1L)
   expect_true(cath$peritonitis_flag)
 })
+
+
+# subset()
+
+# CCC0003_01: three episodes, E3a (type NA), E3b (repeat), E3c (relapsing, so not counted towards the rate).
+# BBB0002_01 has none.
+subset_catheter <- function(patient = 3) {
+  make_subset_unit()$patient_list[[patient]]$catheters[[1]]
+}
+
+test_that("subset.pd_catheter() returns a tibble with one row per episode", {
+  y <- subset(subset_catheter())
+  expect_s3_class(y, "tbl_df")
+  expect_false(inherits(y, "pd_catheter"))
+  expect_true(all(y$catheter_id == "CCC0003_01"))
+  expect_true(all(y$procedure_type == "open surgical"))
+  expect_identical(y$episode_type, c(NA, "repeat", "relapsing"))
+  expect_identical(y$counts_toward_rate, c(TRUE, TRUE, FALSE))
+})
+
+test_that("subset.pd_catheter() leaves out columns the catheter cannot supply", {
+  y <- subset(subset_catheter())
+  expect_false(any(c("gender", "ethnicity", "exposure_days_in_period") %in% names(y)))
+})
+
+test_that("subset.pd_catheter() filters on episode and catheter columns", {
+  cath <- subset_catheter()
+  expect_equal(nrow(subset(cath, episode_type == "repeat")), 1L)
+  expect_equal(nrow(subset(cath, counts_toward_rate)), 2L)
+  expect_equal(nrow(subset(cath, infection_date >= as.Date("2025-08-01"))), 2L)
+  expect_equal(nrow(subset(cath, procedure_type == "laparoscopic")), 0L)
+})
+
+test_that("subset.pd_catheter() gives one row with NA episode columns when there are no episodes", {
+  y <- subset(subset_catheter(2))
+  expect_equal(nrow(y), 1L)
+  expect_identical(y$catheter_id, "BBB0002_01")
+  expect_true(is.na(y$infection_date))
+  expect_true(is.na(y$episode_type))
+})
+
+test_that("subset.pd_catheter() supports select and does not modify the catheter", {
+  cath <- subset_catheter()
+  before <- cath
+  y <- subset(cath, episode_type == "repeat",
+              select = c(catheter_id, infection_date, episode_type))
+  expect_identical(names(y), c("catheter_id", "infection_date", "episode_type"))
+  expect_identical(cath, before)
+})
+
+test_that("subset.pd_catheter() rejects bad conditions and stray arguments", {
+  cath <- subset_catheter()
+  expect_error(subset(cath, n_organisms), "must be logical")
+  expect_error(subset(cath, no_such_column == 1), "Could not evaluate the `subset`")
+  expect_error(subset(cath, infections = TRUE), "Unused argument")
+})

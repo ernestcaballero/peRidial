@@ -1,9 +1,4 @@
-# Shared fixtures (T0, T1, make_catheter(), make_patient()) live in
-# helper-fixtures.R, which testthat sources before every test file. The
-# defaults describe one valid, prevalent patient (ABC1234) with one active
-# catheter (ABC1234_01) over calendar 2025; each test overrides only the
-# field it is probing. Calls to new_pd_patient()/pd_catheter() directly are
-# kept where the test is about the constructor itself.
+# Constructor
 
 test_that("new_pd_patient creates a valid pd_patient object", {
   cath <- make_catheter(
@@ -346,4 +341,69 @@ test_that("validate_pd_patient errors when n_episodes does not match the total e
     n_episodes = 3   # deliberately wrong, cath has no recorded infections
   )
   expect_error(validate_pd_patient(p), "n_episodes does not match")
+})
+
+
+# subset()
+
+# AAA0001: two catheters, one episode on each.
+#   AAA0001_01 laparoscopic  -> E1a
+#   AAA0001_02 open surgical -> E1b (repeat)
+# CCC0003: one catheter, three episodes (the last one relapsing).
+subset_patient <- function(i = 1) {
+  make_subset_unit()$patient_list[[i]]
+}
+
+test_that("subset.pd_patient() returns a tibble of the patient's catheter and episode rows", {
+  y <- subset(subset_patient())
+  expect_s3_class(y, "tbl_df")
+  expect_false(inherits(y, "pd_patient"))
+  expect_true(all(y$patient_id == "AAA0001"))
+  expect_identical(y$catheter_id, c("AAA0001_01", "AAA0001_02"))
+  expect_true(all(c("procedure_type", "episode_type", "infection_date",
+                    "new_patient_flag", "n_episodes") %in% names(y)))
+})
+
+test_that("subset.pd_patient() filters on catheter and episode columns", {
+  p <- subset_patient()
+  expect_identical(subset(p, procedure_type == "open surgical")$catheter_id,
+                   "AAA0001_02")
+  expect_identical(subset(p, episode_type == "repeat")$catheter_id, "AAA0001_02")
+
+  # a patient column matches every row of that patient, so both catheters stay
+  expect_equal(nrow(subset(p, gender == "Female")), 2L)
+  expect_equal(nrow(subset(p, gender == "Male")), 0L)
+})
+
+test_that("subset.pd_patient() lists a patient's episodes one per row", {
+  y <- subset(subset_patient(3))
+  expect_identical(y$counts_toward_rate, c(TRUE, TRUE, FALSE))
+})
+
+test_that("subset.pd_patient() keeps a catheter with no episodes and a patient with no catheters", {
+  p <- subset_patient(2)                       # BBB0002: one catheter, no episodes
+  y <- subset(p)
+  expect_equal(nrow(y), 1L)
+  expect_true(is.na(y$infection_date))
+  expect_identical(y$catheter_id, "BBB0002_01")
+
+  bare <- subset(make_patient(catheters = list()))
+  expect_equal(nrow(bare), 1L)
+  expect_true(is.na(bare$catheter_id))
+  expect_identical(bare$patient_id, "ABC1234")
+})
+
+test_that("subset.pd_patient() supports select and does not modify the patient", {
+  p <- subset_patient()
+  before <- p
+  y <- subset(p, episode_type == "repeat", select = c(patient_id, catheter_id))
+  expect_identical(names(y), c("patient_id", "catheter_id"))
+  expect_identical(p, before)
+})
+
+test_that("subset.pd_patient() rejects bad conditions and stray arguments", {
+  p <- subset_patient()
+  expect_error(subset(p, n_episodes), "must be logical")
+  expect_error(subset(p, no_such_column == 1), "Could not evaluate the `subset`")
+  expect_error(subset(p, catheters = TRUE), "Unused argument")
 })
