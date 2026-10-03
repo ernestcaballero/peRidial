@@ -442,16 +442,16 @@ pd_patient <- function(patient_id,
 #'
 print.pd_patient <- function(x, ...) {
   cat("<pd_patient>", if (is.na(x$patient_id)) "(unknown id)" else x$patient_id, "\n")
-  cat("  Reporting window        : ", format(x$t0), " to ", format(x$t1), "\n", sep = "")
-  cat("  Status                  : ",
+  cat("  Reporting window     : ", format(x$t0), " to ", format(x$t1), "\n", sep = "")
+  cat("  Status               : ",
       if (is.na(x$new_patient_flag)) "unknown" else if (x$new_patient_flag) "incident" else "prevalent",
       "\n", sep = "")
-  cat("  Catheters               : ", x$n_catheters, "\n", sep = "")
-  cat("  Peritonitis             : ", x$n_episodes, "\n", sep = "")
+  cat("  Catheters            : ", x$n_catheters, "\n", sep = "")
+  cat("  Peritonitis          : ", x$n_episodes, "\n", sep = "")
   if (is.na(x$transfer_reason)) {
-    cat("  Censoring             : still active on PD\n", sep = "")
+    cat("  Censoring          : still active on PD\n", sep = "")
   } else {
-    cat("  Censoring               : ", x$transfer_reason, " on ", format(x$transfer_date), "\n", sep = "")
+    cat("  Censoring          : ", x$transfer_reason, " on ", format(x$transfer_date), "\n", sep = "")
   }
   invisible(x)
 }
@@ -611,4 +611,61 @@ summary.pd_patient <- function(object, ...) {
     n_episodes = length(all_types),
     episode_types = episode_types
   ))
+}
+
+
+
+## SUBSET METHOD ##
+
+#' Subset a pd_patient object
+#'
+#' Returns the rows (and, with \code{select}, the columns) of one patient's
+#' data that meet a condition, as a plain tibble. Peritonitis indicators are not
+#' recalculated and the unit is not modified.
+#'
+#' The table is the one \code{\link{subset.pd_unit}()} uses, for this patient
+#' alone: the patient's own fields, joined to its catheters and then to the
+#' episodes on each catheter, one row per episode (\code{NA} for a patient with no
+#' catheters or episode columns). To subset several patients at
+#' once, use \code{\link{subset.pd_unit}()} and filter on \code{patient_id}.
+#'
+#' @param x A \code{pd_patient} object.
+#' @param subset A logical condition on the columns of the table. Omit to
+#'   keep every row.
+#' @param select Which columns to return, as in \code{\link[base]{subset}()}.
+#'   Omit to keep every column.
+#' @param ... Ignored.
+#'
+#' @return A tibble.
+#' @seealso \code{\link{subset.pd_unit}()}, \code{\link{subset.pd_catheter}()}.
+#' @export
+#'
+#' @examples
+#' cath <- new_pd_catheter(
+#'   patient_id = "ABC0110", catheter_id = "ABC0110_01",
+#'   insertion_date = as.Date("2024-12-01"), pd_start_date = as.Date("2024-12-15"),
+#'   procedure_type = "laparoscopic",
+#'   t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31")
+#' )
+#' pat <- new_pd_patient(
+#'   patient_id = "ABC0110", catheters = list(cath), gender = "Female",
+#'   t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31")
+#' )
+#' subset(pat, procedure_type == "laparoscopic",
+#'        select = c(patient_id, gender, catheter_id, procedure_type))
+#'
+subset.pd_patient <- function(x, subset, select, ...) {
+  if (...length() > 0L) {
+    stop("Unused argument(s) passed to subset(). A pd_patient takes only a ",
+         "condition and `select`.", call. = FALSE)
+  }
+
+  # transfer_detail is held only on the unit's tibble, transfer_detail filed not in pd_patient object
+  patients_tbl <- patients_to_tibble(list(x), x$t0, x$t1)
+  patients_tbl <- patients_tbl[setdiff(names(patients_tbl), "transfer_detail")]
+
+  flat <- flatten_pd_tables(patients_tbl,
+                            catheters_to_tibble(list(x), x$t0, x$t1),
+                            infections_to_tibble(list(x), x$t0, x$t1))
+  subset_table(flat, rlang::enquo(subset), rlang::enquo(select))
 }

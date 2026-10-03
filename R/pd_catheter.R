@@ -368,15 +368,13 @@ pd_catheter <- function(patient_id,
 
 #' Print a pd_catheter object
 #'
-#' A single catheter's snapshot: procedure type,
-#' insertion, PD window and outcome, reporting window, and peritonitis
-#' episode count within that window, followed by each countable episode's
-#' \code{infection_date}, \code{episode_type} (if any), and \code{outcome}
-#' (if any), and then any relapsing episodes -- listed separately since
+#' A single catheter's snapshot: procedure type, insertion, PD window and outcome,
+#' reporting window, and peritonitis episode count within that window, followed by
+#' each countable episode's \code{infection_date}, \code{episode_type} (if any),
+#' and \code{outcome} (if any), and then any relapsing episodes -- listed separately since
 #' ISPD treats a relapse as a continuation of the preceding episode rather
-#' than a distinct new one, so it doesn't count toward
-#' \code{n_peritonitis_episodes} (see \code{count_episodes_in_period()}
-#' for what "countable" means here).
+#' than a distinct new one, so it doesn't count toward \code{n_peritonitis_episodes}
+#' (see \code{count_episodes_in_period()} for what "countable" means here).
 #'
 #' @param x A \code{pd_catheter} object.
 #' @param ... Ignored.
@@ -435,4 +433,65 @@ print.pd_catheter <- function(x, ...) {
   }
 
   invisible(x)
+}
+
+
+
+
+## SUBSET METHOD ##
+
+#' Subset a pd_catheter object
+#'
+#' Returns the rows (and, with \code{select}, the columns) of one catheter's
+#' data that meet a condition, as a plain tibble. Peritonitis indicators are not
+#' recalculated and the unit is not modified.
+#'
+#' The table is the one \code{\link{subset.pd_unit}()} uses, for this catheter
+#' alone: the catheter's own fields joined to its episodes, one row per
+#' episode (a catheter with no episodes gives a single row with \code{NA}
+#' episode columns). To subset several catheters at once,
+#' use \code{\link{subset.pd_unit}()} and filter on \code{catheter_id}.
+#'
+#' @param x A \code{pd_catheter} object.
+#' @param subset A logical condition on the columns of the table. Omit to
+#'   keep every row.
+#' @param select Which columns to return, as in \code{\link[base]{subset}()}.
+#'   Omit to keep every column.
+#' @param ... Ignored.
+#'
+#' @return A tibble.
+#' @seealso \code{\link{subset.pd_unit}()}, \code{\link{subset.pd_patient}()}.
+#' @export
+#'
+#' @examples
+#' inf <- new_pd_infection(
+#'   patient_id = "ABC0110",
+#'   infection_date = as.Date("2025-03-01"),
+#'   organism_list = list("Staphylococcus aureus"),
+#'   last_dose_antibiotic = as.Date("2025-03-15")
+#' )
+#' cath <- new_pd_catheter(
+#'   patient_id = "ABC0110", catheter_id = "ABC0110_01",
+#'   insertion_date = as.Date("2024-12-01"), pd_start_date = as.Date("2024-12-15"),
+#'   pd_stop_date = as.Date(NA), infections = list(inf),
+#'   t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31")
+#' )
+#' subset(cath, infection_date >= as.Date("2025-03-01"))
+#'
+subset.pd_catheter <- function(x, subset, select, ...) {
+  if (...length() > 0L) {
+    stop("Unused argument(s) passed to subset(). A pd_catheter takes only a ",
+         "condition and `select`.", call. = FALSE)
+  }
+
+  # the catheter does not know its patient's transfer date, so wrap it with an NA one
+  wrapped <- list(list(catheters = list(x), transfer_date = as.Date(NA)))
+  catheters_tbl <- catheters_to_tibble(wrapped, x$t0, x$t1)
+  catheters_tbl <- catheters_tbl[setdiff(names(catheters_tbl),
+                                         "exposure_days_in_period")]
+
+  flat <- flatten_pd_tables(patients = NULL,
+                            catheters = catheters_tbl,
+                            infections = infections_to_tibble(wrapped, x$t0, x$t1))
+  subset_table(flat, rlang::enquo(subset), rlang::enquo(select))
 }

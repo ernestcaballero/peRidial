@@ -242,11 +242,6 @@ require_unit_cols <- function(df, cols, what) {
 }
 
 
-
-
-## PRINT METHOD ##
-
-
 #' Print a pd_unit object
 #'
 #' @param x A \code{pd_unit} object.
@@ -268,8 +263,7 @@ print.pd_unit <- function(x, ...) {
 
 
 
-
-## SUMMARY METHOD ##
+# HELPER FUNCTIONS FOR SUMMARY METHOD
 
 #' Check that a unit-level tibble carries a usable column
 #'
@@ -714,60 +708,139 @@ summary.pd_unit <- function(object, ...) {
 
 ## SUBSET METHOD ##
 
-#' Subsets a pd_unit by its patients, catheters and episodes
+#' Join the patients, catheters and infections tables into one flat table
 #'
-#' Filters a unit to a sub-cohort for analysis and returns a complete,
-#' validated \code{pd_unit}: \code{patient_list} and all three tibbles are
-#' pruned together, and \code{n_patients}, \code{n_new} and \code{tpyar} are
-#' recomputed. The reporting period, \code{unit_id} and \code{rate_benchmark}
-#' are carried over. \code{print()}, \code{summary()} and \code{plot()} work
-#' on the result just like on the full cohort.
+#' Shared by \code{subset.pd_unit()}, \code{subset.pd_patient()} and
+#' \code{subset.pd_catheter()}. The tables are left-joined down the hierarchy,
+#' patients to catheters on \code{patient_id} and then to infections on
+#' \code{patient_id} and \code{catheter_id}.
 #'
-#' Each condition is evaluated tidy-eval style so write it with that tibble's columns.
-#' The tibbles are never joined: the three filters are applied in order and each passes on
-#' only the surviving keys.
+#' @param patients,catheters,infections Data frames, or \code{NULL} to leave a
+#'   level out.
 #'
-#' \enumerate{
-#'   \item \code{patients} keeps whole patients, with all their catheters and
-#'   episodes.
-#'   \item \code{catheters} is evaluated on the catheters of the patients
-#'   kept. Catheters that don't match are removed from their patients, with
-#'   their episodes and their exposure time. A patient left with no catheters
-#'   is dropped from the unit.
-#'   \item \code{infections} is evaluated on the episodes on the catheters
-#'   kept. Episodes that don't match are removed; patients and catheters stay,
-#'   so patient-years (the rate's denominator) are unchanged.
-#' }
+#' @return A tibble, one row per episode (or per catheter, or per patient,
+#'   when there is nothing below it).
+#' @noRd
 #'
-#' Rows where a condition is \code{NA} are dropped. A condition that matches
-#' nothing gives a valid, empty unit rather than an error. Aggregates such as
-#' \code{max(infection_date)} are taken over the rows in scope at that step.
+flatten_pd_tables <- function(patients = NULL, catheters = NULL, infections = NULL) {
+  join_child <- function(parent, child, by, suffix, what) {
+    child <- tibble::as_tibble(child)
+    if (ncol(child) == 0) {
+      return(parent)
+    }
+    require_unit_cols(child, by, what)
+    absent <- setdiff(by, names(parent))
+    if (length(absent) > 0) {
+      stop("Cannot join `", what, "`: the table above it has no ",
+           paste(absent, collapse = ", "), " column.", call. = FALSE)
+    }
+    dplyr::left_join(parent, child, by = by, suffix = suffix)
+  }
+
+  out <- tibble::as_tibble(if (is.null(patients)) catheters else patients)
+  if (!is.null(patients) && !is.null(catheters)) {
+    out <- join_child(out, catheters, "patient_id", c("", "_catheter"),
+                      "catheters")
+  }
+  if (!is.null(infections)) {
+    out <- join_child(out, infections, c("patient_id", "catheter_id"),
+                      c("", "_infection"), "infections")
+  }
+  out
+}
+
+
+#' Apply a base-style subset and select to a data frame
 #'
-#' Because a patient's incident/prevalent status comes from the earliest PD
-#' start among the catheters that remain, a \code{catheters} filter can
-#' change \code{n_new}. The filtered episodes keep their original
-#' \code{episode_type}; they are not reclassified against the episodes that
-#' were removed.
+#' Return subsets of data frames which meet conditions. The condition is evaluated
+#' with the columns in scope (and the caller's variables), \code{NA} counts as \code{FALSE}, and
+#' \code{select} is evaluated with each column name standing for its position,
+#' so \code{c(a, b)}, \code{a:b} and \code{-a} all work.
 #'
-#' The \code{infections} tibble must be a view of \code{patient_list} (as
-#' \code{\link{pd_unit}()} builds it) for the \code{catheters} and
-#' \code{infections} filters; if it isn't, the method stops.
+#' @param df A data frame.
+#' @param q_subset,q_select Quosures from \code{rlang::enquo()}. A missing
+#'   quosure means "all rows" or "all columns".
+#'
+#' @return \code{df} with the rows and columns selected, as a tibble.
+#' @noRd
+#'
+subset_table <- function(df, q_subset, q_select) {
+  n <- nrow(df)
+
+  rows <- if (rlang::quo_is_missing(q_subset)) {
+    rep(TRUE, n)
+  } else {
+    r <- tryCatch(
+      rlang::eval_tidy(q_subset, data = df),
+      error = function(e) {
+        stop("Could not evaluate the `subset` condition `",
+             rlang::quo_text(q_subset), "`: ", conditionMessage(e),
+             call. = FALSE)
+      }
+    )
+    if (!is.logical(r)) {
+      stop("The `subset` condition `", rlang::quo_text(q_subset),
+           "` must be logical, not ", class(r)[1], ".", call. = FALSE)
+    }
+    if (length(r) == 1L) {
+      r <- rep(r, n)
+    }
+    if (length(r) != n) {
+      stop("The `subset` condition `", rlang::quo_text(q_subset),
+           "` returned ", length(r), " value(s) for ", n, " row(s).",
+           call. = FALSE)
+    }
+    r & !is.na(r)
+  }
+
+  cols <- if (rlang::quo_is_missing(q_select)) {
+    rep(TRUE, ncol(df))
+  } else {
+    positions <- as.list(seq_along(df))
+    names(positions) <- names(df)
+    tryCatch(
+      rlang::eval_tidy(q_select, data = positions),
+      error = function(e) {
+        stop("Could not evaluate the `select` argument `",
+             rlang::quo_text(q_select), "`: ", conditionMessage(e),
+             call. = FALSE)
+      }
+    )
+  }
+
+  tibble::as_tibble(df)[rows, cols, drop = FALSE]
+}
+
+
+#' Subset a pd_unit object
+#'
+#' Returns the rows (and, with \code{select}, the columns) of a unit's data
+#' that meet a condition, as a plain tibble. Peritonitis indicators are not
+#' recalculated and the unit is not modified.
+#'
+#' The unit's \code{patients}, \code{catheters} and \code{infections} tibbles
+#' are first joined into one flat table: one row per peritonitis episode,
+#' carrying its catheter's and its patient's columns. Patients' and
+#' catheters' rows are kept even when there is nothing below them, with
+#' \code{NA} in the missing columns, so a patient with no catheter episodes
+#' still has a row. A patient with several catheters or episodes has several
+#' rows. A column that two tables share (apart from the join keys
+#' \code{patient_id} and \code{catheter_id}) appears with a \code{_catheter}
+#' or \code{_infection} suffix on the lower level's copy.
 #'
 #' @param x A \code{pd_unit} object.
-#' @param patients A logical condition on the \code{patients} tibble (e.g.
-#'   \code{gender == "Female"}, \code{n_episodes > 0}). \code{NULL} (the
-#'   default) keeps every patient. This is the first argument after \code{x},
-#'   so \code{subset(unit, gender == "Female")} filters patients.
-#' @param catheters A logical condition on the \code{catheters} tibble (e.g.
-#'   \code{procedure_type == "laparoscopic"}). \code{NULL} keeps every
-#'   catheter.
-#' @param infections A logical condition on the \code{infections} tibble (e.g.
-#'   \code{episode_type == "repeat"}). \code{NULL} keeps every episode.
+#' @param subset A logical condition on the columns of the flat table (for
+#'   example \code{gender == "Female"} or \code{episode_type == "repeat"}).
+#'   Omit to keep every row.
+#' @param select Which columns to return, written as in
+#'   \code{\link[base]{subset}()}: names (\code{c(patient_id, gender)}),
+#'   ranges (\code{patient_id:gender}), or negation (\code{-t0}). Omit to
+#'   keep every column.
+#' @param ... Ignored.
 #'
-#' @return A \code{pd_unit}. \code{x} itself if no condition was supplied.
+#' @return A tibble.
 #' @seealso \code{\link{subset.pd_patient}()} and
-#'   \code{\link{subset.pd_catheter}()} for the same filters on one patient or
-#'   catheter.
+#'   \code{\link{subset.pd_catheter}()} for the same on one patient or catheter.
 #' @export
 #'
 #' @examples
@@ -778,123 +851,32 @@ summary.pd_unit <- function(object, ...) {
 #'   unit_id = "Wellington PD Unit"
 #' )
 #'
-#' # patients who had at least one countable episode
-#' subset(unit, patients = n_episodes > 0)
+#' # every row for female patients
+#' subset(unit, gender == "Female")
 #'
-#' # only the episodes that count towards the rate; patient-years unchanged
-#' subset(unit, infections = counts_toward_rate)
+#' # surgical catheters, with just a few columns
+#' subset(unit, procedure_type == "Surgical",
+#'        select = c(patient_id, gender, catheter_id, procedure_type, infection_date))
 #'
-subset.pd_unit <- function(x, patients = NULL, catheters = NULL,
-                           infections = NULL, ...) {
+#' # rows that have an episode
+#' subset(unit, !is.na(infection_date), select = patient_id:gender)
+#'
+subset.pd_unit <- function(x, subset, select, ...) {
   if (...length() > 0L) {
-    stop("Unused argument(s) passed to subset(). A pd_unit can only be ",
-         "filtered with `patients =`, `catheters =` and `infections =`.",
-         call. = FALSE)
-  }
-  q_pat <- rlang::enquo(patients)
-  q_cath <- rlang::enquo(catheters)
-  q_inf <- rlang::enquo(infections)
-
-  if (rlang::quo_is_null(q_pat) && rlang::quo_is_null(q_cath) &&
-      rlang::quo_is_null(q_inf)) {
-    return(x)
+    stop("Unused argument(s) passed to subset(). A pd_unit takes only a ",
+         "condition and `select`.", call. = FALSE)
   }
 
-  pl <- x$patient_list
-  all_ids <- vapply(pl, function(p) p$patient_id, character(1))
-  cath_ids_of <- function(plist) {
-    as.character(unlist(lapply(plist, function(p) {
-      vapply(p$catheters, function(cth) cth$catheter_id, character(1))
-    })))
-  }
-
-  # 1. patients: whole patients kept or dropped
-  keep_pids <- all_ids
-  if (!rlang::quo_is_null(q_pat)) {
-    if (nrow(x$patients) > 0) {
-      require_unit_cols(x$patients, "patient_id", "patients")
-    }
-    if (!setequal(x$patients$patient_id, all_ids)) {
-      stop("The `patients` tibble is out of sync with `patient_list`, so ",
-           "patients cannot be filtered.", call. = FALSE)
-    }
-    keep_p <- eval_subset_expr(x$patients, q_pat, "patients")
-    keep_pids <- x$patients$patient_id[keep_p]
-  }
-
-  # 2. catheters: evaluated on the catheters of the patients kept
-  keep_cids <- NULL
-  if (!rlang::quo_is_null(q_cath)) {
-    if (nrow(x$catheters) > 0) {
-      require_unit_cols(x$catheters, c("patient_id", "catheter_id"), "catheters")
-    }
-    if (!setequal(x$catheters$catheter_id, cath_ids_of(pl))) {
-      stop("The `catheters` tibble is out of sync with `patient_list`, so ",
-           "catheters cannot be filtered.", call. = FALSE)
-    }
-    in_scope <- x$catheters$patient_id %in% keep_pids
-    keep_c <- rep(FALSE, nrow(x$catheters))
-    keep_c[in_scope] <- eval_subset_expr(
-      x$catheters[in_scope, , drop = FALSE], q_cath, "catheters")
-    keep_cids <- x$catheters$catheter_id[keep_c]
-  }
-
-  # 3. infections: evaluated on the episodes on the catheters kept
-  surviving <- cath_ids_of(pl[all_ids %in% keep_pids])
-  if (!is.null(keep_cids)) {
-    surviving <- intersect(surviving, keep_cids)
-  }
-  keep_inf <- map_infection_keep(pl, x$infections, q_inf, surviving = surviving)
-
-  # prune the nested objects; the tibbles are rebuilt from them below
-  out <- list()
-  for (i in seq_along(pl)) {
-    p <- pl[[i]]
-    if (!(p$patient_id %in% keep_pids)) {
-      next
-    }
-    keep_cath <- if (is.null(keep_cids)) {
-      rep(TRUE, length(p$catheters))
-    } else {
-      vapply(p$catheters, function(cth) cth$catheter_id %in% keep_cids,
-             logical(1))
-    }
-    p_new <- prune_patient(p, keep_cath,
-                           if (is.null(keep_inf)) NULL else keep_inf[[i]])
-
-    # a patient with every catheter filtered out has left the sub-cohort
-    if (length(p_new$catheters) == 0 && length(p$catheters) > 0) {
-      next
-    }
-    out[[length(out) + 1]] <- p_new
-  }
-
-  # transfer_detail lives only on the tibble, so carry it across by patient_id
-  details <- character(0)
-  if (nrow(x$patients) > 0 && all(c("patient_id", "transfer_detail") %in% names(x$patients))) {
-    details <- stats::setNames(as.character(x$patients$transfer_detail),
-                               x$patients$patient_id)
-  }
-
-  n_new <- sum(vapply(out, function(p) isTRUE(p$new_patient_flag), logical(1)))
-
-  y <- new_pd_unit(
-    unit_id = x$unit_id,
-    t0 = x$t0,
-    t1 = x$t1,
-    n_new = as.integer(n_new),
-    n_patients = as.integer(length(out)),
-    tpyar = total_patient_years(out, x$t0, x$t1),
-    rate_benchmark = x$rate_benchmark,
-    patients = patients_to_tibble(out, x$t0, x$t1, details),
-    catheters = catheters_to_tibble(out, x$t0, x$t1),
-    infections = infections_to_tibble(out, x$t0, x$t1),
-    patient_list = out
-  )
-
-  validate_pd_unit(y)
+  flat <- flatten_pd_tables(x$patients, x$catheters, x$infections)
+  subset_table(flat, rlang::enquo(subset), rlang::enquo(select))
 }
 
 
 
+
+
+
 ## User-facing helper for pd_unit object on separate ingest.R file
+
+
+

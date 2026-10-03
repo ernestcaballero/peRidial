@@ -15,13 +15,11 @@
 \code{x}, invisibly.
 }
 \description{
-A single catheter's snapshot: procedure type,
-insertion, PD window and outcome, reporting window, and peritonitis
-episode count within that window, followed by each countable episode's
-\code{infection_date}, \code{episode_type} (if any), and \code{outcome}
-(if any), and then any relapsing episodes -- listed separately since
+A single catheter's snapshot: procedure type, insertion, PD window and outcome,
+reporting window, and peritonitis episode count within that window, followed by
+each countable episode's \code{infection_date}, \code{episode_type} (if any),
+and \code{outcome} (if any), and then any relapsing episodes -- listed separately since
 ISPD treats a relapse as a continuation of the preceding episode rather
-than a distinct new one, so it doesn't count toward
-\code{n_peritonitis_episodes} (see \code{count_episodes_in_period()}
-for what "countable" means here).
+than a distinct new one, so it doesn't count toward \code{n_peritonitis_episodes}
+(see \code{count_episodes_in_period()} for what "countable" means here).
 }
