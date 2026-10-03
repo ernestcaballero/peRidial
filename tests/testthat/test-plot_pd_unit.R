@@ -1,5 +1,5 @@
 # Shared fixtures (T0, T1, make_catheter(), make_patient(), make_unit()) live
-# in test-pd_unit.R and are available here within the same testthat package.
+# in helper-fixtures.R, which testthat sources before every test file.
 
 # peritonitis_rate_by_period() / monthly_peritonitis_rate()
 
@@ -88,7 +88,7 @@ test_that("plot.pd_unit() defaults its benchmark line to x$rate_benchmark", {
   skip_if_not_installed("ggplot2")
   x <- make_unit(rate_benchmark = 0.25)
   p_default <- plot(x, type = "monthly")
-  hline_layer <- p_default$layers[[2]]
+  hline_layer <- get_hline_layer(p_default)
   expect_equal(hline_layer$data$yintercept, 0.25)
 })
 
@@ -96,7 +96,7 @@ test_that("plot.pd_unit() lets a per-call benchmark override x$rate_benchmark", 
   skip_if_not_installed("ggplot2")
   x <- make_unit(rate_benchmark = 0.25)
   p_override <- plot(x, type = "monthly", benchmark = 0.60)
-  hline_layer <- p_override$layers[[2]]
+  hline_layer <- get_hline_layer(p_override)
   expect_equal(hline_layer$data$yintercept, 0.60)
 })
 

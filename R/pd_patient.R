@@ -511,7 +511,7 @@ summary.pd_patient <- function(object, ...) {
   }
   total_years <- total_days / 365.25
 
-  # Countable infections per catheter (n_episodes). Returns the infection objects
+  # Countable infections per catheter (n_episodes). returns the infection objects
   countable_infections_of <- function(cath) {
     if (length(cath$infections) == 0) {
       return(list())

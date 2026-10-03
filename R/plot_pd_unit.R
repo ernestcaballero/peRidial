@@ -256,7 +256,12 @@ plot.pd_unit <- function(x, y,
 #'
 cumulative_pf_by_month <- function(x) {
   bins <- peritonitis_rate_by_period(x, cal.period = "month")
-  all_ids <- x$patients$patient_id
+  # checks if an empty cohort carries a column-less `patients` tibble; fall back to an empty id set instead
+  all_ids <- if ("patient_id" %in% names(x$patients)) {
+    x$patients$patient_id
+  } else {
+    character(0)
+  }
   n <- x$n_patients
 
   cum_pf_pct <- vapply(bins$period_end, function(period_end) {
