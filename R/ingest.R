@@ -278,6 +278,91 @@ report_issues <- function(log, strict = FALSE) {
 
 
 
+#' Required cells, by raw file
+#'
+#' The fields every row of each raw file must carry: the values the catheter and
+#' infection validators refuse to build without, plus \code{date_of_birth}
+#' (mandatory in ANZDATA). \code{check_required_cells()} reports blanks in them
+#' up front, and \code{pd_unit()} also uses these lists for \code{require_cols()},
+#' so a file with no such column at all errors rather than flagging every row.
+#' @noRd
+#'
+a3_required_cells <- c("patient_id", "date_of_birth", "insertion_date",
+                       "pd_start_date")
+pe_required_cells <- c("patient_id", "date_of_infection", "organism",
+                       "last_dose_antibiotic")
+
+
+#' Test which cells of a raw column are blank
+#'
+#' \code{readxl} returns an empty cell as \code{NA}, but a cell holding only
+#' spaces comes back as a string, so character columns are trimmed before
+#' testing.
+#'
+#' @param x A vector.
+#'
+#' @return A logical vector the same length as \code{x}, \code{TRUE} where the
+#'   cell is blank.
+#' @noRd
+#'
+is_blank_cell <- function(x) {
+  if (is.character(x)) {
+    is.na(x) | !nzchar(trimws(x))
+  } else {
+    is.na(x)
+  }
+}
+
+
+#' Log, then drop, raw rows that are missing a required value
+#'
+#' The row-level counterpart of \code{require_cols()}. Each offending row gets
+#' one issue-log entry naming its row in the source sheet, the patient and the blank column(s).
+#'
+#' @param df A data frame with standardised, mapped column names.
+#' @param cols Character vector of required column names (\code{a3_required_cells}
+#'   or \code{pe_required_cells}).
+#' @param what Character. Label for the file, used in issue messages.
+#' @param log An issue log from \code{new_issue_log()}.
+#' @param id_col Character. Column that identifies the patient in messages.
+#' @param header_rows Integer. Sheet rows above the first data row, so that a
+#'   data frame row maps to the spreadsheet row the user sees. Defaults to 1
+#'   (a single header row).
+#'
+#' @return \code{df} without the rows that have a blank required cell.
+#' @noRd
+#'
+check_required_cells <- function(df, cols, what, log, id_col = "patient_id",
+                                 header_rows = 1L) {
+  stopifnot(is.data.frame(df), all(cols %in% names(df)))
+  if (nrow(df) == 0) {
+    return(df)
+  }
+
+  blank <- do.call(cbind, lapply(cols, function(cl) is_blank_cell(df[[cl]])))
+  colnames(blank) <- cols
+  bad <- which(rowSums(blank) > 0)
+  if (length(bad) == 0) {
+    return(df)
+  }
+
+  for (i in bad) {
+    pid <- as.character(df[[id_col]][i])
+    who <- if (is.na(pid) || !nzchar(trimws(pid))) {
+      "no patient_id"
+    } else {
+      paste0("patient ", trimws(pid))
+    }
+    log$add("The ", what, " file, row ", i + header_rows, " (", who,
+            "): missing required value(s) in ",
+            paste(cols[blank[i, ]], collapse = ", "),
+            "; row excluded from the unit.")
+  }
+
+  df[-bad, , drop = FALSE]
+}
+
+
 # create catheter_id
 
 #' Generate catheter_id values from patient_id and insertion_date
@@ -730,8 +815,9 @@ infections_to_tibble <- function(patient_list, t0, t1) {
 #' derived from it, plus the headline numbers the ISPD indicators need:
 #' \code{n_new}, \code{n_patients} and \code{tpyar}.
 #'
-#' Data-quality problems (a missing modality-change reason, an episode that
-#' can't be attached to a catheter, an organism-free episode) are collected
+#' Data-quality problems (a blank required cell, a missing modality-change
+#' reason, an episode that can't be attached to a catheter, an organism-free
+#' episode) are collected
 #' across the whole file and reported together as a single warning, rather
 #' than aborting on the first one. Set \code{strict = TRUE} to make them an
 #' error instead.
@@ -796,10 +882,8 @@ pd_unit <- function(unit_data_path,
   raw_a3 <- map_columns(raw_a3, a3_spec, "unit (A3)", log)
   raw_pe_file <- map_columns(raw_pe_file, pe_spec, "infection (PE)", log)
 
-  require_cols(raw_a3, c("patient_id", "insertion_date", "pd_start_date"),
-               "unit (A3)")
-  require_cols(raw_pe_file, c("patient_id", "date_of_infection", "organism"),
-               "infection (PE)")
+  require_cols(raw_a3, a3_required_cells, "unit (A3)")
+  require_cols(raw_pe_file, pe_required_cells, "infection (PE)")
 
   a3_optional <- c("date_of_birth", "gender", "ethnicity",
                    "primary_kidney_disease", "height", "weight",
@@ -814,6 +898,12 @@ pd_unit <- function(unit_data_path,
                    "catheter_removed", "catheter_removed_date", "interim_hd",
                    "permanent_hd", "first_dialysis_date", "last_dialysis_date")
   raw_pe_file <- ensure_cols(raw_pe_file, pe_optional)
+
+  # a blank required cell is logged and its row dropped here, before the cohort
+  # filter and the patient_id filter would discard it without a trace
+  raw_a3 <- check_required_cells(raw_a3, a3_required_cells, "unit (A3)", log)
+  raw_pe_file <- check_required_cells(raw_pe_file, pe_required_cells,
+                                      "infection (PE)", log)
 
   # tidy the A3 form into patients, catheters and modality changes
   raw_a3 <- raw_a3 |>

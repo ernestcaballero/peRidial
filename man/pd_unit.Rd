@@ -59,8 +59,9 @@ flat tibbles (\code{patients}, \code{catheters}, \code{infections})
 derived from it, plus the headline numbers the ISPD indicators need:
 \code{n_new}, \code{n_patients} and \code{tpyar}.
 
-Data-quality problems (a missing modality-change reason, an episode that
-can't be attached to a catheter, an organism-free episode) are collected
+Data-quality problems (a blank required cell, a missing modality-change
+reason, an episode that can't be attached to a catheter, an organism-free
+episode) are collected
 across the whole file and reported together as a single warning, rather
 than aborting on the first one. Set \code{strict = TRUE} to make them an
 error instead.
