@@ -4,7 +4,7 @@
 \name{peridial-package}
 \alias{peridial}
 \alias{peridial-package}
-\title{peridial: Peritoneal Dialysis Units Peritonitis Indicators}
+\title{peridial: Peritonitis Indicators for Peritoneal Dialysis Units}
 \description{
 A standardised R framework for ingesting, validating, and summarising clinical peritoneal (PD) unit data. Nested S3 classes represent the PD patients, catheters, and peritonitis episodes, supporting reproducible calculation of ISPD-recommended peritonitis rate and peritonitis-free percentage indicators from longitudinal catheter and infection records.
 }
