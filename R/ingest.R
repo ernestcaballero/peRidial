@@ -43,6 +43,78 @@ standardise_names <- function(df) {
 }
 
 
+#' Test one standardised column name against a keyword rule
+#'
+#' A rule is a list with any of \code{all} , \code{any} and \code{exact}.
+#' When both \code{all} and \code{any} are given, both must hold.
+#'
+#' @param name Character. A single standardised column name.
+#' @param rule A rule list, one element of \code{a3_spec} / \code{pe_spec}.
+#'
+#' @return \code{TRUE} or \code{FALSE}.
+#' @noRd
+#'
+matches_keywords <- function(name, rule) {
+  if (name %in% rule$exact) {
+    return(TRUE)
+  }
+  if (is.null(rule$all) && is.null(rule$any)) {
+    return(FALSE)
+  }
+  has <- function(kw) grepl(kw, name, fixed = TRUE)
+  all_ok <- all(vapply(rule$all, has, logical(1)))
+  any_ok <- is.null(rule$any) || any(vapply(rule$any, has, logical(1)))
+  all_ok && any_ok
+}
+
+
+#' Rename raw columns to the names the ingest expects, by keyword
+#'
+#' Works down \code{spec} in order and renames the first column that
+#' satisfies each rule (see \code{matches_keywords()}). A column is claimed by
+#' the first rule that takes it, so list specific rules before general ones
+#' (e.g. \code{catheter_removed_date} before \code{catheter_removed}).
+#' Columns that already carry an expected name are claimed first and keep it.
+#'
+#' Run after \code{standardise_names()}. Columns that match no rule are left
+#' alone, and an expected column that matches nothing is not an error here;
+#' \code{require_cols()} reports the ones the ingest cannot do without.
+#'
+#' @param df A data frame with standardised names.
+#' @param spec Named list of keyword rules (\code{a3_spec} or \code{pe_spec}).
+#' @param what Character. Label for the file, used in issue messages.
+#' @param log An issue log from \code{new_issue_log()}, or \code{NULL}.
+#'   A rule that matches more than one column is recorded here.
+#'
+#' @return \code{df} with matched columns renamed.
+#' @noRd
+#'
+map_columns <- function(df, spec, what, log = NULL) {
+  nms <- names(df)
+  new_nms <- nms
+  claimed <- nms %in% names(spec)
+
+  for (key in setdiff(names(spec), nms)) {
+    is_hit <- vapply(nms, matches_keywords, logical(1), rule = spec[[key]],
+                     USE.NAMES = FALSE)
+    hits <- which(is_hit & !claimed)
+    if (length(hits) == 0) {
+      next
+    }
+    if (length(hits) > 1 && !is.null(log)) {
+      log$add("The ", what, " file has ", length(hits), " columns that could be `",
+              key, "` (", paste(nms[hits], collapse = ", "), "); used `",
+              nms[hits[1]], "`. Rename the columns in the source file if that is wrong.")
+    }
+    new_nms[hits[1]] <- key
+    claimed[hits[1]] <- TRUE
+  }
+
+  names(df) <- new_nms
+  df
+}
+
+
 #' Error if a raw file is missing columns the ingest cannot proceed without
 #'
 #' @param df A data frame.
@@ -645,8 +717,6 @@ infections_to_tibble <- function(patient_list, t0, t1) {
 
 
 
-# USER-FACING BUILDER
-
 #' Build a pd_unit object from raw data files
 #'
 #' Reads a unit's raw dialysis (A3) file and peritonitis-episode (PE) file and
@@ -721,6 +791,10 @@ pd_unit <- function(unit_data_path,
   # Read file and standardise
   raw_a3 <- standardise_names(readxl::read_excel(unit_data_path))
   raw_pe_file <- standardise_names(readxl::read_excel(infection_data_path))
+
+  # map differently-named columns onto the expected names by keyword
+  raw_a3 <- map_columns(raw_a3, a3_spec, "unit (A3)", log)
+  raw_pe_file <- map_columns(raw_pe_file, pe_spec, "infection (PE)", log)
 
   require_cols(raw_a3, c("patient_id", "insertion_date", "pd_start_date"),
                "unit (A3)")
