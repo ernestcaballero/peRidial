@@ -41,7 +41,8 @@ unit records genuine breaks from PD, since a break and a permanent exit
 look identical in the raw data.}
 
 \item{strict}{Logical. Raise collected data-quality issues as an error
-rather than a warning. Defaults to \code{FALSE}.}
+rather than a warning. Defaults to \code{FALSE}. A patient with no valid
+catheter is always an error.}
 }
 \value{
 A validated \code{pd_unit} object.
@@ -59,12 +60,11 @@ flat tibbles (\code{patients}, \code{catheters}, \code{infections})
 derived from it, plus the headline numbers the ISPD indicators need:
 \code{n_new}, \code{n_patients} and \code{tpyar}.
 
-Data-quality problems (a blank required cell, a missing modality-change
-reason, an episode that can't be attached to a catheter, an organism-free
-episode) are collected
-across the whole file and reported together as a single warning, rather
-than aborting on the first one. Set \code{strict = TRUE} to make them an
-error instead.
+Data-quality problems are collected across the whole file and reported
+together as a single warning. Set \code{strict = TRUE} to make them an
+error instead. The one exception is a patient left with no valid catheter:
+that is always an error, whatever \code{strict} is, because the patient
+would otherwise be counted in \code{n_patients} with no patient-years.
 }
 \examples{
 unit <- pd_unit(
@@ -74,7 +74,7 @@ unit <- pd_unit(
                                     package = "peridial", mustWork = TRUE),
   t0 = as.Date("2025-01-01"),
   t1 = as.Date("2025-12-31"),
-  unit_id = "Auckland PD Unit"
+  unit_id = "Wellington PD Unit"
 )
 unit
 }

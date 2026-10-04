@@ -815,12 +815,11 @@ infections_to_tibble <- function(patient_list, t0, t1) {
 #' derived from it, plus the headline numbers the ISPD indicators need:
 #' \code{n_new}, \code{n_patients} and \code{tpyar}.
 #'
-#' Data-quality problems (a blank required cell, a missing modality-change
-#' reason, an episode that can't be attached to a catheter, an organism-free
-#' episode) are collected
-#' across the whole file and reported together as a single warning, rather
-#' than aborting on the first one. Set \code{strict = TRUE} to make them an
-#' error instead.
+#' Data-quality problems are collected across the whole file and reported
+#' together as a single warning. Set \code{strict = TRUE} to make them an
+#' error instead. The one exception is a patient left with no valid catheter:
+#' that is always an error, whatever \code{strict} is, because the patient
+#' would otherwise be counted in \code{n_patients} with no patient-years.
 #'
 #' @param unit_data_path Character. Path to the raw unit (A3) Excel file
 #'   containing both patient and catheter data.
@@ -840,7 +839,8 @@ infections_to_tibble <- function(patient_list, t0, t1) {
 #'   unit records genuine breaks from PD, since a break and a permanent exit
 #'   look identical in the raw data.
 #' @param strict Logical. Raise collected data-quality issues as an error
-#'   rather than a warning. Defaults to \code{FALSE}.
+#'   rather than a warning. Defaults to \code{FALSE}. A patient with no valid
+#'   catheter is always an error.
 #'
 #' @return A validated \code{pd_unit} object.
 #' @seealso \code{\link{new_pd_unit}()} for the underlying constructor.
@@ -854,7 +854,7 @@ infections_to_tibble <- function(patient_list, t0, t1) {
 #'                                     package = "peridial", mustWork = TRUE),
 #'   t0 = as.Date("2025-01-01"),
 #'   t1 = as.Date("2025-12-31"),
-#'   unit_id = "Auckland PD Unit"
+#'   unit_id = "Wellington PD Unit"
 #' )
 #' unit
 pd_unit <- function(unit_data_path,
@@ -899,8 +899,7 @@ pd_unit <- function(unit_data_path,
                    "permanent_hd", "first_dialysis_date", "last_dialysis_date")
   raw_pe_file <- ensure_cols(raw_pe_file, pe_optional)
 
-  # a blank required cell is logged and its row dropped here, before the cohort
-  # filter and the patient_id filter would discard it without a trace
+  # a blank required cell is logged and its row dropped here, before the cohort filter and the patient_id filter
   raw_a3 <- check_required_cells(raw_a3, a3_required_cells, "unit (A3)", log)
   raw_pe_file <- check_required_cells(raw_pe_file, pe_required_cells,
                                       "infection (PE)", log)
@@ -984,8 +983,7 @@ pd_unit <- function(unit_data_path,
     )
     tau <- taus[[pid]]$date
 
-    # tau is the authority on when PD ended: close any catheter left open past it,
-    # and pull back any that claims to have ran beyond it
+    # tau is the authority on when PD ended: close any catheter left open past it, and pull back any that claims to have ran beyond it
     if (!is.na(tau)) {
       rows <- which(raw_catheters$patient_id == pid)
       open <- rows[is.na(raw_catheters$pd_stop_date[rows])]
@@ -1151,6 +1149,7 @@ pd_unit <- function(unit_data_path,
   # Build pd_patient objects, each owning its catheters
   patient_list <- list()
   transfer_details <- character(0)
+  no_catheter_pids <- character(0)  # in-cohort patients left with no valid catheter
 
   for (pid in pids) {
     tau <- taus[[pid]]
@@ -1162,6 +1161,19 @@ pd_unit <- function(unit_data_path,
     }
 
     catheters <- build_patient_catheters(pid)
+
+    # every catheter failed validation (each already logged above). pd_patient()
+    # would accept an empty catheter list, leaving this patient counted in
+    # n_patients with zero patient-years, so flag it: report_issues() below
+    # raises it as an error rather than a warning
+    if (length(catheters) == 0) {
+      no_catheter_pids <- c(no_catheter_pids, pid)
+      log$add("Patient ", pid, ": no valid PD catheter remains after ",
+              "validation (see the catheter issue(s) above); the patient ",
+              "cannot be included in the unit's counts or patient-years. ",
+              "This is always an error, even with strict = FALSE.")
+    }
+
     demo <- raw_patients[raw_patients$patient_id == pid, , drop = FALSE]
 
     p <- tryCatch(
@@ -1208,7 +1220,8 @@ pd_unit <- function(unit_data_path,
   # PY: total patient-years at risk, censored to [t0, t1] and each patient's tau
   tpyar <- total_patient_years(patient_list, t0, t1)
 
-  report_issues(log, strict = strict)
+  # produces warnings and errors for data quality checks
+  report_issues(log, strict = strict || length(no_catheter_pids) > 0)   # a patient with no valid catheter would silently distort n_patients and tpyar so it is always an error
 
   x <- new_pd_unit(
     unit_id        = unit_id,
