@@ -1,5 +1,5 @@
 ---
-title: "Introduction to peRidial"
+title: "peRidial: Peritonitis Indicators for Peritoneal Dialysis Units"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Introduction to peRidial}
@@ -14,6 +14,204 @@ knitr::opts_chunk$set(
 )
 ```
 
-```{r setup}
+
+## Overview
+
+peRidial is a standardised R framework for ingesting, validating, and summarising clinical peritoneal dialysis (PD) unit data. Nested S3 classes represent the PD unit, its patients, their catheters, and peritonitis episodes, supporting reproducible calculation of the ISPD-recommended peritonitis rate and peritonitis-free percentage indicators from longitudinal catheter and infection records.
+
+This vignette walks through installation and setup, the example data, building a `pd_unit` (from files or object by object), and how to prepare your own data.
+
+## Installation and setup
+
+```r
+# install.packages("remotes")
+remotes::install_github("ernestcaballero/peRidial")
+```
+
+> **Note:** peRidial includes compiled C++ code (via Rcpp), so installing from
+> source requires a working compiler toolchain: Rtools on Windows, or the Xcode
+> Command Line Tools on macOS (`xcode-select --install`). Linux users
+> typically have a compiler available already.
+
+The package is installed from the `peRidial` repository but loaded under its all-lowercase name:
+
+```{r}
 library(peridial)
 ```
+
+
+## The example data
+
+The example uses two synthetic Excel files that ship with the package, covering the 2025 reporting year for a fictional unit:
+
+- `a3_2025.xlsx` is the unit survey Form A3 file. Each row is one PD catheter, with the patient's demographic details, PD start and stop dates, any change of dialysis modality, and death or transplant dates. The example file has 60 patients with one catheter each.
+- `pe_2025.xlsx` is the peritonitis episode (PE) file. Each row is one peritonitis episode: the date of infection, the organism(s) cultured, the date of the last antibiotic dose, and whether the episode led to hospitalisation, catheter removal or a transfer to haemodialysis. The example file has 18 episodes.
+
+No real patient data is included. The synthetic dataset was curated from
+metadata items in the ANZDATA Data Dictionary and the survey Form A3, together with
+local PD unit data. Catheter-level fields, such as insertion date, procedure type and removal reason, 
+follow typical local PD unit records. The package author selected the column names needed to achieve
+the aims of this package, so they do not match the ANZDATA export or any real
+dataset. Values are stored as plain, decoded values (for example `"Female"`)
+rather than registry codes. To prepare your own data, see *Using your own data*
+below.
+
+
+## Building a `pd_unit`
+
+### Building from the example files
+
+`pd_unit()` reads the two files and builds the whole object in one call. Choose a reporting period with a start date `t0` and an end date `t1`, usually the first and last day of the reporting year. Dates are given in `YYYY-MM-DD` format.
+
+```{r}
+t0 <- as.Date("2025-01-01")
+t1 <- as.Date("2025-12-31")
+
+unit <- pd_unit(
+  unit_data_path = system.file("extdata", "a3_2025.xlsx", package = "peridial"),
+  infection_data_path = system.file("extdata", "pe_2025.xlsx", package = "peridial"),
+  t0 = t0, t1 = t1, unit_id = "Wellington PD Unit"
+)
+
+unit
+```
+
+Any data-quality problems found while building (for example an episode that cannot be matched to an active catheter) are collected and reported together as a single warning. Set `strict = TRUE` to make them an error instead.
+
+### Using your own data
+
+> **Important:** the column names in the synthetic dataset were chosen by the
+> package author and do not match ANZDATA exports or a unit's own system. Raw
+> files will not load as they are.
+
+To use your own data:
+
+1. Load it into R, for example with `readr::read_csv()` or
+   `readxl::read_excel()`.
+2. Select the columns whose meaning most closely matches the columns in the
+   table below.
+3. Rename them to match, and recode values where needed (for example, coded
+   values to plain ones such as `"Female"`).
+4. Save the filtered and cleaned tables as `.xlsx` files, then point
+   `pd_unit()` at them. `pd_unit()` reads files, so cleaned data held in R
+   must be written out first.
+
+Your files must use the same column names as the example files. Differences in capitalisation, spacing and punctuation are ignored, so `Patient ID`, `patient_id` and `PatientID` are all accepted. A different name is not: `Infection Date` will not be recognised as `Date of Infection`.
+
+| File | Required columns | Optional columns |
+|---|---|---|
+| Unit (A3) | Patient ID, Insertion Date, PD Start Date, Date of Birth | Gender, Ethnicity, Primary Kidney Disease, Height, Weight, Cigarette Smoking Status, Diabetes Type, Procedure Type, PD Stop Date, Removal Reason, Dialysis Type, Dialysis Modality Change, Modality Change Reason, Date Modality Change, Date of Death, Cause of Death, Transplant Date |
+| Peritonitis (PE) | Patient ID, Date of Infection, Organism | Last Dose Antibiotic, Overnight Hospitalisation, Days Hospitalised, Catheter Removed, Catheter Removed Date, Interim HD, Permanent HD, First Dialysis Date, Last Dialysis Date |
+
+A missing required column stops the build with an error that lists what was found. A missing optional column is filled with `NA` without a warning, so check the spelling of optional columns carefully. A misnamed `Date of Death` or `PD Stop Date`, for example, means patients are not censored and patient-years are overstated.
+
+Values should follow these formats:
+
+- Dates can be Excel date cells or text in `YYYY-MM-DD` format.
+- Yes/no columns accept `Yes`/`No`, `Y`/`N`, `TRUE`/`FALSE` or `1`/`0`.
+- Several organisms for one episode go in one cell, separated by commas.
+- A permanent move to haemodialysis is recorded as `Any PD to HD` in Dialysis Modality Change.
+
+The sketch below shows steps 1 to 4 end to end. The column names on the right-hand side of each assignment, and the recoding, are placeholders to replace with your own.
+
+```{r, eval = FALSE}
+raw_a3 <- readxl::read_excel("my_unit_export.xlsx")
+raw_pe <- readxl::read_excel("my_peritonitis_export.xlsx")
+
+a3 <- data.frame(
+  "Patient ID"     = raw_a3$MRN,
+  "Date of Birth"  = raw_a3$DOB,
+  "Insertion Date" = raw_a3$CatheterInsertDate,
+  "PD Start Date"  = raw_a3$PDStart,
+  "Gender"         = ifelse(raw_a3$Sex == 1, "Male", "Female"),  # recode
+  check.names = FALSE
+)
+
+pe <- data.frame(
+  "Patient ID"        = raw_pe$MRN,
+  "Date of Infection" = raw_pe$InfectionDate,
+  "Organism"          = raw_pe$Organism,
+  check.names = FALSE
+)
+
+writexl::write_xlsx(a3, "a3_clean.xlsx")
+writexl::write_xlsx(pe, "pe_clean.xlsx")
+
+unit <- pd_unit(
+  unit_data_path = "a3_clean.xlsx",
+  infection_data_path = "pe_clean.xlsx",
+  t0 = as.Date("2025-01-01"),
+  t1 = as.Date("2025-12-31"),
+  unit_id = "Your PD Unit"
+)
+```
+
+
+### Building object by object
+
+If your data cannot be put into the two-file layout, the objects can be built directly with the constructors, from the bottom up: episodes first, then the catheter that owns them, then the patient.
+
+`pd_infection()` classifies each episode against the patient's previous one, so pass the earlier episode as `prior_episode`:
+
+```{r}
+ep1 <- pd_infection(
+  patient_id = "ABC1234",
+  infection_date = as.Date("2025-03-10"),
+  organism_list = list("Staphylococcus aureus"),
+  last_dose_antibiotic = as.Date("2025-03-31")
+)
+
+ep2 <- pd_infection(
+  patient_id = "ABC1234",
+  infection_date = as.Date("2025-04-15"),
+  organism_list = list("Staphylococcus aureus"),
+  last_dose_antibiotic = as.Date("2025-05-06"),
+  prior_episode = ep1
+)
+
+ep2$episode_type
+```
+
+The second episode is the same organism within four weeks of finishing antibiotics, so it is classified as relapsing. Under ISPD definitions a relapse continues the earlier episode, so it is not counted towards the peritonitis rate.
+
+```{r}
+catheter <- pd_catheter(
+  patient_id = "ABC1234",
+  catheter_id = "ABC1234_01",
+  insertion_date = as.Date("2024-11-02"),
+  procedure_type = "Laparoscopic",
+  pd_start_date = as.Date("2024-11-20"),
+  infections = list(ep1, ep2),
+  t0 = t0, t1 = t1
+)
+
+patient <- pd_patient(
+  patient_id = "ABC1234",
+  catheters = list(catheter),
+  t0 = t0, t1 = t1,
+  gender = "Female",
+  date_of_birth = as.Date("1961-06-14")
+)
+
+patient
+```
+
+
+## Building a `pd_unit`
+
+A `pd_unit` holds the patients, catheters and peritonitis episodes needed to calculate the ISPD-recommended peritonitis rate and peritonitis-free percentage for the reporting period. 
+
+```{r, eval = FALSE}
+unit_manual <- pd_unit(
+  patients = list(patient),
+  t0 = t0, t1 = t1,
+  unit_id = "Example PD Unit"
+)
+
+unit_manual
+```
+
+This unit contains one patient, one catheter and two episodes. The second
+episode is relapsing, so it does not count as a new episode.
+
+The calculation of these indicators is described in {a separate vignette {link}.

@@ -1,5 +1,5 @@
 Package: peridial
-Title: Peritoneal Dialysis Units Peritonitis Indicators
+Title: Peritonitis Indicators for Peritoneal Dialysis Units 
 Version: 0.0.0.9000
 Authors@R: 
     person("Ernest", "Caballero", , "ernestcabs@gmail.com", role = c("aut", "cre"))
@@ -25,7 +25,8 @@ Suggests:
     knitr,
     patchwork,
     rmarkdown,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    writexl
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.1.0
 VignetteBuilder: knitr

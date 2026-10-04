@@ -341,7 +341,215 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 
 
-<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(peridial)</span></code></pre></div>
+<div id="overview" class="section level2">
+<h2>Overview</h2>
+<p>peRidial is a standardised R framework for ingesting, validating, and
+summarising clinical peritoneal dialysis (PD) unit data. Nested S3
+classes represent the PD unit, its patients, their catheters, and
+peritonitis episodes, supporting reproducible calculation of the
+ISPD-recommended peritonitis rate and peritonitis-free percentage
+indicators from longitudinal catheter and infection records.</p>
+<p>This vignette walks through the core classes and a first worked
+example.</p>
+</div>
+<div id="installation-and-setup" class="section level2">
+<h2>Installation and setup</h2>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="co"># install.packages(&quot;remotes&quot;)</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>remotes<span class="sc">::</span><span class="fu">install_github</span>(<span class="st">&quot;ernestcaballero/peRidial&quot;</span>)</span></code></pre></div>
+<blockquote>
+<p><strong>Note:</strong> peRidial includes compiled C++ code (via
+Rcpp), so installing from source requires a working compiler toolchain:
+Rtools on Windows, or the Xcode Command Line Tools on macOS
+(<code>xcode-select --install</code>). Linux users typically have a
+compiler available already.</p>
+</blockquote>
+<p>Load the package. The package name is all lowercase:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">library</span>(peridial)</span></code></pre></div>
+</div>
+<div id="a-first-example" class="section level2">
+<h2>A first example</h2>
+<p>The example uses two synthetic Excel files that ship with the
+package, covering the 2025 reporting year for a fictional unit:</p>
+<ul>
+<li><code>a3_2025.xlsx</code> is the unit (A3) file. Each row is one PD
+catheter, with the patient’s demographic details, PD start and stop
+dates, any change of dialysis modality, and death or transplant dates.
+The example file has 60 patients with one catheter each.</li>
+<li><code>pe_2025.xlsx</code> is the peritonitis episode (PE) file. Each
+row is one peritonitis episode: the date of infection, the organism(s)
+cultured, the date of the last antibiotic dose, and whether the episode
+led to hospitalisation, catheter removal or a transfer to haemodialysis.
+The example file has 18 episodes.</li>
+</ul>
+<p>No real patient data is included. The column names follow selected
+items from the ANZDATA Registry data dictionary (for example the
+AnzdataPatients, AnzdataCourseOfTreatments and
+AnzdataPeritonitisEpisodes tables). Catheter-level fields that ANZDATA
+does not collect, such as insertion date, procedure type and removal
+reason, follow typical PD unit records.</p>
+</div>
+<div id="building-a-pd_unit" class="section level2">
+<h2>Building a <code>pd_unit</code></h2>
+<div id="building-from-raw-data" class="section level3">
+<h3>Building from raw data</h3>
+<p><code>pd_unit()</code> reads the two files and builds the whole
+object in one call. Choose a reporting period with a start date <span class="math inline">\(t_0\)</span> and an end date <span class="math inline">\(t_1\)</span>, usually the first and last day of
+the reporting year. Dates are given in <code>YYYY-MM-DD</code>
+format.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>t0 <span class="ot">&lt;-</span> <span class="fu">as.Date</span>(<span class="st">&quot;2025-01-01&quot;</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>t1 <span class="ot">&lt;-</span> <span class="fu">as.Date</span>(<span class="st">&quot;2025-12-31&quot;</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>unit <span class="ot">&lt;-</span> <span class="fu">pd_unit</span>(</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>  <span class="at">unit_data_path =</span> <span class="fu">system.file</span>(<span class="st">&quot;extdata&quot;</span>, <span class="st">&quot;a3_2025.xlsx&quot;</span>, <span class="at">package =</span> <span class="st">&quot;peridial&quot;</span>),</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>  <span class="at">infection_data_path =</span> <span class="fu">system.file</span>(<span class="st">&quot;extdata&quot;</span>, <span class="st">&quot;pe_2025.xlsx&quot;</span>, <span class="at">package =</span> <span class="st">&quot;peridial&quot;</span>),</span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>  <span class="at">t0 =</span> t0, <span class="at">t1 =</span> t1, <span class="at">unit_id =</span> <span class="st">&quot;Wellington PD Unit&quot;</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>)</span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>unit</span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="co">#&gt; &lt;pd_unit&gt; Wellington PD Unit </span></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="co">#&gt;   Reporting period      : 2025-01-01 to 2025-12-31</span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a><span class="co">#&gt;   Patients              : 60 (10 incident)</span></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="co">#&gt;   Catheters             : 60</span></span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a><span class="co">#&gt;   Peritonitis episodes  : 18</span></span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a><span class="co">#&gt;   Total patient-years   : 50.94</span></span></code></pre></div>
+<p>Any data-quality problems found while building (for example an
+episode that cannot be matched to an active catheter) are collected and
+reported together as a single warning. Set <code>strict = TRUE</code> to
+make them an error instead.</p>
+</div>
+<div id="using-your-own-data" class="section level3">
+<h3>Using your own data</h3>
+<blockquote>
+<p><strong>Important:</strong> the ingestion pipeline is designed around
+the synthetic dataset described above. Raw exports from ANZDATA or a
+unit’s own system will not load as they are: ANZDATA uses different
+column names (for example <code>IinfectionDate</code> and
+<code>GenderCode</code>) and stores most values as codes, while peRidial
+expects plain values such as <code>&quot;Female&quot;</code> or
+<code>&quot;Any PD to HD&quot;</code>. Rename the columns and decode the values
+first.</p>
+</blockquote>
+<p>Your files must use the same column names as the example files.
+Differences in capitalisation, spacing and punctuation are ignored, so
+<code>Patient ID</code>, <code>patient_id</code> and
+<code>PatientID</code> are all accepted. A different name is not:
+<code>Infection Date</code> will not be recognised as
+<code>Date of Infection</code>.</p>
+<table>
+<colgroup>
+<col width="33%" />
+<col width="33%" />
+<col width="33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>Required columns</th>
+<th>Optional columns</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Unit (A3)</td>
+<td>Patient ID, Insertion Date, PD Start Date</td>
+<td>Date of Birth, Gender, Ethnicity, Primary Kidney Disease, Height,
+Weight, Cigarette Smoking Status, Diabetes Type, Procedure Type, PD Stop
+Date, Removal Reason, Dialysis Type, Dialysis Modality Change, Modality
+Change Reason, Date Modality Change, Date of Death, Cause of Death,
+Transplant Date</td>
+</tr>
+<tr class="even">
+<td>Peritonitis (PE)</td>
+<td>Patient ID, Date of Infection, Organism</td>
+<td>Last Dose Antibiotic, Overnight Hospitalisation, Days Hospitalised,
+Catheter Removed, Catheter Removed Date, Interim HD, Permanent HD, First
+Dialysis Date, Last Dialysis Date</td>
+</tr>
+</tbody>
+</table>
+<p>A missing required column stops the build with an error that lists
+what was found. A missing optional column is filled with <code>NA</code>
+without a warning, so check the spelling of optional columns carefully.
+A misnamed <code>Date of Death</code> or <code>PD Stop Date</code>, for
+example, means patients are not censored and patient-years are
+overstated.</p>
+<p>Values should follow these formats:</p>
+<ul>
+<li>Dates can be Excel date cells or text in <code>YYYY-MM-DD</code>
+format.</li>
+<li>Yes/no columns accept <code>Yes</code>/<code>No</code>,
+<code>Y</code>/<code>N</code>, <code>TRUE</code>/<code>FALSE</code> or
+<code>1</code>/<code>0</code>.</li>
+<li>Several organisms for one episode go in one cell, separated by
+commas.</li>
+<li>A permanent move to haemodialysis is recorded as
+<code>Any PD to HD</code> in Dialysis Modality Change.</li>
+</ul>
+<p>Then point <code>pd_unit()</code> at your own files:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>unit <span class="ot">&lt;-</span> <span class="fu">pd_unit</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  <span class="at">unit_data_path =</span> <span class="st">&quot;path/to/your_a3_file.xlsx&quot;</span>,</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="at">infection_data_path =</span> <span class="st">&quot;path/to/your_pe_file.xlsx&quot;</span>,</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="at">t0 =</span> <span class="fu">as.Date</span>(<span class="st">&quot;2025-01-01&quot;</span>),</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  <span class="at">t1 =</span> <span class="fu">as.Date</span>(<span class="st">&quot;2025-12-31&quot;</span>),</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>  <span class="at">unit_id =</span> <span class="st">&quot;Your PD Unit&quot;</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="building-object-by-object" class="section level3">
+<h3>Building object by object</h3>
+<p>If your data cannot be put into the two-file layout, the objects can
+be built directly with the constructors, from the bottom up: episodes
+first, then the catheter that owns them, then the patient.</p>
+<p><code>pd_infection()</code> classifies each episode against the
+patient’s previous one, so pass the earlier episode as
+<code>prior_episode</code>:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>ep1 <span class="ot">&lt;-</span> <span class="fu">pd_infection</span>(</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>  <span class="at">patient_id =</span> <span class="st">&quot;ABC1234&quot;</span>,</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>  <span class="at">infection_date =</span> <span class="fu">as.Date</span>(<span class="st">&quot;2025-03-10&quot;</span>),</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>  <span class="at">organism_list =</span> <span class="fu">list</span>(<span class="st">&quot;Staphylococcus aureus&quot;</span>),</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>  <span class="at">last_dose_antibiotic =</span> <span class="fu">as.Date</span>(<span class="st">&quot;2025-03-31&quot;</span>)</span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>)</span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>ep2 <span class="ot">&lt;-</span> <span class="fu">pd_infection</span>(</span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a>  <span class="at">patient_id =</span> <span class="st">&quot;ABC1234&quot;</span>,</span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a>  <span class="at">infection_date =</span> <span class="fu">as.Date</span>(<span class="st">&quot;2025-04-15&quot;</span>),</span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a>  <span class="at">organism_list =</span> <span class="fu">list</span>(<span class="st">&quot;Staphylococcus aureus&quot;</span>),</span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a>  <span class="at">last_dose_antibiotic =</span> <span class="fu">as.Date</span>(<span class="st">&quot;2025-05-06&quot;</span>),</span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a>  <span class="at">prior_episode =</span> ep1</span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a>)</span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a>ep2<span class="sc">$</span>episode_type</span>
+<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a><span class="co">#&gt; [1] &quot;relapsing&quot;</span></span></code></pre></div>
+<p>The second episode is the same organism within four weeks of
+finishing antibiotics, so it is classified as relapsing. Under ISPD
+definitions a relapse continues the earlier episode, so it is not
+counted towards the peritonitis rate.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>catheter <span class="ot">&lt;-</span> <span class="fu">pd_catheter</span>(</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  <span class="at">patient_id =</span> <span class="st">&quot;ABC1234&quot;</span>,</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="at">catheter_id =</span> <span class="st">&quot;ABC1234_01&quot;</span>,</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="at">insertion_date =</span> <span class="fu">as.Date</span>(<span class="st">&quot;2024-11-02&quot;</span>),</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>  <span class="at">procedure_type =</span> <span class="st">&quot;Laparoscopic&quot;</span>,</span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>  <span class="at">pd_start_date =</span> <span class="fu">as.Date</span>(<span class="st">&quot;2024-11-20&quot;</span>),</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>  <span class="at">infections =</span> <span class="fu">list</span>(ep1, ep2),</span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>  <span class="at">t0 =</span> t0, <span class="at">t1 =</span> t1</span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>)</span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a>patient <span class="ot">&lt;-</span> <span class="fu">pd_patient</span>(</span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a>  <span class="at">patient_id =</span> <span class="st">&quot;ABC1234&quot;</span>,</span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a>  <span class="at">catheters =</span> <span class="fu">list</span>(catheter),</span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a>  <span class="at">t0 =</span> t0, <span class="at">t1 =</span> t1,</span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a>  <span class="at">gender =</span> <span class="st">&quot;Female&quot;</span>,</span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a>  <span class="at">date_of_birth =</span> <span class="fu">as.Date</span>(<span class="st">&quot;1961-06-14&quot;</span>)</span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a>)</span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a></span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a>patient</span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a><span class="co">#&gt; &lt;pd_patient&gt; ABC1234 </span></span>
+<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a><span class="co">#&gt;   Reporting window     : 2025-01-01 to 2025-12-31</span></span>
+<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a><span class="co">#&gt;   Status               : prevalent</span></span>
+<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a><span class="co">#&gt;   Catheters            : 1</span></span>
+<span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a><span class="co">#&gt;   Peritonitis          : 1</span></span>
+<span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a><span class="co">#&gt;   Censoring          : still active on PD</span></span></code></pre></div>
+</div>
+</div>
 
 
 
