@@ -124,7 +124,8 @@ validate_pd_infection <- function(x) {
 #' \strong{Repeat}: more than 4 weeks after completing therapy, with the same
 #' specific organism as the prior episode.
 #'
-#' \strong{NA}: means classified as first ever episode, or a resolved peritonitis episode.
+#' \strong{NA}: means classified as first ever episode, or a resolved peritonitis
+#' episode not in one of \code{"relapsing"}, \code{"recurrent"}, \code{"repeat"}
 #'
 #' @param current_infection_date Date. Infection date of the episode being classified.
 #' @param current_organism_list A list of organism name(s) for this episode.
