@@ -2,10 +2,7 @@
 
 #' Create pd_infection object
 #'
-#' Peritonitis-level infection data for any catheter owned by a patient in the
-#' reporting period. Includes date of infection, peritonitis episode type,
-#' causative organism, and outcome (if resolved, catheter removed or transferred
-#' to haemodialysis - permanently or temporarily).
+#' Peritonitis episode data for any catheter owned by a patient in the reporting period.
 #'
 #' @param patient_id Character. The patient's unique identifier (NHI).
 #' @param infection_date Date. The date the peritonitis episode was diagnosed.
@@ -16,7 +13,7 @@
 #' @param episode_type Character. One of \code{"relapsing"}, \code{"recurrent"},
 #'   or \code{"repeat"} (per ISPD 2022 definitions), or \code{NA} if this is the
 #'   patient's first recorded episode and there is no prior episode to compare
-#'   against. Typically derived via \code{get_episode_type()}.
+#'   against. Derived via \code{get_episode_type()}.
 #' @param last_dose_antibiotic Date. Date of the last dose of antibiotic
 #'   treatment given for this episode.
 #' @param outcome Character. Clinical outcome of this episode (e.g.
@@ -127,6 +124,8 @@ validate_pd_infection <- function(x) {
 #' \strong{Repeat}: more than 4 weeks after completing therapy, with the same
 #' specific organism as the prior episode.
 #'
+#' \strong{NA}: means classified as first ever episode, or a resolved peritonitis episode.
+#'
 #' @param current_infection_date Date. Infection date of the episode being classified.
 #' @param current_organism_list A list of organism name(s) for this episode.
 #' @param prior_episode A \code{pd_infection} object for the same patient's
@@ -186,9 +185,7 @@ get_episode_type <- function(current_infection_date,
 #'
 #' Builds a \code{pd_infection} via \code{new_pd_infection()} and checks it with
 #' \code{validate_pd_infection()} before returning it. \code{episode_type} is
-#' derived automatically from \code{prior_episode} via \code{get_episode_type()}
-#' rather than supplied directly (contrast \code{new_pd_infection()}, which takes
-#' \code{episode_type} as-is).
+#' derived automatically from \code{prior_episode} via \code{get_episode_type()}.
 #'
 #' @inheritParams new_pd_infection
 #' @param prior_episode A \code{pd_infection} object for the same patient's
@@ -226,20 +223,12 @@ pd_infection <- function(patient_id,
 
 
 
+
 #' Print a pd_infection object
 #'
 #' A single peritonitis episode's snapshot: patient id, infection date,
 #' causative organism(s), episode type, date of last antibiotic dose, and
 #' outcome.
-#'
-#' \code{episode_type} is shown as \code{"(none)"} when \code{NA}: either
-#' this is the patient's first recorded episode (nothing prior to classify
-#' against) or, per \code{get_episode_type()}, the pairing of organism and
-#' timing against the prior episode doesn't match an ISPD-defined category.
-#' \code{outcome} is shown as \code{"resolved"} when \code{NA}, matching
-#' \code{new_pd_infection()}'s documented convention that a missing outcome
-#' implies the episode resolved without hospitalisation, catheter removal,
-#' or transfer to haemodialysis.
 #'
 #' @param x A \code{pd_infection} object.
 #' @param ... Ignored.
