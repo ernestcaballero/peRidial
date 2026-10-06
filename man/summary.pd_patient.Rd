@@ -21,16 +21,7 @@ Invisibly, a list with components \code{status}, \code{age_years}
 \description{
 A single patient's clinical snapshot: reporting window, incident/
 prevalent status, each catheter's active window and outcome (with that
-catheter's own countable peritonitis episodes listed underneath it), this
-patient's total time-at-risk within \code{[t0, t1]} (each catheter's
-exposure, censored at this patient's own \code{transfer_date}), a
-breakdown of countable peritonitis episodes by \code{episode_type}
+catheter's own countable peritonitis episodes), this patient's total time-at-risk
+within \code{[t0, t1]}, a breakdown of countable peritonitis episodes by \code{episode_type}
 across every catheter, and how (or whether) this patient was censored.
-}
-\details{
-"Countable" here means exactly what it means for \code{n_episodes}: not a
-relapsing episode, and falling within the owning catheter's active window
-intersected with \code{[t0, t1]}. Each infection is re-checked with
-\code{count_episodes_in_period()} one at a time, so this never drifts out
-of sync with the definition \code{n_episodes} is validated against.
 }

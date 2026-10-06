@@ -41,10 +41,9 @@ this patient (i.e. each has \code{patient_id} equal to this patient's
 \code{NA}.}
 
 \item{date_of_birth}{Date. This patient's date of birth, or \code{NA}.
-Used to derive age (e.g. for a cohort's median age).}
+Used to derive age.}
 
-\item{primary_kidney_disease}{Character. The condition underlying this
-patient's kidney failure, or \code{NA}.}
+\item{primary_kidney_disease}{Character. The cause of this patient's kidney failure, or \code{NA}.}
 
 \item{diabetes_status}{Character. This patient's recorded diabetes status
 (e.g. \code{"Type 1"}, \code{"Type 2"}, \code{"None"}), or \code{NA}.}
@@ -55,43 +54,35 @@ smoking status (e.g. \code{"Never"}, \code{"Former"},
 
 \item{dialysis_type}{Character. The mode of PD therapy this patient
 uses -- \code{"APD"} (Automated PD), \code{"CAPD"} (Continuous
-Ambulatory PD), or \code{"Hybrid"} (both) -- or \code{NA}.}
+Ambulatory PD), or \code{"Hybrid"} (both), or \code{NA}.}
 
 \item{transfer_reason}{Character. Reason the patient left PD permanently
 (e.g. \code{"death"}, \code{"transplant"}, \code{"permanent transfer to HD"}),
 or \code{NA} if they are still on PD. This together with
-\code{transfer_date} is the patient-level censoring point \eqn{tau} from
-the design proposal.}
+\code{transfer_date} is the patient-level censoring point \eqn{tau} (see vignette).}
 
 \item{transfer_date}{Date. Date the patient left PD (\eqn{tau}). Required
 whenever \code{transfer_reason} is supplied, and vice versa.}
 
 \item{new_patient_flag}{Logical. \code{TRUE} if this patient first started
 PD within \code{[t0, t1]} (incident), \code{FALSE} if they were already on
-PD before \code{t0} (prevalent). Defaults to \code{NULL}, which derives it
-from \code{catheters}/\code{t0}/\code{t1} via
-\code{is_incident_patient()}; if supplied explicitly it is checked for
-consistency.}
+PD before \code{t0} (prevalent). Defaults to \code{NULL} and derived via
+\code{is_incident_patient()}.}
 
 \item{n_catheters}{Integer. Number of catheters this patient has. Defaults
-to \code{NULL}, which derives it as \code{length(catheters)}; if supplied
-explicitly it is checked for consistency.}
+to \code{NULL}, which derives it as \code{length(catheters)}.}
 
 \item{n_episodes}{Integer. Count of countable (non-relapsing) peritonitis
 episodes across all of this patient's catheters within the reporting
-period -- the \eqn{n_i} of Equation (3). Relapsing episodes are excluded
-and the count is scoped to \code{[t0, t1]}, both inherited from each
-catheter's own \code{n_peritonitis_episodes}. Defaults to \code{NULL},
-which derives it via \code{count_patient_episodes()}; if supplied
-explicitly it is checked for consistency.}
+period. Defaults to \code{NULL}, which derives it via \code{count_patient_episodes()}.}
 }
 \value{
 An object of class \code{pd_patient}.
 }
 \description{
-One person receiving PD at any point during the reporting period. Owns the
-catheters belonging to that patient, so a patient's whole PD history lives in one object.
-Each of those catheters in turn owns its own peritonitis episodes, giving the nested structure.
+This represents a single unique person receiving PD at any point during the reporting period.
+This patient owns a catheter or if having two or more catheters, non-overlapping catheters,
+and each of these catheters in turn owns its own peritonitis episodes, giving the nested structure.
 }
 \examples{
 \dontrun{

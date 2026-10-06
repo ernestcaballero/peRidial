@@ -26,10 +26,8 @@ data that meet a condition, as a plain tibble. Peritonitis indicators are not
 recalculated and the unit is not modified.
 }
 \details{
-The table is the one \code{\link{subset.pd_unit}()} uses, for this patient
-alone: the patient's own fields, joined to its catheters and then to the
-episodes on each catheter, one row per episode (\code{NA} for a patient with no
-catheters or episode columns). To subset several patients at
+The table is the one \code{\link{subset.pd_unit}()} uses, for this patient alone.
+\code{NA} for a patient with no catheters or episode columns. To subset several patients at
 once, use \code{\link{subset.pd_unit}()} and filter on \code{patient_id}.
 }
 \examples{
