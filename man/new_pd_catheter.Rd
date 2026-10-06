@@ -28,11 +28,10 @@ insertion date per patient (e.g. XYZ1234_01).}
 
 \item{insertion_date}{Date. Date the catheter was surgically inserted.}
 
-\item{procedure_type}{Character. Type of insertion technique (eg. \code{"open surgical"},
-\code{"laparoscopic"}, \code{"percutaneous"}).}
+\item{procedure_type}{Character. Type of insertion technique
+(eg. either of \code{"open surgical"}, \code{"laparoscopic"}, \code{"percutaneous"}).}
 
-\item{pd_start_date}{Date. Date of start of PD therapy of this catheter,
-usually 2-4 weeks after insertion.}
+\item{pd_start_date}{Date. Date of start of PD therapy of this catheter, usually 2-4 weeks after insertion.}
 
 \item{pd_stop_date}{Date. Date PD therapy stopped on this catheter, or
 \code{NA} if the catheter is still in active use.}
@@ -44,37 +43,40 @@ usually 2-4 weeks after insertion.}
 on this catheter (i.e. each has \code{catheter_id} equal to this
 catheter's \code{catheter_id}). Defaults to an empty list for a catheter
 with no recorded peritonitis episodes. This is restricted to the reporting
-period itself (\code{t0} and \code{t1}).}
+period (\code{t0} and \code{t1}).}
 
 \item{t0}{Date. Start of the reporting period, used (together with
 \code{t1}, \code{pd_start_date}, and \code{pd_stop_date} -- see
-\code{count_episodes_in_period()}) to scope
-\code{n_peritonitis_episodes}/\code{peritonitis_flag} to episodes
-falling inside this catheter's active window \emph{and} the reporting
+\code{count_episodes()}) to scope \code{n_peritonitis_episodes}/\code{peritonitis_flag}
+to episodes falling inside this catheter's active window \emph{and} the reporting
 period. Defaults to \code{NA}, which leaves that side of the window
 unfiltered.}
 
-\item{t1}{Date. End of the reporting period. See \code{t0}.}
+\item{t1}{Date. End of the reporting period. Used with \code{t0} (together with
+\code{t1}, \code{pd_start_date}, and \code{pd_stop_date} -- see
+\code{count_episodes()}) to scope \code{n_peritonitis_episodes}/\code{peritonitis_flag}
+to episodes falling inside this catheter's active window \emph{and} the reporting
+period. Defaults to \code{NA}, which leaves that side of the window
+unfiltered.}
 
-\item{total_exposure_days}{Integer. Total days this catheter is at risk for peritonitis
-(censored against \code{t0}, \code{t1}, and the patient's censoring date
-\code{tau} for death, transplant, or permanent HD transfer). ISPD 2022 defines
-patient-time-at-risk as beginning on the day PD commences and continuing while
+\item{total_exposure_days}{Integer. Known as patient-time-at-risk. The total days
+this catheter is at risk for peritonitis (censored against \code{t0}, \code{t1},
+and the patient's censoring date \code{tau} for death, transplant, or permanent HD transfer).
+ISPD 2022 defines patient-time-at-risk as beginning on the day PD commences and continuing while
 the patient remains on PD. Patient-level \code{tau} isn't known to a \code{pd_catheter}
-object in isolation, so this is computed upstream (at the \code{pd_unit}/ingest level) and
+object in isolation, so this is computed at the \code{pd_unit}/ingest level and
 supplied here; defaults to \code{NA_integer_} until that computation is
 wired in.}
 
 \item{n_peritonitis_episodes}{Integer. Count of peritonitis episodes that
 occurred on this catheter within its active window
 (\code{pd_start_date}/\code{pd_stop_date}) and the reporting period
-(\code{t0}/\code{t1}) -- 0, 1, 2, etc. See \code{count_episodes_in_period()}
-for exactly how that window is derived. Relapsing episodes are excluded
-from this count; recurrent/repeat episodes are included.}
+(\code{t0}/\code{t1}) -- 0, 1, 2, etc. See \code{count_episodes()}
+for how that active window is derived. Relapsing episodes are excluded
+from this count; recurrent/repeat episodes and \code{NA_character_} are included.}
 
-\item{peritonitis_flag}{Logical. \code{TRUE} if
-\code{n_peritonitis_episodes > 0} for this catheter within that window,
-\code{FALSE} otherwise.}
+\item{peritonitis_flag}{Logical. \code{TRUE} if \code{n_peritonitis_episodes > 0}
+for this catheter within that window, \code{FALSE} otherwise.}
 }
 \value{
 An object of class \code{pd_catheter}.
@@ -82,9 +84,8 @@ An object of class \code{pd_catheter}.
 \description{
 A single PD catheter episode for a patient: when it was inserted,
 the window of active PD therapy, and (if applicable) why and
-when it was removed. Owns the peritonitis episodes ("infections") that
-occurred during this catheter's active PD window, so episode counts and
-their matching denominator live in the same object.
+when it was removed. This object owns the peritonitis episodes that
+occurred during this catheter's active PD window.
 }
 \examples{
 \dontrun{
