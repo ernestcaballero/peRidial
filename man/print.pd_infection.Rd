@@ -19,13 +19,3 @@ A single peritonitis episode's snapshot: patient id, infection date,
 causative organism(s), episode type, date of last antibiotic dose, and
 outcome.
 }
-\details{
-\code{episode_type} is shown as \code{"(none)"} when \code{NA}: either
-this is the patient's first recorded episode (nothing prior to classify
-against) or, per \code{get_episode_type()}, the pairing of organism and
-timing against the prior episode doesn't match an ISPD-defined category.
-\code{outcome} is shown as \code{"resolved"} when \code{NA}, matching
-\code{new_pd_infection()}'s documented convention that a missing outcome
-implies the episode resolved without hospitalisation, catheter removal,
-or transfer to haemodialysis.
-}

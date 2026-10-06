@@ -27,7 +27,7 @@ other organisms in the same list.}
 \item{episode_type}{Character. One of \code{"relapsing"}, \code{"recurrent"},
 or \code{"repeat"} (per ISPD 2022 definitions), or \code{NA} if this is the
 patient's first recorded episode and there is no prior episode to compare
-against. Typically derived via \code{get_episode_type()}.}
+against. Derived via \code{get_episode_type()}.}
 
 \item{last_dose_antibiotic}{Date. Date of the last dose of antibiotic
 treatment given for this episode.}
@@ -43,10 +43,7 @@ If supplied, \code{outcome_date} must also be supplied. \code{NA} when resolved.
 An object of class \code{pd_infection}.
 }
 \description{
-Peritonitis-level infection data for any catheter owned by a patient in the
-reporting period. Includes date of infection, peritonitis episode type,
-causative organism, and outcome (if resolved, catheter removed or transferred
-to haemodialysis - permanently or temporarily).
+Peritonitis episode data for any catheter owned by a patient in the reporting period.
 }
 \examples{
 \dontrun{

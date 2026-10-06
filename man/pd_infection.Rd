@@ -45,7 +45,5 @@ An object of class \code{pd_infection}.
 \description{
 Builds a \code{pd_infection} via \code{new_pd_infection()} and checks it with
 \code{validate_pd_infection()} before returning it. \code{episode_type} is
-derived automatically from \code{prior_episode} via \code{get_episode_type()}
-rather than supplied directly (contrast \code{new_pd_infection()}, which takes
-\code{episode_type} as-is).
+derived automatically from \code{prior_episode} via \code{get_episode_type()}.
 }
