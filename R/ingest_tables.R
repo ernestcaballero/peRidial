@@ -125,7 +125,7 @@ infections_to_tibble <- function(patient_list, t0, t1) {
     for (cath in p$catheters) {
       for (inf in cath$infections) {
         # an episode counts towards the rate if it is inside this catheter's active window within [t0, t1] and is not a relapse
-        counts <- count_episodes_in_period(list(inf), t0, t1,
+        counts <- count_episodes(list(inf), t0, t1,
                                            cath$pd_start_date,
                                            cath$pd_stop_date) > 0
         rows[[length(rows) + 1]] <- tibble::tibble(
