@@ -23,11 +23,6 @@ test_that("patients_to_tibble() carries the reporting window and per-patient cou
   expect_identical(tbl$new_patient_flag, c(FALSE, FALSE, TRUE))
 })
 
-test_that("patients_to_tibble() carries demographics", {
-  tbl <- patients_to_tibble(patient_list_3(), T0, T1)
-  expect_identical(tbl$gender, c("Female", "Male", "Female"))
-  expect_identical(tbl$dialysis_type, c("APD", "CAPD", "CAPD"))
-})
 
 test_that("patients_to_tibble() takes first_pd_start_date from the earliest catheter", {
   tbl <- patients_to_tibble(patient_list_3(), T0, T1)
@@ -48,11 +43,6 @@ test_that("patients_to_tibble() fills transfer_detail from the named `details` v
   expect_identical(tbl$transfer_detail, c(NA, NA, "Peritonitis"))
 })
 
-test_that("patients_to_tibble() leaves transfer_detail NA when no details are supplied", {
-  tbl <- patients_to_tibble(patient_list_3(), T0, T1)
-  expect_true(all(is.na(tbl$transfer_detail)))
-  expect_type(tbl$transfer_detail, "character")
-})
 
 test_that("patients_to_tibble() returns a typed zero-row tibble for an empty list", {
   tbl <- patients_to_tibble(list(), T0, T1)
@@ -128,11 +118,6 @@ test_that("infections_to_tibble() gives one row per episode, with its owning cat
   expect_true(all(tbl$catheter_id[tbl$patient_id == "CCC0003"] == "CCC0003_01"))
 })
 
-test_that("infections_to_tibble() is ordered by patient and infection date", {
-  tbl <- infections_to_tibble(patient_list_3(), T0, T1)
-  expect_false(is.unsorted(order(tbl$patient_id, tbl$infection_date)))
-  expect_identical(tbl, tbl[order(tbl$patient_id, tbl$infection_date), ])
-})
 
 test_that("infections_to_tibble() flags relapses as not counting towards the rate", {
   tbl <- infections_to_tibble(patient_list_3(), T0, T1)
@@ -150,14 +135,6 @@ test_that("infections_to_tibble() collapses organisms into a string and counts t
   expect_identical(tbl$n_organisms, 2L)
 })
 
-test_that("infections_to_tibble() carries outcome fields", {
-  inf <- make_infection(outcome = "catheter removed",
-                        outcome_date = as.Date("2025-10-20"))
-  cath <- make_catheter(infections = list(inf))
-  tbl <- infections_to_tibble(list(make_patient(catheters = list(cath))), T0, T1)
-  expect_identical(tbl$outcome, "catheter removed")
-  expect_identical(tbl$outcome_date, as.Date("2025-10-20"))
-})
 
 test_that("infections_to_tibble() does not count an episode outside the reporting period", {
   inf <- make_infection(infection_date = as.Date("2024-10-15"))

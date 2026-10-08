@@ -42,7 +42,8 @@ organism_spellings <- rbind(
       "Streptococcus sanguinis", "S. sanguinis", "Streptococcus mitis")),
   data.frame(name = "Streptococcus (other)",
     spelling = c(
-      "Streptococcus, Other (Specify)")),
+      "Streptococcus, Other (Specify)", "Streptococcus pneumoniae",
+      "Strep pneumoniae", "S. pneumoniae")),
   data.frame(name = "Streptococcus",
     spelling = c("Streptococcus, Unknown",
       "Strep", "Streptococci", "Streptococcus species", "Strep species")),

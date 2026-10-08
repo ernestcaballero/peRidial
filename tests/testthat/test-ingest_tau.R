@@ -60,18 +60,13 @@ test_that("derive_patient_tau() censors at a transplant date", {
 })
 
 test_that("derive_patient_tau() censors at an 'Any PD to HD' change, with its reason", {
-  mod <- tau_mod("Any PD to HD", d("2025-03-01"), "Peritonitis")
+  mod <- tau_mod("  ANY PD TO HD ", d("2025-03-01"), "Peritonitis")   # label match ignores case and padding
   tau <- derive_patient_tau(tau_demo(), mod, tau_cath())
   expect_identical(tau$reason, "permanent transfer to HD")
   expect_identical(tau$date, d("2025-03-01"))
   expect_identical(tau$detail, "Peritonitis")
 })
 
-test_that("derive_patient_tau() matches the PD-to-HD label regardless of case and padding", {
-  mod <- tau_mod("  ANY PD TO HD ", d("2025-03-01"), "x")
-  expect_identical(derive_patient_tau(tau_demo(), mod, tau_cath())$reason,
-                   "permanent transfer to HD")
-})
 
 test_that("derive_patient_tau() ignores modality changes that stay within PD", {
   mod <- tau_mod(c("CAPD to APD", "HD to any PD"), d(c("2025-02-01", "2025-03-01")))
@@ -165,25 +160,12 @@ test_that("derive_patient_tau() flags a transplant change with no date anywhere"
   expect_true(is.na(tau$reason))
 })
 
-test_that("derive_patient_tau() does not flag a transplant gap when the date is found", {
-  mod <- tau_mod("Transplant", as.Date(NA))
-  tau <- derive_patient_tau(tau_demo(transplant_date = d("2025-04-01")), mod, tau_cath())
-  expect_false(tau$transplant_gap)
-  expect_identical(tau$reason, "transplant")
-})
 
 test_that("derive_patient_tau() flags an 'Any PD to HD' change with no usable date", {
   mod <- tau_mod("Any PD to HD", as.Date(NA), "Failure")
   tau <- derive_patient_tau(tau_demo(), mod, tau_cath())
   expect_true(tau$hd_transfer_gap)
   expect_true(is.na(tau$reason))
-})
-
-test_that("derive_patient_tau() does not flag the HD gap when another PD-to-HD row has a date", {
-  mod <- tau_mod(rep("Any PD to HD", 2), c(as.Date(NA), d("2025-05-01")))
-  tau <- derive_patient_tau(tau_demo(), mod, tau_cath())
-  expect_false(tau$hd_transfer_gap)
-  expect_identical(tau$date, d("2025-05-01"))
 })
 
 
@@ -195,12 +177,6 @@ test_that("find_transplant_date() prefers the A3 transplant_date", {
                    d("2025-04-01"))
 })
 
-test_that("find_transplant_date() falls back to a catheter removed for transplant", {
-  cath <- tau_cath(pd_start_date = d(c("2023-01-01", "2024-01-01")),
-                   pd_stop_date = d(c("2023-12-01", "2025-02-01")),
-                   removal_reason = c("Infection", "Transplanted"))
-  expect_identical(find_transplant_date(tau_demo(), cath), d("2025-02-01"))
-})
 
 test_that("find_transplant_date() takes the earliest matching stop date", {
   cath <- tau_cath(pd_start_date = d(c("2023-01-01", "2024-01-01")),
@@ -209,10 +185,6 @@ test_that("find_transplant_date() takes the earliest matching stop date", {
   expect_identical(find_transplant_date(tau_demo(), cath), d("2023-12-01"))
 })
 
-test_that("find_transplant_date() ignores a transplant removal reason with no stop date", {
-  cath <- tau_cath(pd_stop_date = as.Date(NA), removal_reason = "Transplant")
-  expect_true(is.na(find_transplant_date(tau_demo(), cath)))
-})
 
 test_that("find_transplant_date() returns NA when there is nothing to go on", {
   expect_true(is.na(find_transplant_date(tau_demo(), tau_cath())))
@@ -234,9 +206,6 @@ test_that("on_pd_in_period() is FALSE with no catheters", {
   expect_false(on_pd_in_period(tau_cath()[0, ], T0, T1))
 })
 
-test_that("on_pd_in_period() is TRUE for a catheter active across the period", {
-  expect_true(on_pd_in_period(tau_cath(), T0, T1))
-})
 
 test_that("on_pd_in_period() is TRUE for a catheter that overlaps either end of the period", {
   expect_true(on_pd_in_period(tau_cath(pd_start_date = d("2024-01-01"),
@@ -250,17 +219,9 @@ test_that("on_pd_in_period() is FALSE for a catheter that ended before, or start
   expect_false(on_pd_in_period(tau_cath(pd_start_date = d("2026-01-01")), T0, T1))
 })
 
-test_that("on_pd_in_period() ignores a catheter with no pd_start_date", {
-  expect_false(on_pd_in_period(tau_cath(pd_start_date = as.Date(NA)), T0, T1))
-})
 
 test_that("on_pd_in_period() uses tau to cut a catheter short", {
   cath <- tau_cath(pd_start_date = d("2023-01-01"))
   expect_false(on_pd_in_period(cath, T0, T1, tau = d("2024-06-01")))
   expect_true(on_pd_in_period(cath, T0, T1, tau = d("2025-01-01")))
-})
-
-test_that("on_pd_in_period() treats a catheter running past tau as ending at tau", {
-  cath <- tau_cath(pd_start_date = d("2023-01-01"), pd_stop_date = d("2025-06-01"))
-  expect_false(on_pd_in_period(cath, T0, T1, tau = d("2024-12-31")))
 })

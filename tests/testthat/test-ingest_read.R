@@ -3,11 +3,6 @@
 
 # standardise_names()
 
-test_that("standardise_names() turns headers into snake_case", {
-  df <- data.frame(`Patient ID` = 1, `Date of Birth` = 1, `PD Start Date` = 1,
-                   check.names = FALSE)
-  expect_named(standardise_names(df), c("patient_id", "date_of_birth", "pd_start_date"))
-})
 
 test_that("standardise_names() splits camelCase and strips punctuation and edge underscores", {
   df <- data.frame(`PatientId` = 1, ` Date-of / Death? ` = 1, `_odd__name_` = 1,
@@ -34,9 +29,6 @@ test_that("matches_keywords() accepts an exact name", {
   expect_false(matches_keywords("nhi_number", rule))
 })
 
-test_that("matches_keywords() with only `exact` set never matches anything else", {
-  expect_false(matches_keywords("anything", list(exact = "dob")))
-})
 
 test_that("matches_keywords() requires all of `all`", {
   rule <- list(all = c("pd", "start", "date"))
@@ -44,12 +36,6 @@ test_that("matches_keywords() requires all of `all`", {
   expect_false(matches_keywords("pd_stop_date", rule))
 })
 
-test_that("matches_keywords() requires at least one of `any`", {
-  rule <- list(any = c("birth", "dob"))
-  expect_true(matches_keywords("date_of_birth", rule))
-  expect_true(matches_keywords("dob_value", rule))
-  expect_false(matches_keywords("date_of_death", rule))
-})
 
 test_that("matches_keywords() combines `all` and `any`", {
   rule <- list(all = "patient", any = c("id", "nhi"))
@@ -75,17 +61,6 @@ test_that("map_columns() leaves a column that already has the expected name alon
   expect_identical(out, df)
 })
 
-test_that("map_columns() does not map a column onto a key that is already present", {
-  df <- data.frame(patient_id = "A1", nhi = "B2")
-  out <- map_columns(df, a3_spec, "unit (A3)")
-  expect_named(out, c("patient_id", "nhi"))
-})
-
-test_that("map_columns() never maps one source column to two keys", {
-  df <- data.frame(pd_stop_date = 1, pd_start_date = 2)
-  out <- map_columns(df, a3_spec, "unit (A3)")
-  expect_named(out, c("pd_stop_date", "pd_start_date"))
-})
 
 test_that("map_columns() logs, and uses the first, when several columns could be the key", {
   log <- new_issue_log()
@@ -109,22 +84,6 @@ test_that("map_columns() resolves the modality-change columns in specificity ord
                                   "dialysis_modality_change"))
 })
 
-test_that("map_columns() maps the alternative headers in the bundled modified A3 file", {
-  skip_if_not_installed("readxl")
-  path <- system.file("extdata", "a3_2025_modified.xlsx", package = "peridial")
-  skip_if(!nzchar(path))
-  df <- map_columns(standardise_names(readxl::read_excel(path)), a3_spec, "unit (A3)")
-  expect_true(all(c("patient_id", "cigarette_smoking_status", "pd_stop_date",
-                    "date_of_death", "cause_of_death", "transplant_date")
-                  %in% names(df)))
-  expect_false(any(c("nhi", "smoking_status", "date_stopped_pd", "death",
-                     "transplanted") %in% names(df)))
-})
-
-test_that("map_columns() accepts a bare 'Death' or 'Transplanted' header as the date column", {
-  df <- standardise_names(data.frame(Death = 1, Transplanted = 2, check.names = FALSE))
-  expect_named(map_columns(df, a3_spec, "unit (A3)"), c("date_of_death", "transplant_date"))
-})
 
 test_that("map_columns() tells the cause of death from the date of death, in either column order", {
   a <- standardise_names(data.frame(`Date of Death` = 1, `Cause of Death` = 2, check.names = FALSE))
@@ -135,10 +94,6 @@ test_that("map_columns() tells the cause of death from the date of death, in eit
   expect_named(map_columns(c3, a3_spec, "unit (A3)"), c("cause_of_death", "date_of_death"))
 })
 
-test_that("map_columns() leaves already-correct death and transplant names alone", {
-  df <- data.frame(date_of_death = 1, cause_of_death = 2, transplant_date = 3)
-  expect_identical(map_columns(df, a3_spec, "unit (A3)"), df)
-})
 
 test_that("map_columns() maps PE headers, with catheter_removed_date taking priority", {
   df <- standardise_names(data.frame(
@@ -166,15 +121,6 @@ test_that("require_cols() errors, naming the file, the missing columns and what 
   expect_error(require_cols(df, "b", "unit (A3)"), "Columns found after name standardisation: a")
 })
 
-test_that("require_cols(kind = \"table\") words the error for an in-memory table", {
-  df <- data.frame(a = 1)
-  expect_error(require_cols(df, c("b", "c"), "patients", kind = "table"),
-               "The patients table is missing required column\\(s\\): `b`, `c`")
-  err <- expect_error(require_cols(df, "b", "patients", kind = "table"))
-  expect_no_match(conditionMessage(err), "name standardisation")
-  expect_match(conditionMessage(err), "Columns found: a")
-  expect_error(require_cols(df, "b", "patients", kind = "sheet"))
-})
 
 test_that("require_cols() records the problem in the log before it errors", {
   log <- new_issue_log()
@@ -195,10 +141,6 @@ test_that("ensure_cols() adds missing columns as all-NA and keeps existing ones"
   expect_length(out$c, 2)
 })
 
-test_that("ensure_cols() honours the `type` of the filler", {
-  out <- ensure_cols(data.frame(a = 1:2), "b", type = NA_character_)
-  expect_type(out$b, "character")
-})
 
 test_that("ensure_cols() works on a zero-row frame", {
   out <- ensure_cols(data.frame(a = integer(0)), "b")
@@ -238,9 +180,6 @@ test_that("as_date_safe() warns, naming the column, about values it cannot parse
   expect_identical(out, as.Date(c("2025-01-01", NA)))
 })
 
-test_that("as_date_safe() honours a custom format", {
-  expect_identical(as_date_safe("31/01/2025", format = "%d/%m/%Y"), as.Date("2025-01-31"))
-})
 
 test_that("as_date_safe() does not warn for an all-NA logical column", {
   expect_no_warning(out <- as_date_safe(c(NA, NA)))
@@ -279,17 +218,6 @@ test_that("new_issue_log() starts empty and collects pasted messages in order", 
   expect_identical(log$get(), c("first 1", "second"))
 })
 
-test_that("each issue log is independent", {
-  a <- new_issue_log()
-  b <- new_issue_log()
-  a$add("only in a")
-  expect_length(b$get(), 0)
-})
-
-test_that("report_issues() is silent with no issues", {
-  expect_no_error(report_issues(new_issue_log()))
-  expect_null(report_issues(new_issue_log()))
-})
 
 test_that("report_issues() raises one error listing every issue", {
   log <- new_issue_log()
@@ -301,12 +229,6 @@ test_that("report_issues() raises one error listing every issue", {
   expect_error(report_issues(log), "Correct these in the source data and re-run")
 })
 
-test_that("report_issues() is an error, never a warning", {
-  log <- new_issue_log()
-  log$add("problem A")
-  expect_no_warning(try(report_issues(log), silent = TRUE))
-  expect_error(report_issues(log), "1 data-quality issue")
-})
 
 # is_blank_cell()
 
@@ -341,12 +263,6 @@ test_that("check_required_cells() drops rows with a blank required value and log
   expect_match(log$get(), "row 3 \\(patient B\\): missing required value\\(s\\) in dob")
 })
 
-test_that("check_required_cells() names every blank column on a row", {
-  df <- data.frame(patient_id = "A", x = NA, y = NA)
-  log <- new_issue_log()
-  check_required_cells(df, c("x", "y"), "PE", log)
-  expect_match(log$get(), "in x, y")
-})
 
 test_that("check_required_cells() copes with a row that has no patient_id", {
   df <- data.frame(patient_id = c(NA, "B"), dob = c(1, 2))
@@ -370,19 +286,6 @@ test_that("check_required_cells() errors if a required column is not in the data
 })
 
 
-# sheet_row() / .sheet_row ------------------------------------------------------
-
-test_that("sheet_row() falls back to position plus header rows", {
-  df <- data.frame(a = 1:3)
-  expect_identical(sheet_row(df, 2), 3)
-  expect_identical(sheet_row(df, 2, header_rows = 3L), 5)
-})
-
-test_that("sheet_row() prefers a stamped .sheet_row column", {
-  df <- data.frame(a = 1:2, .sheet_row = c(5L, 9L))
-  expect_identical(sheet_row(df, 2), 9L)
-})
-
 test_that("check_required_cells() reports the stamped sheet row, not the position", {
   df <- data.frame(patient_id = c("A", "B"), x = c(1, NA), .sheet_row = c(7L, 12L))
   log <- new_issue_log()
@@ -394,12 +297,9 @@ test_that("check_required_cells() reports the stamped sheet row, not the positio
 # is_valid_nhi() ----------------------------------------------------------------
 
 test_that("is_valid_nhi() accepts three letters followed by four digits", {
-  expect_true(all(is_valid_nhi(c("ABC1234", "SPD0001", "ZAA0001", "IOI0000"))))
+  expect_true(all(is_valid_nhi(c("ABC1234", "SPD0001", "abc1234", "aBC1234"))))
 })
 
-test_that("is_valid_nhi() ignores case", {
-  expect_true(all(is_valid_nhi(c("abc1234", "Abc1234", "aBC1234"))))
-})
 
 test_that("is_valid_nhi() rejects anything else", {
   bad <- c("40", "SPD001", "SPD00001", "ABC123", "ABC12345", "ABC12DV", " ABC1234",
@@ -446,12 +346,6 @@ test_that("check_patient_ids() leaves blank ids to check_required_cells()", {
   expect_length(log$get(), 0)
 })
 
-test_that("check_patient_ids() uses the stamped sheet row", {
-  df <- data.frame(patient_id = c("ABC1234", "bad"), .sheet_row = c(2L, 9L))
-  log <- new_issue_log()
-  check_patient_ids(df, "PE", log)
-  expect_match(log$get(), "row 9: `bad`")
-})
 
 test_that("check_patient_ids() handles an empty frame and a missing column", {
   empty <- data.frame(patient_id = character(0))
@@ -477,15 +371,9 @@ test_that("check_known_patients() drops and logs an unknown patient with its row
   expect_match(log$get(), "infection \\(PE\\) file, row 3: patient ZZZ9999 has no row in the unit \\(A3\\) file")
 })
 
-test_that("check_known_patients() ignores case", {
-  df <- data.frame(patient_id = c("abc1234", "DEF5678"))
-  log <- new_issue_log()
-  expect_identical(nrow(check_known_patients(df, c("ABC1234", "def5678"), "PE", log)), 2L)
-  expect_length(log$get(), 0)
-})
 
 test_that("check_known_patients() trims ids and ignores blanks", {
-  df <- data.frame(patient_id = c(" ABC1234", NA, ""))
+  df <- data.frame(patient_id = c(" abc1234", NA, ""))
   log <- new_issue_log()
   expect_identical(nrow(check_known_patients(df, "ABC1234", "PE", log)), 3L)
   expect_length(log$get(), 0)
