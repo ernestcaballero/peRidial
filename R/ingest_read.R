@@ -195,7 +195,7 @@ report_issues <- function(log) {
     paste0("  - ", issues, collapse = "\n"),
     "\nCorrect these in the source data and re-run."
   )
-  stop(msg, call. = FALSE)
+  stop(msg)
 }
 
 
@@ -238,7 +238,7 @@ check_required_cells <- function(df, cols, what, log, id_col = "patient_id",
     } else {
       paste0("patient ", trimws(pid))
     }
-    log$add("The ", what, " file, row ", i + header_rows, " (", who,
+    log$add("The ", what, " file, row ", sheet_row(df, i, header_rows), " (", who,
             "): missing required value(s) in ",
             paste(cols[blank[i, ]], collapse = ", "),
             "; row excluded from the unit.")
@@ -250,3 +250,75 @@ check_required_cells <- function(df, cols, what, log, id_col = "patient_id",
 
 
 
+#' Row number of a data-frame row as it appears in the source sheet
+#' @noRd
+sheet_row <- function(df, i, header_rows = 1L) {
+  if (".sheet_row" %in% names(df)) df$.sheet_row[i] else i + header_rows
+}
+
+
+
+
+#' Check if patient_id is a valid NHI format (three letters followed by four digits)
+#' @noRd
+is_valid_nhi <- function(x) {
+  x <- toupper(as.character(x))
+  !is.na(x) & grepl("^[A-Z]{3}[0-9]{4}$", x)
+}
+
+
+
+
+#' Log and drop rows whose patient_id is not a valid NHI number
+#' Blank identifiers are left to \code{check_required_cells()}.
+#' @noRd
+check_patient_ids <- function(df, what, log, id_col = "patient_id", header_rows = 1L) {
+  stopifnot(is.data.frame(df), id_col %in% names(df))
+  if (nrow(df) == 0) {
+    return(df)
+  }
+
+  ids <- trimws(as.character(df[[id_col]]))
+  blank <- is.na(ids) | !nzchar(ids)
+  bad <- which(!blank & !is_valid_nhi(ids))
+  if (length(bad) == 0) {
+    df[[id_col]] <- toupper(ids)
+    return(df)
+  }
+
+  for (i in bad) {
+    log$add("The ", what, " file, row ", sheet_row(df, i, header_rows), ": `", ids[i],
+            "` is not a valid NHI number (three letters then four digits, e.g. ",
+            "ABC1234); row excluded from the unit.")
+  }
+
+  df[[id_col]] <- toupper(ids)
+  df[-bad, , drop = FALSE]
+}
+
+
+
+
+#' Log and drop PE rows for a patient who has no row in the A3 file
+#' @noRd
+check_known_patients <- function(df, known_ids, what, log, id_col = "patient_id",
+                                 header_rows = 1L) {
+  stopifnot(is.data.frame(df), id_col %in% names(df))
+  if (nrow(df) == 0) {
+    return(df)
+  }
+
+  ids <- trimws(as.character(df[[id_col]]))
+  bad <- which(!is.na(ids) & nzchar(ids) & !(toupper(ids) %in% toupper(known_ids)))
+  if (length(bad) == 0) {
+    return(df)
+  }
+
+  for (i in bad) {
+    log$add("The ", what, " file, row ", sheet_row(df, i, header_rows), ": patient ", ids[i],
+            " has no row in the unit (A3) file, so this episode cannot be ",
+            "attached to a catheter; row excluded from the unit.")
+  }
+
+  df[-bad, , drop = FALSE]
+}

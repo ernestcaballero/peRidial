@@ -368,3 +368,130 @@ test_that("check_required_cells() handles a zero-row frame and a custom header o
 test_that("check_required_cells() errors if a required column is not in the data", {
   expect_error(check_required_cells(data.frame(a = 1), "b", "PE", new_issue_log()))
 })
+
+
+# sheet_row() / .sheet_row ------------------------------------------------------
+
+test_that("sheet_row() falls back to position plus header rows", {
+  df <- data.frame(a = 1:3)
+  expect_identical(sheet_row(df, 2), 3)
+  expect_identical(sheet_row(df, 2, header_rows = 3L), 5)
+})
+
+test_that("sheet_row() prefers a stamped .sheet_row column", {
+  df <- data.frame(a = 1:2, .sheet_row = c(5L, 9L))
+  expect_identical(sheet_row(df, 2), 9L)
+})
+
+test_that("check_required_cells() reports the stamped sheet row, not the position", {
+  df <- data.frame(patient_id = c("A", "B"), x = c(1, NA), .sheet_row = c(7L, 12L))
+  log <- new_issue_log()
+  check_required_cells(df, "x", "PE", log)
+  expect_match(log$get(), "row 12 ")
+})
+
+
+# is_valid_nhi() ----------------------------------------------------------------
+
+test_that("is_valid_nhi() accepts three letters followed by four digits", {
+  expect_true(all(is_valid_nhi(c("ABC1234", "SPD0001", "ZAA0001", "IOI0000"))))
+})
+
+test_that("is_valid_nhi() ignores case", {
+  expect_true(all(is_valid_nhi(c("abc1234", "Abc1234", "aBC1234"))))
+})
+
+test_that("is_valid_nhi() rejects anything else", {
+  bad <- c("40", "SPD001", "SPD00001", "ABC123", "ABC12345", "ABC12DV", " ABC1234",
+           "ABC 1234", "AB12345", "A1C1234", "1234567", "ABCDEFG", "ABC-123", "", NA)
+  expect_false(any(is_valid_nhi(bad)))
+})
+
+test_that("is_valid_nhi() is vectorised and coerces non-character input", {
+  expect_identical(is_valid_nhi(c("ABC1234", "x", NA)), c(TRUE, FALSE, FALSE))
+  expect_identical(is_valid_nhi(1234567), FALSE)
+  expect_identical(is_valid_nhi(character(0)), logical(0))
+})
+
+
+# check_patient_ids() -----------------------------------------------------------
+
+test_that("check_patient_ids() keeps valid rows and logs nothing", {
+  df <- data.frame(patient_id = c("ABC1234", "DEF5678"))
+  log <- new_issue_log()
+  expect_identical(check_patient_ids(df, "unit (A3)", log), df)
+  expect_length(log$get(), 0)
+})
+
+test_that("check_patient_ids() drops and logs each invalid id with its row", {
+  df <- data.frame(patient_id = c("ABC1234", "40", "DEF5678", "xyz"), v = 1:4)
+  log <- new_issue_log()
+  out <- check_patient_ids(df, "unit (A3)", log)
+  expect_identical(out$patient_id, c("ABC1234", "DEF5678"))
+  expect_length(log$get(), 2)
+  expect_match(log$get()[1], "unit \\(A3\\) file, row 3: `40` is not a valid NHI number")
+  expect_match(log$get()[2], "row 5: `xyz` is not a valid NHI number")
+})
+
+test_that("check_patient_ids() trims whitespace and stores the upper-case id", {
+  df <- data.frame(patient_id = c(" abc1234 ", "ABC1234\t", "Def5678"))
+  out <- check_patient_ids(df, "unit (A3)", new_issue_log())
+  expect_identical(out$patient_id, c("ABC1234", "ABC1234", "DEF5678"))
+})
+
+test_that("check_patient_ids() leaves blank ids to check_required_cells()", {
+  df <- data.frame(patient_id = c(NA, "", "  ", "ABC1234"))
+  log <- new_issue_log()
+  expect_identical(nrow(check_patient_ids(df, "unit (A3)", log)), 4L)
+  expect_length(log$get(), 0)
+})
+
+test_that("check_patient_ids() uses the stamped sheet row", {
+  df <- data.frame(patient_id = c("ABC1234", "bad"), .sheet_row = c(2L, 9L))
+  log <- new_issue_log()
+  check_patient_ids(df, "PE", log)
+  expect_match(log$get(), "row 9: `bad`")
+})
+
+test_that("check_patient_ids() handles an empty frame and a missing column", {
+  empty <- data.frame(patient_id = character(0))
+  expect_identical(check_patient_ids(empty, "PE", new_issue_log()), empty)
+  expect_error(check_patient_ids(data.frame(a = 1), "PE", new_issue_log()))
+})
+
+
+# check_known_patients() --------------------------------------------------------
+
+test_that("check_known_patients() keeps rows whose patient is in the A3 file", {
+  df <- data.frame(patient_id = c("ABC1234", "DEF5678"))
+  log <- new_issue_log()
+  expect_identical(check_known_patients(df, c("ABC1234", "DEF5678", "GHJ9012"), "PE", log), df)
+  expect_length(log$get(), 0)
+})
+
+test_that("check_known_patients() drops and logs an unknown patient with its row", {
+  df <- data.frame(patient_id = c("ABC1234", "ZZZ9999"), v = 1:2)
+  log <- new_issue_log()
+  out <- check_known_patients(df, "ABC1234", "infection (PE)", log)
+  expect_identical(out$patient_id, "ABC1234")
+  expect_match(log$get(), "infection \\(PE\\) file, row 3: patient ZZZ9999 has no row in the unit \\(A3\\) file")
+})
+
+test_that("check_known_patients() ignores case", {
+  df <- data.frame(patient_id = c("abc1234", "DEF5678"))
+  log <- new_issue_log()
+  expect_identical(nrow(check_known_patients(df, c("ABC1234", "def5678"), "PE", log)), 2L)
+  expect_length(log$get(), 0)
+})
+
+test_that("check_known_patients() trims ids and ignores blanks", {
+  df <- data.frame(patient_id = c(" ABC1234", NA, ""))
+  log <- new_issue_log()
+  expect_identical(nrow(check_known_patients(df, "ABC1234", "PE", log)), 3L)
+  expect_length(log$get(), 0)
+})
+
+test_that("check_known_patients() handles an empty frame", {
+  empty <- data.frame(patient_id = character(0))
+  expect_identical(check_known_patients(empty, "ABC1234", "PE", new_issue_log()), empty)
+})

@@ -238,16 +238,19 @@ validate_pd_unit <- function(x) {
 #' derived from it, plus the headline numbers the ISPD indicators need:
 #' \code{n_new}, \code{n_patients} and \code{tpyar}.
 #'
-#' Data-quality problems (for example an episode that cannot be matched to an
-#' active catheter, or a patient left with no valid catheter) are collected
+#' Data-quality problems (for example a patient_id that is not a valid NHI, an
+#' episode that cannot be matched to an active catheter, or a patient left with
+#' no valid catheter) are collected
 #' across both files and raised together as a single error. Each one needs a
 #' correction in the source file: fix them and run \code{pd_unit()} again until
 #' it builds without error.
 #'
 #' @param unit_data_path Character. Path to the raw unit (A3) Excel file
-#'   containing both patient and catheter data.
+#'   containing both patient and catheter data. Every \code{patient_id} must be a
+#'   valid NHI number (three letters then four digits, e.g. \code{ABC1234}); case
+#'   is ignored and the upper-case form is used.
 #' @param infection_data_path Character. Path to the raw infection/peritonitis
-#'   episode (PE) Excel file.
+#'   episode (PE) Excel file. Every patient in it must also appear in the A3 file.
 #' @param t0 Date. Start of the reporting period.
 #' @param t1 Date. End of the reporting period.
 #' @param unit_id Character. Identifier for the unit, e.g.
@@ -321,9 +324,22 @@ pd_unit <- function(unit_data_path,
                    "permanent_hd", "first_dialysis_date", "last_dialysis_date")
   raw_pe_file <- ensure_cols(raw_pe_file, pe_optional)
 
-  # a blank required cell is logged and its dropped here
+  # remember each row's position in the source sheet (header = row 1) so messages
+  # point at the right row even after earlier checks have dropped rows
+  raw_a3$.sheet_row <- seq_len(nrow(raw_a3)) + 1L
+  raw_pe_file$.sheet_row <- seq_len(nrow(raw_pe_file)) + 1L
+
+  # a blank required cell is logged and its row dropped here
   raw_a3 <- check_required_cells(raw_a3, a3_required_cells, "unit (A3)", log)
   raw_pe_file <- check_required_cells(raw_pe_file, pe_required_cells, "infection (PE)", log)
+
+  # a patient_id that is not a valid NHI is logged and its row dropped
+  raw_a3 <- check_patient_ids(raw_a3, "unit (A3)", log)
+  raw_pe_file <- check_patient_ids(raw_pe_file, "infection (PE)", log)
+
+  # an episode for a patient who is not in the A3 file would silently match no catheter
+  raw_pe_file <- check_known_patients(raw_pe_file, trimws(as.character(raw_a3$patient_id)),
+                                      "infection (PE)", log)
 
   # tidy the A3 form into patients, catheters and modality changes
   raw_a3 <- raw_a3 |>

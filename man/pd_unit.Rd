@@ -16,10 +16,12 @@ pd_unit(
 }
 \arguments{
 \item{unit_data_path}{Character. Path to the raw unit (A3) Excel file
-containing both patient and catheter data.}
+containing both patient and catheter data. Every \code{patient_id} must be a
+valid NHI number (three letters then four digits, e.g. \code{ABC1234}); case
+is ignored and the upper-case form is used.}
 
 \item{infection_data_path}{Character. Path to the raw infection/peritonitis
-episode (PE) Excel file.}
+episode (PE) Excel file. Every patient in it must also appear in the A3 file.}
 
 \item{t0}{Date. Start of the reporting period.}
 
@@ -38,7 +40,6 @@ has closed, with none reopened, as having left PD on the last
 \code{pd_stop_date}. Defaults to \code{TRUE}. Set \code{FALSE} if your
 unit records genuine breaks from PD, since a break and a permanent exit
 look identical in the raw data.}
-
 }
 \value{
 A validated \code{pd_unit} object.
@@ -56,8 +57,9 @@ flat tibbles (\code{patients}, \code{catheters}, \code{infections})
 derived from it, plus the headline numbers the ISPD indicators need:
 \code{n_new}, \code{n_patients} and \code{tpyar}.
 
-Data-quality problems (for example an episode that cannot be matched to an
-active catheter, or a patient left with no valid catheter) are collected
+Data-quality problems (for example a patient_id that is not a valid NHI, an
+episode that cannot be matched to an active catheter, or a patient left with
+no valid catheter) are collected
 across both files and raised together as a single error. Each one needs a
 correction in the source file: fix them and run \code{pd_unit()} again until
 it builds without error.
