@@ -65,20 +65,34 @@ map_columns <- function(df, spec, what, log = NULL) {
 
 
 
-#' Error if a raw file is missing columns the ingest cannot proceed without
-#' A missing required column is recorded here and error is raised.
+#' Error if a data frame is missing columns that are required
+#'
+#' Used on the raw files (\code{kind = "file"}, after name standardisation) and
+#' on the unit's own tibbles when validating (\code{kind = "table"}). A missing
+#' required column is recorded in \code{log} if one is given, and an error is raised.
+#'
+#' @param df A data frame.
+#' @param cols Character vector of required column names.
+#' @param what Character. Name of the file or table, used in the message.
+#' @param log Optional issue log from \code{new_issue_log()}.
+#' @param kind Character. \code{"file"} (default) or \code{"table"}; the word
+#'   used after \code{what} in the message.
+#'
+#' @return Invisibly \code{TRUE}; errors otherwise.
 #' @noRd
-require_cols <- function(df, cols, what, log = NULL) {
+require_cols <- function(df, cols, what, log = NULL, kind = c("file", "table")) {
+  kind <- match.arg(kind)
   missing <- setdiff(cols, names(df))
   if (length(missing) > 0) {
-    msg <- paste0("The ", what, " file is missing required column(s): ",
+    msg <- paste0("The ", what, " ", kind, " is missing required column(s): ",
                   paste0("`", missing, "`", collapse = ", "), ".")
     if (!is.null(log)) {
       log$add(msg)
     }
     stop(msg,
-         "\nColumns found after name standardisation: ",
-         paste(names(df), collapse = ", "),
+         "\nColumns found",
+         if (kind == "file") " after name standardisation",
+         ": ", paste(names(df), collapse = ", "),
          call. = FALSE)
   }
   invisible(TRUE)
