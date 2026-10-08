@@ -60,6 +60,3 @@ pe_spec <- list(
   first_dialysis_date = list(all = c("first", "dialysis")),
   last_dialysis_date = list(all = c("last",  "dialysis"))
 )
-
-
-organism_map <-
