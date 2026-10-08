@@ -315,7 +315,7 @@ pd_unit <- function(unit_data_path,
   stopifnot(inherits(t0, "Date"), length(t0) == 1, !is.na(t0))
   stopifnot(inherits(t1, "Date"), length(t1) == 1, !is.na(t1))
   if (t0 > t1) {
-    stop("t0 must be on or before t1.", call. = FALSE)
+    stop("t0 must be on or before t1.")
   }
 
   log <- new_issue_log()
@@ -324,9 +324,12 @@ pd_unit <- function(unit_data_path,
   raw_a3 <- standardise_names(readxl::read_excel(unit_data_path))
   raw_pe_file <- standardise_names(readxl::read_excel(infection_data_path))
 
-  # map differently-named columns onto the expected names by keyword
+  # map differently-named columns onto the expected names by keyword; logged
   raw_a3 <- map_columns(raw_a3, a3_spec, "unit (A3)", log)
   raw_pe_file <- map_columns(raw_pe_file, pe_spec, "infection (PE)", log)
+
+  a3_required_cells <- c("patient_id", "date_of_birth", "insertion_date", "pd_start_date")
+  pe_required_cells <- c("patient_id", "date_of_infection", "organism", "last_dose_antibiotic")
 
   require_cols(raw_a3, a3_required_cells, "unit (A3)")
   require_cols(raw_pe_file, pe_required_cells, "infection (PE)")
@@ -345,10 +348,9 @@ pd_unit <- function(unit_data_path,
                    "permanent_hd", "first_dialysis_date", "last_dialysis_date")
   raw_pe_file <- ensure_cols(raw_pe_file, pe_optional)
 
-  # a blank required cell is logged and its row dropped here, before the cohort filter and the patient_id filter
+  # a blank required cell is logged and its dropped here
   raw_a3 <- check_required_cells(raw_a3, a3_required_cells, "unit (A3)", log)
-  raw_pe_file <- check_required_cells(raw_pe_file, pe_required_cells,
-                                      "infection (PE)", log)
+  raw_pe_file <- check_required_cells(raw_pe_file, pe_required_cells, "infection (PE)", log)
 
   # tidy the A3 form into patients, catheters and modality changes
   raw_a3 <- raw_a3 |>

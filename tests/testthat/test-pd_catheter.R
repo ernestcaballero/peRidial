@@ -1,9 +1,4 @@
-# Shared fixtures (T0, T1, make_catheter(), make_infection()) live in
-# helper-fixtures.R, which testthat sources before every test file. The
-# default catheter (ABC1234_01, window = calendar 2025) is valid on its own;
-# each test overrides only the fields it is probing. new_pd_catheter() is
-# called directly only in the constructor test, where the constructor is
-# itself what is under test.
+# Shared fixtures (T0, T1, make_catheter(), make_infection()) live in helper-fixtures.R
 
 test_that("new_pd_catheter creates a valid pd_catheter object", {
   cath <- new_pd_catheter(
