@@ -39,10 +39,11 @@ a3_spec <- list(
   dialysis_modality_change = list(all = c("modality", "change")),
   dialysis_type = list(all = c("dialysis", "type")),
 
-  # outcomes
-  date_of_death = list(all = c("death", "date")),
+  # outcomes: cause first (it needs a "cause"/"reason" keyword), so whatever other
+  # "death" column is left is the date; a bare "Death" or "Transplanted" header counts
   cause_of_death = list(all = "death", any = c("cause", "reason")),
-  transplant_date = list(all = c("transplant", "date"))
+  date_of_death = list(all = "death"),                   # date_of_death, death, died_date
+  transplant_date = list(all = "transplant")             # transplant_date, transplanted
 )
 
 pe_spec <- list(
