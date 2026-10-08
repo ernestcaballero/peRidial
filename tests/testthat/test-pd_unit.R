@@ -306,7 +306,7 @@ test_that("subset() reports a join problem", {
   # a child table missing its key column
   x3 <- make_subset_unit()
   x3$infections$catheter_id <- NULL
-  expect_error(subset(x3), "`infections` is missing required column")
+  expect_error(subset(x3), "The infections table is missing required column")
 })
 
 test_that("subset() works on the unit built from the bundled example files", {
@@ -330,4 +330,287 @@ test_that("subset() works on the unit built from the bundled example files", {
   expect_true(all(female$gender == "Female"))
 
   expect_equal(nrow(subset(unit, !is.na(infection_date))), nrow(unit$infections))
+})
+
+
+# pd_unit(): building a unit from raw files -------------------------------------
+# These exercise the whole ingest chain (ingest_read -> ingest_tau ->
+# ingest_build -> ingest_tables) through the one public entry point.
+
+bundled_a3 <- function() system.file("extdata", "a3_2025.xlsx", package = "peridial")
+bundled_pe <- function() system.file("extdata", "pe_2025.xlsx", package = "peridial")
+
+# Write small A3 / PE files to temp .xlsx. A row is a named list; missing fields are blank.
+write_a3 <- function(rows, rename = NULL) {
+  skip_if_not_installed("writexl")
+  cols <- c("Patient ID", "Date of Birth", "Gender", "Insertion Date", "PD Start Date",
+            "PD Stop Date", "Removal Reason", "Dialysis Modality Change",
+            "Modality Change Reason", "Date Modality Change", "Date of Death",
+            "Cause of Death", "Transplant Date")
+  df <- do.call(rbind, lapply(rows, function(r) {
+    out <- as.data.frame(stats::setNames(rep(list(NA), length(cols)), cols),
+                         check.names = FALSE, stringsAsFactors = FALSE)
+    for (nm in names(r)) out[[nm]] <- r[[nm]]
+    out
+  }))
+  for (nm in grep("Date|Insertion", names(df), value = TRUE)) {
+    df[[nm]] <- as.Date(df[[nm]])
+  }
+  df[["Patient ID"]] <- as.character(df[["Patient ID"]])
+  if (!is.null(rename)) names(df)[match(names(rename), names(df))] <- unname(rename)
+  path <- tempfile(fileext = ".xlsx")
+  writexl::write_xlsx(df, path)
+  path
+}
+
+write_pe <- function(rows) {
+  skip_if_not_installed("writexl")
+  df <- data.frame(
+    `Patient ID` = vapply(rows, function(r) r$id, ""),
+    `Date of Infection` = as.Date(vapply(rows, function(r) r$date, "")),
+    Organism = vapply(rows, function(r) r$organism %||% "E. coli", ""),
+    `Last Dose Antibiotic` = as.Date(vapply(rows, function(r) r$last_dose, "")),
+    check.names = FALSE, stringsAsFactors = FALSE)
+  path <- tempfile(fileext = ".xlsx")
+  writexl::write_xlsx(df, path)
+  path
+}
+
+`%||%` <- function(a, b) if (is.null(a)) b else a
+
+# An open catheter for patient `id` that has been running since mid-2024
+a3_row <- function(id, ...) {
+  base <- list(`Patient ID` = id, `Date of Birth` = "1970-01-01", Gender = "Female",
+               `Insertion Date` = "2024-05-01", `PD Start Date` = "2024-06-01")
+  utils::modifyList(base, list(...))
+}
+
+build_unit <- function(a3, pe, ...) {
+  pd_unit(a3, pe, t0 = T0, t1 = T1, ...)
+}
+
+# A PE file needs at least one row to be readable; this episode belongs to a patient used as a quiet default
+pe_quiet <- function(id = "P1") {
+  write_pe(list(list(id = id, date = "2025-03-01", last_dose = "2025-03-15")))
+}
+
+test_that("pd_unit() builds a valid unit from the bundled example files", {
+  skip_if_not(nzchar(bundled_a3()) && nzchar(bundled_pe()))
+  unit <- expect_no_warning(build_unit(bundled_a3(), bundled_pe(), unit_id = "Wellington PD Unit"))
+
+  expect_s3_class(unit, "pd_unit")
+  expect_identical(unit$unit_id, "Wellington PD Unit")
+  expect_identical(unit$n_patients, 60L)
+  expect_identical(unit$n_new, 10L)
+  expect_equal(unit$tpyar, 50.94, tolerance = 0.01)
+  expect_identical(nrow(unit$patients), 60L)
+  expect_identical(nrow(unit$catheters), 60L)
+  expect_identical(nrow(unit$infections), 18L)
+  expect_identical(sum(unit$infections$counts_toward_rate), 18L)
+  expect_no_error(validate_pd_unit(unit))
+})
+
+test_that("pd_unit() derives each patient's censoring event from the bundled files", {
+  skip_if_not(nzchar(bundled_a3()) && nzchar(bundled_pe()))
+  unit <- build_unit(bundled_a3(), bundled_pe())
+  counts <- table(unit$patients$transfer_reason, useNA = "no")
+  expect_equal(as.list(counts)[c("death", "pd stopped", "permanent transfer to HD", "transplant")],
+               list(death = 3L, `pd stopped` = 2L, `permanent transfer to HD` = 2L, transplant = 3L),
+               ignore_attr = TRUE)
+  censored <- unit$patients[!is.na(unit$patients$transfer_reason), ]
+  expect_true(all(!is.na(censored$transfer_date)))
+  # no catheter outlives its patient's censoring date
+  joined <- merge(unit$catheters, censored[c("patient_id", "transfer_date")], by = "patient_id")
+  expect_true(all(!is.na(joined$pd_stop_date) & joined$pd_stop_date <= joined$transfer_date))
+})
+
+test_that("pd_unit() attaches every episode to a catheter of the same patient", {
+  skip_if_not(nzchar(bundled_a3()) && nzchar(bundled_pe()))
+  unit <- build_unit(bundled_a3(), bundled_pe())
+  owner <- unit$catheters$patient_id[match(unit$infections$catheter_id, unit$catheters$catheter_id)]
+  expect_identical(owner, unit$infections$patient_id)
+})
+
+test_that("pd_unit() rejects a bad reporting period", {
+  expect_error(pd_unit("a", "b", t0 = "2025-01-01", t1 = T1))
+  expect_error(pd_unit("a", "b", t0 = T0, t1 = as.Date(NA)))
+  expect_error(pd_unit("a", "b", t0 = c(T0, T0), t1 = T1))
+  expect_error(pd_unit("a", "b", t0 = T1, t1 = T0), "t0 must be on or before t1")
+})
+
+test_that("pd_unit() reports every problem in the bundled 'modified' A3 file together", {
+  path <- system.file("extdata", "a3_2025_modified.xlsx", package = "peridial")
+  skip_if_not(nzchar(path) && nzchar(bundled_pe()))
+  err <- expect_error(build_unit(path, bundled_pe()), "5 data-quality issue")
+  expect_match(conditionMessage(err), "row 40 \\(patient SPD039\\): missing required value")
+  expect_match(conditionMessage(err), "SPD053_01: pd_stop_date must be supplied")
+  expect_match(conditionMessage(err), "SPD059_01: pd_stop_date must be supplied")
+  expect_match(conditionMessage(err), "always an error, even with strict = FALSE")
+})
+
+test_that("pd_unit() errors when the A3 file lacks a required column", {
+  a3 <- write_a3(list(a3_row("P1")))
+  # drop the PD Start Date column
+  df <- readxl::read_excel(a3)
+  df[["PD Start Date"]] <- NULL
+  path <- tempfile(fileext = ".xlsx")
+  writexl::write_xlsx(df, path)
+  expect_error(build_unit(path, pe_quiet()), "unit \\(A3\\) file is missing required column\\(s\\): `pd_start_date`")
+})
+
+test_that("pd_unit() errors when the PE file lacks a required column", {
+  skip_if_not_installed("writexl")
+  pe <- tempfile(fileext = ".xlsx")
+  writexl::write_xlsx(data.frame(`Patient ID` = "P1", check.names = FALSE), pe)
+  expect_error(build_unit(write_a3(list(a3_row("P1"))), pe),
+               "infection \\(PE\\) file is missing required column")
+})
+
+test_that("pd_unit() maps differently-named columns onto the expected ones", {
+  a3 <- write_a3(list(a3_row("P1")),
+                 rename = c(`Patient ID` = "NHI", `PD Stop Date` = "Date Stopped PD"))
+  unit <- expect_no_warning(build_unit(a3, pe_quiet()))
+  expect_identical(unit$patients$patient_id, "P1")
+})
+
+test_that("pd_unit() reads death and transplant dates from bare 'Death' / 'Transplanted' headers", {
+  a3 <- write_a3(list(a3_row("P1", `Date of Death` = "2025-06-30", `Cause of Death` = "Cardiac"),
+                      a3_row("P2", `Transplant Date` = "2025-04-01")),
+                 rename = c(`Date of Death` = "Death", `Transplant Date` = "Transplanted"))
+  unit <- expect_no_warning(build_unit(a3, pe_quiet()))
+  p1 <- unit$patients[unit$patients$patient_id == "P1", ]
+  p2 <- unit$patients[unit$patients$patient_id == "P2", ]
+  expect_identical(p1$transfer_reason, "death")
+  expect_identical(p1$transfer_date, as.Date("2025-06-30"))
+  expect_identical(p1$transfer_detail, "Cardiac")
+  expect_identical(p2$transfer_reason, "transplant")
+  expect_identical(p2$transfer_date, as.Date("2025-04-01"))
+})
+
+test_that("pd_unit() closes an open catheter at the date of death", {
+  a3 <- write_a3(list(a3_row("P1", `Date of Death` = "2025-06-30", `Cause of Death` = "Cardiac")))
+  unit <- build_unit(a3, pe_quiet())
+  expect_identical(unit$patients$transfer_reason, "death")
+  expect_identical(unit$patients$transfer_date, as.Date("2025-06-30"))
+  expect_identical(unit$patients$transfer_detail, "Cardiac")
+  expect_identical(unit$catheters$pd_stop_date, as.Date("2025-06-30"))
+  expect_equal(unit$tpyar, as.numeric(as.Date("2025-06-30") - T0 + 1) / 365.25)
+})
+
+test_that("pd_unit() warns, and clips, a catheter that runs past death", {
+  a3 <- write_a3(list(a3_row("P1", `PD Stop Date` = "2025-09-30", `Removal Reason` = "Death",
+                             `Date of Death` = "2025-06-30")))
+  expect_warning(unit <- build_unit(a3, pe_quiet()), "clipped to that date")
+  expect_identical(unit$catheters$pd_stop_date, as.Date("2025-06-30"))
+})
+
+test_that("pd_unit() treats a catheter removed for transplant as a transplant when no date is given", {
+  a3 <- write_a3(list(a3_row("P1", `PD Stop Date` = "2025-04-15", `Removal Reason` = "Transplant")))
+  unit <- build_unit(a3, pe_quiet())
+  expect_identical(unit$patients$transfer_reason, "transplant")
+  expect_identical(unit$patients$transfer_date, as.Date("2025-04-15"))
+})
+
+test_that("pd_unit() censors at an 'Any PD to HD' change and warns when the reason is missing", {
+  a3 <- write_a3(list(a3_row("P1", `Dialysis Modality Change` = "Any PD to HD",
+                             `Date Modality Change` = "2025-05-01")))
+  expect_warning(unit <- build_unit(a3, pe_quiet()), "no modality_change_reason")
+  expect_identical(unit$patients$transfer_reason, "permanent transfer to HD")
+  expect_identical(unit$patients$transfer_date, as.Date("2025-05-01"))
+})
+
+test_that("pd_unit() warns when a transplant or HD transfer is recorded without a date", {
+  a3 <- write_a3(list(
+    a3_row("P1", `Dialysis Modality Change` = "Transplant"),
+    a3_row("P2", `Dialysis Modality Change` = "Any PD to HD", `Modality Change Reason` = "Failure")))
+  w <- NULL
+  unit <- withCallingHandlers(build_unit(a3, pe_quiet()),
+    warning = function(cnd) { w <<- conditionMessage(cnd); invokeRestart("muffleWarning") })
+  expect_match(w, "Patient P1 has a 'transplant' modality change recorded but no transplant_date")
+  expect_match(w, "Patient P2 has an 'Any PD to HD' modality change recorded but no date_modality_change")
+  expect_identical(unit$n_patients, 2L)
+})
+
+test_that("pd_unit(censor_on_last_stop = ) controls whether a closed catheter ends PD", {
+  a3 <- write_a3(list(a3_row("P1", `PD Stop Date` = "2025-03-01", `Removal Reason` = "Patient choice")))
+  on <- build_unit(a3, pe_quiet())
+  expect_identical(on$patients$transfer_reason, "pd stopped")
+  off <- build_unit(a3, pe_quiet(), censor_on_last_stop = FALSE)
+  expect_true(is.na(off$patients$transfer_reason))
+  # the catheter's own stop date still bounds its exposure
+  expect_equal(on$tpyar, off$tpyar)
+})
+
+test_that("pd_unit() builds more than one catheter per patient, numbered by insertion date", {
+  a3 <- write_a3(list(
+    a3_row("P1", `Insertion Date` = "2025-02-01", `PD Start Date` = "2025-02-15"),
+    a3_row("P1", `Insertion Date` = "2023-01-01", `PD Start Date` = "2023-02-01",
+           `PD Stop Date` = "2025-01-15", `Removal Reason` = "Infection")))
+  unit <- build_unit(a3, pe_quiet())
+  expect_identical(unit$n_patients, 1L)
+  expect_setequal(unit$catheters$catheter_id, c("P1_01", "P1_02"))
+  expect_identical(unit$catheters$insertion_date[unit$catheters$catheter_id == "P1_01"],
+                   as.Date("2023-01-01"))
+})
+
+test_that("pd_unit() leaves out patients who were not on PD during the period", {
+  a3 <- write_a3(list(
+    a3_row("P1"),
+    a3_row("P2", `PD Start Date` = "2021-01-01", `Insertion Date` = "2020-12-01",
+           `PD Stop Date` = "2022-01-01", `Removal Reason` = "Infection")))
+  unit <- expect_no_warning(build_unit(a3, pe_quiet()))
+  expect_identical(unit$patients$patient_id, "P1")
+})
+
+test_that("pd_unit() flags an incident patient (first PD start inside the period)", {
+  a3 <- write_a3(list(a3_row("P1", `Insertion Date` = "2025-02-01", `PD Start Date` = "2025-02-15")))
+  unit <- build_unit(a3, pe_quiet())
+  expect_identical(unit$n_new, 1L)
+  expect_true(unit$patients$new_patient_flag)
+})
+
+test_that("pd_unit() warns about, and excludes, an episode with no active catheter", {
+  a3 <- write_a3(list(a3_row("P1")))
+  pe <- write_pe(list(list(id = "P1", date = "2025-03-01", last_dose = "2025-03-15"),
+                      list(id = "P1", date = "2023-03-01", last_dose = "2023-03-15")))
+  expect_warning(unit <- build_unit(a3, pe), "no active PD catheter on infection_date 2023-03-01")
+  expect_identical(nrow(unit$infections), 1L)
+})
+
+test_that("pd_unit(strict = TRUE) turns collected data-quality warnings into an error", {
+  a3 <- write_a3(list(a3_row("P1")))
+  pe <- write_pe(list(list(id = "P1", date = "2023-03-01", last_dose = "2023-03-15")))
+  expect_warning(build_unit(a3, pe), "data-quality issue")
+  expect_error(build_unit(a3, pe, strict = TRUE), "data-quality issue")
+})
+
+test_that("pd_unit() drops a row with a blank required value and says so", {
+  a3 <- write_a3(list(a3_row("P1"), a3_row("P2", `Insertion Date` = NA)))
+  expect_warning(unit <- build_unit(a3, pe_quiet()),
+                 "row 3 \\(patient P2\\): missing required value\\(s\\) in insertion_date")
+  expect_identical(unit$patients$patient_id, "P1")
+})
+
+test_that("pd_unit() always errors when a patient is left with no valid catheter", {
+  # a removal_reason with no pd_stop_date is rejected by pd_catheter()
+  a3 <- write_a3(list(a3_row("P1", `Removal Reason` = "Infection")))
+  expect_error(build_unit(a3, pe_quiet(), strict = FALSE), "no valid PD catheter remains")
+})
+
+test_that("pd_unit() chains episodes so a repeat episode is classified", {
+  a3 <- write_a3(list(a3_row("P1")))
+  pe <- write_pe(list(list(id = "P1", date = "2025-03-01", last_dose = "2025-03-15", organism = "E. coli"),
+                      list(id = "P1", date = "2025-03-20", last_dose = "2025-04-03", organism = "E. coli")))
+  unit <- build_unit(a3, pe)
+  expect_identical(unit$infections$episode_type, c(NA, "relapsing"))
+  expect_identical(unit$infections$counts_toward_rate, c(TRUE, FALSE))
+  expect_identical(unit$catheters$n_peritonitis_episodes, 1)
+})
+
+test_that("pd_unit() returns an empty, valid unit when nobody was on PD in the period", {
+  a3 <- write_a3(list(a3_row("P1")))
+  unit <- pd_unit(a3, pe_quiet(), t0 = as.Date("2015-01-01"), t1 = as.Date("2015-12-31"))
+  expect_identical(unit$n_patients, 0L)
+  expect_identical(unit$tpyar, 0)
+  expect_identical(nrow(unit$patients), 0L)
 })

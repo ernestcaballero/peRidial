@@ -138,15 +138,15 @@ test_that("validate_pd_catheter errors when total_exposure_days exceeds pd_start
 
 
 
-# Checks for helper count_episodes_in_period
+# Checks for helper count_episodes
 # (make_infection() defaults last_dose_antibiotic to infection_date + 14 days)
-test_that("count_episodes_in_period uses pd_stop_date as the upper bound instead of t1 when supplied", {
+test_that("count_episodes uses pd_stop_date as the upper bound instead of t1 when supplied", {
   infections <- list(
     make_infection(infection_date = as.Date("2025-09-15")),  # before pd_start_date = excluded
     make_infection(infection_date = as.Date("2025-10-15")),  # inside [pd_start_date, pd_stop_date] = counted
     make_infection(infection_date = as.Date("2025-11-15"))   # after pd_stop_date, though still inside [t0, t1] = excluded
   )
-  n <- count_episodes_in_period(infections,
+  n <- count_episodes(infections,
                                 t0 = T0,
                                 t1 = T1,
                                 pd_start_date = as.Date("2025-10-02"),
@@ -154,12 +154,12 @@ test_that("count_episodes_in_period uses pd_stop_date as the upper bound instead
   expect_identical(n, 1L)
 })
 
-test_that("count_episodes_in_period falls back to t1 as the upper bound for a still-active catheter (pd_stop_date NA)", {
+test_that("count_episodes falls back to t1 as the upper bound for a still-active catheter (pd_stop_date NA)", {
   infections <- list(
     make_infection(infection_date = as.Date("2025-10-15")),  # inside [pd_start_date, t1] = counted
     make_infection(infection_date = as.Date("2026-01-15"))   # after t1, and no pd_stop_date to bound it either = excluded
   )
-  n <- count_episodes_in_period(infections,
+  n <- count_episodes(infections,
                                 t0 = T0,
                                 t1 = T1,
                                 pd_start_date = as.Date("2025-10-02"),
@@ -168,13 +168,13 @@ test_that("count_episodes_in_period falls back to t1 as the upper bound for a st
 })
 
 
-test_that("count_episodes_in_period raises the lower bound to t0 when pd_start_date is before the reporting period", {
+test_that("count_episodes raises the lower bound to t0 when pd_start_date is before the reporting period", {
   infections <- list(
     make_infection(infection_date = as.Date("2024-06-01")),  # before both pd_start_date and t0 = excluded
     make_infection(infection_date = as.Date("2024-11-01")),  # after pd_start_date, but before t0 = excluded (t0 will be the lower bound)
     make_infection(infection_date = as.Date("2025-03-01"))   # on/after t0 = counted
   )
-  n <- count_episodes_in_period(infections,
+  n <- count_episodes(infections,
                                 t0 = T0,
                                 t1 = T1,
                                 pd_start_date = as.Date("2024-10-01"),
