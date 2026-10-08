@@ -704,3 +704,53 @@ test_that("pd_unit() catches a mistyped PE patient_id in the bundled files (no s
   writexl::write_xlsx(pe, path)
   expect_error(build_unit(bundled_a3(), path), "row 2: `SPD003` is not a valid NHI number")
 })
+
+test_that("pd_unit() standardises organism spellings", {
+  a3 <- write_a3(list(a3_row("ABC1234")))
+  pe <- write_pe(list(
+    list(id = "ABC1234", date = "2025-02-01", last_dose = "2025-02-15", organism = "  staphylococcus AUREUS "),
+    list(id = "ABC1234", date = "2025-06-01", last_dose = "2025-06-15", organism = "Escherichia coli, Klebsiella pneumoniae")))
+  unit <- build_unit(a3, pe)
+  expect_identical(unit$infections$organisms, c("S. aureus", "E. coli, Klebsiella"))
+})
+
+test_that("pd_unit() treats 'Culture negative' as culture negative", {
+  a3 <- write_a3(list(a3_row("ABC1234")))
+  pe <- write_pe(list(list(id = "ABC1234", date = "2025-02-01", last_dose = "2025-02-15",
+                           organism = "Culture negative")))
+  unit <- build_unit(a3, pe)
+  expect_identical(unit$infections$organisms, "negative")
+  expect_identical(summarise_infections(unit)$culture_negative_n, 1L)
+})
+
+test_that("pd_unit() classifies two spellings of the same organism as a relapse", {
+  a3 <- write_a3(list(a3_row("ABC1234")))
+  pe <- write_pe(list(
+    list(id = "ABC1234", date = "2025-03-01", last_dose = "2025-03-15", organism = "Escherichia coli"),
+    list(id = "ABC1234", date = "2025-03-20", last_dose = "2025-04-03", organism = "e. coli")))
+  unit <- build_unit(a3, pe)
+  expect_identical(unit$infections$episode_type, c(NA_character_, "relapsing"))
+})
+
+test_that("pd_unit() errors on an organism that is not on the form's list, naming the row", {
+  a3 <- write_a3(list(a3_row("ABC1234")))
+  pe <- write_pe(list(
+    list(id = "ABC1234", date = "2025-02-01", last_dose = "2025-02-15", organism = "E. coli"),
+    list(id = "ABC1234", date = "2025-06-01", last_dose = "2025-06-15", organism = "Staph auerus")))
+  err <- expect_error(build_unit(a3, pe), "1 data-quality issue")
+  expect_match(conditionMessage(err), "infection \\(PE\\) file, row 3: organism `Staph auerus`")
+})
+
+test_that("pd_unit() errors on a real but rarer organism that is not in the accepted list", {
+  a3 <- write_a3(list(a3_row("ABC1234")))
+  pe <- write_pe(list(list(id = "ABC1234", date = "2025-02-01", last_dose = "2025-02-15",
+                           organism = "Roseomonas gilardii")))
+  expect_error(build_unit(a3, pe), "organism `Roseomonas gilardii` is not in the accepted organism list")
+})
+
+test_that("pd_unit() on the bundled data reports its three culture-negative episodes", {
+  skip_if_not(nzchar(bundled_a3()) && nzchar(bundled_pe()))
+  unit <- build_unit(bundled_a3(), bundled_pe())
+  expect_identical(summarise_infections(unit)$culture_negative_n, 3L)
+  expect_true(all(names(summarise_infections(unit)$organisms) %in% organism_names))
+})

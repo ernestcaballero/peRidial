@@ -250,7 +250,10 @@ validate_pd_unit <- function(x) {
 #'   valid NHI number (three letters then four digits, e.g. \code{ABC1234}); case
 #'   is ignored and the upper-case form is used.
 #' @param infection_data_path Character. Path to the raw infection/peritonitis
-#'   episode (PE) Excel file. Every patient in it must also appear in the A3 file.
+#'   episode (PE) Excel file. Every patient in it must also appear in the A3 file,
+#'   and every organism must be one of the accepted organisms (the most common on
+#'   the ANZDATA peritonitis form); names are standardised, e.g. \code{"Staphylococcus
+#'   aureus"} becomes \code{"S. aureus"}.
 #' @param t0 Date. Start of the reporting period.
 #' @param t1 Date. End of the reporting period.
 #' @param unit_id Character. Identifier for the unit, e.g.
@@ -340,6 +343,10 @@ pd_unit <- function(unit_data_path,
   # an episode for a patient who is not in the A3 file would silently match no catheter
   raw_pe_file <- check_known_patients(raw_pe_file, trimws(as.character(raw_a3$patient_id)),
                                       "infection (PE)", log)
+
+  # organisms are matched against the ANZDATA PE form's list and given standard names;
+  # an organism that is not on the list is logged and its row dropped
+  raw_pe_file <- check_organisms(raw_pe_file, "infection (PE)", log)
 
   # tidy the A3 form into patients, catheters and modality changes
   raw_a3 <- raw_a3 |>

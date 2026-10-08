@@ -21,7 +21,10 @@ valid NHI number (three letters then four digits, e.g. \code{ABC1234}); case
 is ignored and the upper-case form is used.}
 
 \item{infection_data_path}{Character. Path to the raw infection/peritonitis
-episode (PE) Excel file. Every patient in it must also appear in the A3 file.}
+episode (PE) Excel file. Every patient in it must also appear in the A3 file,
+and every organism must be one of the accepted organisms (the most common on
+the ANZDATA peritonitis form); names are standardised, e.g. \code{"Staphylococcus
+aureus"} becomes \code{"S. aureus"}.}
 
 \item{t0}{Date. Start of the reporting period.}
 
