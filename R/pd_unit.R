@@ -153,7 +153,7 @@ validate_pd_unit <- function(x) {
          x$n_patients, ").")
   }
   if (nrow(x$patients) > 0) {
-    require_unit_cols(x$patients, "patient_id", "patients")
+    require_cols(x$patients, "patient_id", "patients", kind = "table")
     if (anyDuplicated(x$patients$patient_id) > 0) {
       stop("Duplicate patient_id(s) in `patients`: ",
            paste(unique(x$patients$patient_id[duplicated(x$patients$patient_id)]),
@@ -196,7 +196,7 @@ validate_pd_unit <- function(x) {
 
   # checks catheters reference a valid patient_id
   if (nrow(x$catheters) > 0) {
-    require_unit_cols(x$catheters, c("patient_id", "catheter_id"), "catheters")
+    require_cols(x$catheters, c("patient_id", "catheter_id"), "catheters", kind = "table")
     if (!all(x$catheters$patient_id %in% x$patients$patient_id)) {
       stop("Some catheter records reference a patient_id not present in `patients`.")
     }
@@ -210,7 +210,7 @@ validate_pd_unit <- function(x) {
   }
   # checks infections reference a valid catheter_id
   if (nrow(x$infections) > 0) {
-    require_unit_cols(x$infections, c("patient_id", "catheter_id"), "infections")
+    require_cols(x$infections, c("patient_id", "catheter_id"), "infections", kind = "table")
     if (!all(x$infections$catheter_id %in% x$catheters$catheter_id)) {
       stop("Some infection records reference a catheter_id not present in `catheters`.")
     }
@@ -220,28 +220,6 @@ validate_pd_unit <- function(x) {
   }
 
   x
-}
-
-
-
-
-#' Print a pd_unit object
-#'
-#' @param x A \code{pd_unit} object.
-#' @param ... Ignored.
-#'
-#' @return \code{x}, invisibly.
-#' @export
-#'
-print.pd_unit <- function(x, ...) {
-  cat("<pd_unit>", if (is.na(x$unit_id)) "(Unnamed unit)" else x$unit_id, "\n")
-  cat("  Reporting period      : ", format(x$t0), " to ", format(x$t1), "\n", sep = "")
-  cat("  Patients              : ", x$n_patients,
-      " (", x$n_new, " incident)\n", sep = "")
-  cat("  Catheters             : ", nrow(x$catheters), "\n", sep = "")
-  cat("  Peritonitis episodes  : ", nrow(x$infections), "\n", sep = "")
-  cat("  Total patient-years   : ", format(round(x$tpyar, 2), nsmall = 2), "\n", sep = "")
-  invisible(x)
 }
 
 
@@ -477,7 +455,16 @@ pd_unit <- function(unit_data_path,
     }
   }
 
-
+  # Build the object graph, now that tau has clipped the catheter windows:
+  # episodes are matched to the catheter active on their date, catheters own
+  # their episodes, and patients own their catheters
+  infections_by_catheter <- build_infections_by_catheter(raw_pe_episodes,
+                                                         raw_catheters, log)
+  built <- build_patient_list(pids, taus, raw_catheters, raw_patients,
+                              infections_by_catheter, t0, t1, log)
+  patient_list <- built$patient_list
+  transfer_details <- built$transfer_details
+  no_catheter_pids <- built$no_catheter_pids
 
   # Flatten the object graph into the unit's three tibbles
   patients_tbl <- patients_to_tibble(patient_list, t0, t1, transfer_details)
@@ -515,6 +502,27 @@ pd_unit <- function(unit_data_path,
   validate_pd_unit(x)
 }
 
+
+
+
+#' Print a pd_unit object
+#'
+#' @param x A \code{pd_unit} object.
+#' @param ... Ignored.
+#'
+#' @return \code{x}, invisibly.
+#' @export
+#'
+print.pd_unit <- function(x, ...) {
+  cat("<pd_unit>", if (is.na(x$unit_id)) "(Unnamed unit)" else x$unit_id, "\n")
+  cat("  Reporting period      : ", format(x$t0), " to ", format(x$t1), "\n", sep = "")
+  cat("  Patients              : ", x$n_patients,
+      " (", x$n_new, " incident)\n", sep = "")
+  cat("  Catheters             : ", nrow(x$catheters), "\n", sep = "")
+  cat("  Peritonitis episodes  : ", nrow(x$infections), "\n", sep = "")
+  cat("  Total patient-years   : ", format(round(x$tpyar, 2), nsmall = 2), "\n", sep = "")
+  invisible(x)
+}
 
 
 
