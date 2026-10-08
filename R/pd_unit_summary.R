@@ -117,37 +117,17 @@ summarise_demographics <- function(x) {
 
 
 
-#' Calculates the quartiles (Q1, median, Q3) of a numeric vector
-#' A small wrapper around \code{stats::quantile()}
-#'
-#' @param v Numeric vector. \code{NA}s are dropped before summarising.
-#'
-#' @return A named numeric vector, \code{Q1}/\code{Median}/\code{Q3}.
+#' Calculate mean days for time to first infection and time to pd start
 #' @noRd
-#'
-days_quartiles <- function(v) {
+mean_days <- function(v) {
   v <- v[!is.na(v)]
-  if (length(v) == 0) {
-    return(c(Q1 = NA_real_, Median = NA_real_, Q3 = NA_real_))
-  }
-  q <- stats::quantile(v, probs = c(0.25, 0.5, 0.75), na.rm = TRUE, type = 7)
-  stats::setNames(as.numeric(q), c("Q1", "Median", "Q3"))
+  c(mean = if (length(v) == 0) NA_real_ else mean(v), n = length(v))
 }
 
 
 
-#' Catheter summary: counts, procedure type, and two timing gaps
-#'
-#' @param x A \code{pd_unit} object.
-#'
-#' @return A list with \code{n_catheters}, \code{procedure_type} (a table,
-#'   \code{NA} relabelled \code{"unknown"}), \code{insertion_to_start_days}
-#'   (Q1/median/Q3 of insertion date to PD start date, in days) and
-#'   \code{start_to_infection_days} (Q1/median/Q3 of each catheter's PD start
-#'   date to the infection date of every episode recorded against it, in
-#'   days).
+#' Catheter summary: counts, procedure type, and time to PD start and time to first peritonitis episode
 #' @noRd
-#'
 summarise_catheters <- function(x) {
   n_catheters <- nrow(x$catheters)
 
@@ -159,28 +139,42 @@ summarise_catheters <- function(x) {
     table(character(0))
   }
 
-  insertion_to_start_days <- if (has_col(x$catheters, "insertion_date") &&
-                                 has_col(x$catheters, "pd_start_date")) {
-    days_quartiles(as.numeric(x$catheters$pd_start_date - x$catheters$insertion_date))
-  } else {
-    days_quartiles(numeric(0))
+  # each incident patient's first catheter: the one with the earliest PD start
+  first_catheter <- NULL
+  if (has_col(x$patients, "patient_id") && has_col(x$patients, "new_patient_flag") &&
+      has_col(x$catheters, "patient_id") && has_col(x$catheters, "pd_start_date")) {
+    incident <- x$patients$patient_id[x$patients$new_patient_flag %in% TRUE]
+    cath <- x$catheters[x$catheters$patient_id %in% incident &
+                          !is.na(x$catheters$pd_start_date), , drop = FALSE]
+    cath <- cath[order(cath$patient_id, cath$pd_start_date), , drop = FALSE]
+    first_catheter <- cath[!duplicated(cath$patient_id), , drop = FALSE]
   }
 
-  # each infection is matched to the catheter that was active when it occurred, join on catheter_id
-  start_to_infection_days <- if (has_col(x$infections, "infection_date") &&
-                                 has_col(x$infections, "catheter_id") &&
-                                 has_col(x$catheters, "pd_start_date") &&
-                                 has_col(x$catheters, "catheter_id")) {
-    starts <- x$catheters$pd_start_date[match(x$infections$catheter_id, x$catheters$catheter_id)]
-    days_quartiles(as.numeric(x$infections$infection_date - starts))
+  time_to_pd_start_days <- if (!is.null(first_catheter) &&
+                               has_col(first_catheter, "insertion_date")) {
+    mean_days(as.numeric(first_catheter$pd_start_date - first_catheter$insertion_date))
   } else {
-    days_quartiles(numeric(0))
+    mean_days(numeric(0))
+  }
+
+  # first PD start to each incident patient's first episode (patients with none drop out)
+  time_to_first_peritonitis_days <- if (!is.null(first_catheter) &&
+                                        has_col(x$infections, "patient_id") &&
+                                        has_col(x$infections, "infection_date")) {
+    inf <- x$infections[x$infections$patient_id %in% first_catheter$patient_id &
+                          !is.na(x$infections$infection_date), , drop = FALSE]
+    inf <- inf[order(inf$patient_id, inf$infection_date), , drop = FALSE]
+    inf <- inf[!duplicated(inf$patient_id), , drop = FALSE]
+    start <- first_catheter$pd_start_date[match(inf$patient_id, first_catheter$patient_id)]
+    mean_days(as.numeric(inf$infection_date - start))
+  } else {
+    mean_days(numeric(0))
   }
 
   list(n_catheters = n_catheters,
        procedure_type = procedure_type,
-       insertion_to_start_days = insertion_to_start_days,
-       start_to_infection_days = start_to_infection_days)
+       time_to_pd_start_days = time_to_pd_start_days,
+       time_to_first_peritonitis_days = time_to_first_peritonitis_days)
 }
 
 
@@ -281,9 +275,10 @@ summarise_infections <- function(x) {
 #'   \code{demographics} (a list of tables: \code{gender}, \code{ethnicity},
 #'   \code{primary_kidney_disease}, \code{diabetes_status},
 #'   \code{smoking_status}, \code{dialysis_type}), \code{catheters} (a list
-#'   with \code{n_catheters}, \code{procedure_type}, and the
-#'   \code{insertion_to_start_days} / \code{start_to_infection_days} timing
-#'   gaps as Q1/median/Q3) and \code{infections} (a list with
+#'   with \code{n_catheters}, \code{procedure_type}, and, for incident
+#'   patients, the mean \code{time_to_pd_start_days} (insertion to PD start)
+#'   and \code{time_to_first_peritonitis_days} (PD start to first episode),
+#'   each as \code{mean} and \code{n}) and \code{infections} (a list with
 #'   \code{organisms} and \code{pe_outcomes} tables, plus
 #'   \code{culture_negative_n}/\code{_pct} and
 #'   \code{peritonitis_removal_n}/\code{_pct}).
@@ -307,9 +302,9 @@ summary.pd_unit <- function(object, ...) {
     paste(sprintf("%s %d", names(tbl), tbl), collapse = ", ")
   }
 
-  fmt_quartiles <- function(q) {
-    if (all(is.na(q))) return("NA")
-    sprintf("%.1f / %.1f / %.1f", q[["Q1"]], q[["Median"]], q[["Q3"]])
+  fmt_mean_days <- function(m) {
+    if (is.na(m[["mean"]])) return("NA")
+    sprintf("%.1f days", m[["mean"]])
   }
 
   fmt_n_pct <- function(n, pct) {
@@ -367,12 +362,12 @@ summary.pd_unit <- function(object, ...) {
   cat("\n")
 
   cat("  Catheters:\n")
-  cat("    Total                                       : ", catheters$n_catheters, "\n", sep = "")
-  cat("    Procedure type                              : ", fmt_demo(catheters$procedure_type), "\n", sep = "")
-  cat("    Insertion to PD start (days, Q1/median/Q3)  : ",
-      fmt_quartiles(catheters$insertion_to_start_days), "\n", sep = "")
-  cat("    PD start to infection (days, Q1/median/Q3)  : ",
-      fmt_quartiles(catheters$start_to_infection_days), "\n", sep = "")
+  cat("    Total                                    : ", catheters$n_catheters, "\n", sep = "")
+  cat("    Procedure type                           : ", fmt_demo(catheters$procedure_type), "\n", sep = "")
+  cat("    Time to PD start from insertion (mean)   : ",
+      fmt_mean_days(catheters$time_to_pd_start_days), "\n", sep = "")
+  cat("    Time to first peritonitis episode (mean) : ",
+      fmt_mean_days(catheters$time_to_first_peritonitis_days), "\n", sep = "")
   cat("\n")
 
   cat("  Infections:\n")
