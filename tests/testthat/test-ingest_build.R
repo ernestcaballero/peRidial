@@ -290,12 +290,11 @@ run_bpl <- function(inp, by_cath = list(), log = new_issue_log()) {
                      by_cath, T0, T1, log)
 }
 
-test_that("build_patient_list() returns the three pieces pd_unit() needs", {
+test_that("build_patient_list() returns the two pieces pd_unit() needs", {
   out <- run_bpl(bpl_inputs())
-  expect_named(out, c("patient_list", "transfer_details", "no_catheter_pids"))
+  expect_named(out, c("patient_list", "transfer_details"))
   expect_length(out$patient_list, 1)
   expect_s3_class(out$patient_list[[1]], "pd_patient")
-  expect_identical(out$no_catheter_pids, character(0))
 })
 
 test_that("build_patient_list() passes demographics and the window to each patient", {
@@ -361,15 +360,15 @@ test_that("build_patient_list() attaches catheters and their episodes to the pat
   expect_length(p$catheters[[1]]$infections, 1)
 })
 
-test_that("build_patient_list() flags a patient whose every catheter fails validation", {
+test_that("build_patient_list() logs a patient whose every catheter fails validation", {
   caths <- raw_cath(insertion_date = d("2025-01-01"), pd_start_date = d("2025-02-01"),
                     pd_stop_date = d("2025-01-01"))
   # a stop date before the start date makes pd_catheter() reject the only catheter
   log <- new_issue_log()
   out <- run_bpl(bpl_inputs(caths = caths), log = log)
-  expect_identical(out$no_catheter_pids, "P1")
+  expect_length(out$patient_list, 1)   # still built; the logged issue stops pd_unit()
   expect_true(any(grepl("catheter skipped", log$get())))
-  expect_true(any(grepl("no valid PD catheter remains.*always an error", log$get())))
+  expect_true(any(grepl("Patient P1: no valid PD catheter remains", log$get())))
 })
 
 test_that("build_patient_list() copes with a patient missing from raw_patients", {
@@ -385,7 +384,6 @@ test_that("build_patient_list() returns empty results for no patients", {
                             list(), T0, T1, new_issue_log())
   expect_identical(out$patient_list, list())
   expect_identical(out$transfer_details, character(0))
-  expect_identical(out$no_catheter_pids, character(0))
 })
 
 

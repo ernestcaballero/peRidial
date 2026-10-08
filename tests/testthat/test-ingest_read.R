@@ -287,25 +287,26 @@ test_that("each issue log is independent", {
 })
 
 test_that("report_issues() is silent with no issues", {
-  expect_no_warning(report_issues(new_issue_log()))
+  expect_no_error(report_issues(new_issue_log()))
   expect_null(report_issues(new_issue_log()))
 })
 
-test_that("report_issues() warns once with every issue listed", {
+test_that("report_issues() raises one error listing every issue", {
   log <- new_issue_log()
   log$add("problem A")
   log$add("problem B")
-  expect_warning(report_issues(log), "2 data-quality issue\\(s\\) found")
-  expect_warning(report_issues(log), "problem A")
-  expect_warning(report_issues(log), "problem B")
+  expect_error(report_issues(log), "2 data-quality issue\\(s\\) found")
+  expect_error(report_issues(log), "problem A")
+  expect_error(report_issues(log), "problem B")
+  expect_error(report_issues(log), "Correct these in the source data and re-run")
 })
 
-test_that("report_issues(strict = TRUE) raises an error instead of a warning", {
+test_that("report_issues() is an error, never a warning", {
   log <- new_issue_log()
   log$add("problem A")
-  expect_error(report_issues(log, strict = TRUE), "1 data-quality issue")
+  expect_no_warning(try(report_issues(log), silent = TRUE))
+  expect_error(report_issues(log), "1 data-quality issue")
 })
-
 
 # is_blank_cell()
 

@@ -188,10 +188,9 @@ build_patient_catheters <- function(pid, raw_catheters, infections_by_catheter,
 #'
 #' A patient is in the cohort if they were on PD at any point in
 #' \code{[t0, t1]}, censored at their \code{tau}. Each pd_patient owns its
-#' catheters. A patient whose every catheter failed validation is logged and
-#' returned in \code{no_catheter_pids}, because \code{pd_patient()} would accept
-#' the empty catheter list and leave them counted in \code{n_patients} with zero
-#' patient-years.
+#' catheters. A patient whose every catheter failed validation is logged,
+#' because \code{pd_patient()} would accept the empty catheter list and leave
+#' them counted in \code{n_patients} with zero patient-years.
 #'
 #' @param pids Character vector of patient ids to consider.
 #' @param taus Named list (by patient id) from \code{derive_patient_tau()}.
@@ -202,14 +201,13 @@ build_patient_catheters <- function(pid, raw_catheters, infections_by_catheter,
 #'
 #' @return A list with \code{patient_list} (list of \code{pd_patient}),
 #'   \code{transfer_details} (character, named by patient id; the detail of each
-#'   patient's censoring event) and \code{no_catheter_pids} (character).
+#'   patient's censoring event).
 #' @noRd
 #'
 build_patient_list <- function(pids, taus, raw_catheters, raw_patients,
                                infections_by_catheter, t0, t1, log) {
   patient_list <- list()
   transfer_details <- character(0)
-  no_catheter_pids <- character(0)  # in-cohort patients left with no valid catheter
 
   for (pid in pids) {
     tau <- taus[[pid]]
@@ -223,8 +221,7 @@ build_patient_list <- function(pids, taus, raw_catheters, raw_patients,
                                          infections_by_catheter, t0, t1, log)
 
     if (length(catheters) == 0) {
-      no_catheter_pids <- c(no_catheter_pids, pid)
-      log$add("Error: Patient ", pid, ": no valid PD catheter remains after ",   # always an error even with strict=FALSE
+      log$add("Error: Patient ", pid, ": no valid PD catheter remains after ",
               "validation (see the catheter issue(s) above); the patient ",
               "cannot be included in the unit's counts or patient-years. ")
     }
@@ -260,8 +257,7 @@ build_patient_list <- function(pids, taus, raw_catheters, raw_patients,
   }
 
   list(patient_list = patient_list,
-       transfer_details = transfer_details,
-       no_catheter_pids = no_catheter_pids)
+       transfer_details = transfer_details)
 }
 
 

@@ -238,11 +238,11 @@ validate_pd_unit <- function(x) {
 #' derived from it, plus the headline numbers the ISPD indicators need:
 #' \code{n_new}, \code{n_patients} and \code{tpyar}.
 #'
-#' Data-quality problems are collected across the whole file and reported
-#' together as a single warning. Set \code{strict = TRUE} to make them an
-#' error instead. The one exception is a patient left with no valid catheter:
-#' that is always an error, whatever \code{strict} is, because the patient
-#' would otherwise be counted in \code{n_patients} with no patient-years.
+#' Data-quality problems (for example an episode that cannot be matched to an
+#' active catheter, or a patient left with no valid catheter) are collected
+#' across both files and raised together as a single error. Each one needs a
+#' correction in the source file: fix them and run \code{pd_unit()} again until
+#' it builds without error.
 #'
 #' @param unit_data_path Character. Path to the raw unit (A3) Excel file
 #'   containing both patient and catheter data.
@@ -261,9 +261,6 @@ validate_pd_unit <- function(x) {
 #'   \code{pd_stop_date}. Defaults to \code{TRUE}. Set \code{FALSE} if your
 #'   unit records genuine breaks from PD, since a break and a permanent exit
 #'   look identical in the raw data.
-#' @param strict Logical. Raise collected data-quality issues as an error
-#'   rather than a warning. Defaults to \code{FALSE}. A patient with no valid
-#'   catheter is always an error.
 #'
 #' @return A validated \code{pd_unit} object.
 #' @seealso \code{\link{new_pd_unit}()} for the underlying constructor.
@@ -286,8 +283,7 @@ pd_unit <- function(unit_data_path,
                     t1,
                     unit_id = NA_character_,
                     rate_benchmark = 0.40,
-                    censor_on_last_stop = TRUE,
-                    strict = FALSE) {
+                    censor_on_last_stop = TRUE) {
 
   stopifnot(inherits(t0, "Date"), length(t0) == 1, !is.na(t0))
   stopifnot(inherits(t1, "Date"), length(t1) == 1, !is.na(t1))
@@ -464,7 +460,6 @@ pd_unit <- function(unit_data_path,
                               infections_by_catheter, t0, t1, log)
   patient_list <- built$patient_list
   transfer_details <- built$transfer_details
-  no_catheter_pids <- built$no_catheter_pids
 
   # Flatten the object graph into the unit's three tibbles
   patients_tbl <- patients_to_tibble(patient_list, t0, t1, transfer_details)
@@ -482,8 +477,8 @@ pd_unit <- function(unit_data_path,
   # PY: total patient-years at risk, censored to [t0, t1] and each patient's tau
   tpyar <- total_patient_years(patient_list, t0, t1)
 
-  # produces warnings and errors for data quality checks
-  report_issues(log, strict = strict || length(no_catheter_pids) > 0)   # a patient with no valid catheter would silently distort n_patients and tpyar so it is always an error
+  # any data-quality issue is an error: the source files need correcting
+  report_issues(log)
 
   x <- new_pd_unit(
     unit_id        = unit_id,

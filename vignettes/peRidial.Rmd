@@ -76,7 +76,7 @@ unit <- pd_unit(
 unit
 ```
 
-Any data-quality problems found while building (for example an episode that cannot be matched to an active catheter) are collected and reported together as a single warning. Set `strict = TRUE` to make them an error instead.
+Any data-quality problems found while building (for example an episode that cannot be matched to an active catheter) are collected and raised together as a single error. Correct them in the source files and run `pd_unit()` again until it builds.
 
 ### Using your own data
 

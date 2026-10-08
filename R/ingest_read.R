@@ -180,9 +180,12 @@ new_issue_log <- function() {
 
 
 
-#' Display accumulated data-quality issues. STRICT = TRUE to raise an error than a warning
+#' Stop with every accumulated data-quality issue, if there are any
+#'
+#' Each issue needs the user to correct the source file, so they are raised
+#' together as one error: fix the source data and re-run until none remain.
 #' @noRd
-report_issues <- function(log, strict = FALSE) {
+report_issues <- function(log) {
   issues <- log$get()
   if (length(issues) == 0) {
     return(invisible(NULL))
@@ -192,11 +195,7 @@ report_issues <- function(log, strict = FALSE) {
     paste0("  - ", issues, collapse = "\n"),
     "\nCorrect these in the source data and re-run."
   )
-  if (strict) {
-    stop(msg)
-  }
-  warning(msg)
-  invisible(NULL)
+  stop(msg, call. = FALSE)
 }
 
 

@@ -445,7 +445,8 @@ test_that("pd_unit() reports every problem in the bundled 'modified' A3 file tog
   expect_match(conditionMessage(err), "row 40 \\(patient SPD039\\): missing required value")
   expect_match(conditionMessage(err), "SPD053_01: pd_stop_date must be supplied")
   expect_match(conditionMessage(err), "SPD059_01: pd_stop_date must be supplied")
-  expect_match(conditionMessage(err), "always an error, even with strict = FALSE")
+  expect_match(conditionMessage(err), "SPD053: no valid PD catheter remains")
+  expect_match(conditionMessage(err), "Correct these in the source data and re-run")
 })
 
 test_that("pd_unit() errors when the A3 file lacks a required column", {
@@ -497,10 +498,17 @@ test_that("pd_unit() closes an open catheter at the date of death", {
   expect_equal(unit$tpyar, as.numeric(as.Date("2025-06-30") - T0 + 1) / 365.25)
 })
 
-test_that("pd_unit() warns, and clips, a catheter that runs past death", {
+test_that("pd_unit() errors on a catheter that runs past death, naming the fix needed", {
   a3 <- write_a3(list(a3_row("P1", `PD Stop Date` = "2025-09-30", `Removal Reason` = "Death",
                              `Date of Death` = "2025-06-30")))
-  expect_warning(unit <- build_unit(a3, pe_quiet()), "clipped to that date")
+  expect_error(build_unit(a3, pe_quiet()),
+               "catheter\\(s\\) P1_01 have a pd_stop_date after this patient's death on 2025-06-30")
+})
+
+test_that("pd_unit() builds once the catheter no longer runs past death", {
+  a3 <- write_a3(list(a3_row("P1", `PD Stop Date` = "2025-06-30", `Removal Reason` = "Death",
+                             `Date of Death` = "2025-06-30")))
+  unit <- expect_no_error(build_unit(a3, pe_quiet()))
   expect_identical(unit$catheters$pd_stop_date, as.Date("2025-06-30"))
 })
 
@@ -511,24 +519,29 @@ test_that("pd_unit() treats a catheter removed for transplant as a transplant wh
   expect_identical(unit$patients$transfer_date, as.Date("2025-04-15"))
 })
 
-test_that("pd_unit() censors at an 'Any PD to HD' change and warns when the reason is missing", {
+test_that("pd_unit() censors at an 'Any PD to HD' change", {
   a3 <- write_a3(list(a3_row("P1", `Dialysis Modality Change` = "Any PD to HD",
-                             `Date Modality Change` = "2025-05-01")))
-  expect_warning(unit <- build_unit(a3, pe_quiet()), "no modality_change_reason")
+                             `Date Modality Change` = "2025-05-01",
+                             `Modality Change Reason` = "Failure")))
+  unit <- build_unit(a3, pe_quiet())
   expect_identical(unit$patients$transfer_reason, "permanent transfer to HD")
   expect_identical(unit$patients$transfer_date, as.Date("2025-05-01"))
+  expect_identical(unit$patients$transfer_detail, "Failure")
 })
 
-test_that("pd_unit() warns when a transplant or HD transfer is recorded without a date", {
+test_that("pd_unit() errors when an 'Any PD to HD' change has no reason recorded", {
+  a3 <- write_a3(list(a3_row("P1", `Dialysis Modality Change` = "Any PD to HD",
+                             `Date Modality Change` = "2025-05-01")))
+  expect_error(build_unit(a3, pe_quiet()), "no modality_change_reason")
+})
+
+test_that("pd_unit() errors when a transplant or HD transfer is recorded without a date, listing both", {
   a3 <- write_a3(list(
     a3_row("P1", `Dialysis Modality Change` = "Transplant"),
     a3_row("P2", `Dialysis Modality Change` = "Any PD to HD", `Modality Change Reason` = "Failure")))
-  w <- NULL
-  unit <- withCallingHandlers(build_unit(a3, pe_quiet()),
-    warning = function(cnd) { w <<- conditionMessage(cnd); invokeRestart("muffleWarning") })
-  expect_match(w, "Patient P1 has a 'transplant' modality change recorded but no transplant_date")
-  expect_match(w, "Patient P2 has an 'Any PD to HD' modality change recorded but no date_modality_change")
-  expect_identical(unit$n_patients, 2L)
+  err <- expect_error(build_unit(a3, pe_quiet()), "2 data-quality issue")
+  expect_match(conditionMessage(err), "Patient P1 has a 'transplant' modality change recorded but no transplant_date")
+  expect_match(conditionMessage(err), "Patient P2 has an 'Any PD to HD' modality change recorded but no date_modality_change")
 })
 
 test_that("pd_unit(censor_on_last_stop = ) controls whether a closed catheter ends PD", {
@@ -569,32 +582,46 @@ test_that("pd_unit() flags an incident patient (first PD start inside the period
   expect_true(unit$patients$new_patient_flag)
 })
 
-test_that("pd_unit() warns about, and excludes, an episode with no active catheter", {
+test_that("pd_unit() errors on an episode with no active catheter", {
   a3 <- write_a3(list(a3_row("P1")))
   pe <- write_pe(list(list(id = "P1", date = "2025-03-01", last_dose = "2025-03-15"),
                       list(id = "P1", date = "2023-03-01", last_dose = "2023-03-15")))
-  expect_warning(unit <- build_unit(a3, pe), "no active PD catheter on infection_date 2023-03-01")
+  expect_error(build_unit(a3, pe), "no active PD catheter on infection_date 2023-03-01")
+})
+
+test_that("pd_unit() raises data-quality problems as an error, not a warning", {
+  a3 <- write_a3(list(a3_row("P1")))
+  pe <- write_pe(list(list(id = "P1", date = "2023-03-01", last_dose = "2023-03-15")))
+  expect_no_warning(try(build_unit(a3, pe), silent = TRUE))
+  expect_error(build_unit(a3, pe), "1 data-quality issue\\(s\\) found while building this unit")
+})
+
+test_that("pd_unit() no longer has a `strict` argument", {
+  expect_false("strict" %in% names(formals(pd_unit)))
+  a3 <- write_a3(list(a3_row("P1")))
+  expect_error(build_unit(a3, pe_quiet(), strict = TRUE), "unused argument")
+})
+
+test_that("pd_unit() can be re-run to success once the source data is corrected", {
+  pe_bad <- write_pe(list(list(id = "P1", date = "2023-03-01", last_dose = "2023-03-15")))
+  pe_ok <- write_pe(list(list(id = "P1", date = "2025-03-01", last_dose = "2025-03-15")))
+  a3 <- write_a3(list(a3_row("P1")))
+  expect_error(build_unit(a3, pe_bad), "no active PD catheter")
+  unit <- build_unit(a3, pe_ok)
   expect_identical(nrow(unit$infections), 1L)
 })
 
-test_that("pd_unit(strict = TRUE) turns collected data-quality warnings into an error", {
-  a3 <- write_a3(list(a3_row("P1")))
-  pe <- write_pe(list(list(id = "P1", date = "2023-03-01", last_dose = "2023-03-15")))
-  expect_warning(build_unit(a3, pe), "data-quality issue")
-  expect_error(build_unit(a3, pe, strict = TRUE), "data-quality issue")
-})
-
-test_that("pd_unit() drops a row with a blank required value and says so", {
+test_that("pd_unit() errors on a row with a blank required value, naming the row", {
   a3 <- write_a3(list(a3_row("P1"), a3_row("P2", `Insertion Date` = NA)))
-  expect_warning(unit <- build_unit(a3, pe_quiet()),
-                 "row 3 \\(patient P2\\): missing required value\\(s\\) in insertion_date")
-  expect_identical(unit$patients$patient_id, "P1")
+  expect_error(build_unit(a3, pe_quiet()),
+               "row 3 \\(patient P2\\): missing required value\\(s\\) in insertion_date")
 })
 
-test_that("pd_unit() always errors when a patient is left with no valid catheter", {
+test_that("pd_unit() errors when a patient is left with no valid catheter", {
   # a removal_reason with no pd_stop_date is rejected by pd_catheter()
   a3 <- write_a3(list(a3_row("P1", `Removal Reason` = "Infection")))
-  expect_error(build_unit(a3, pe_quiet(), strict = FALSE), "no valid PD catheter remains")
+  err <- expect_error(build_unit(a3, pe_quiet()), "no valid PD catheter remains")
+  expect_match(conditionMessage(err), "Catheter P1_01: pd_stop_date must be supplied")
 })
 
 test_that("pd_unit() chains episodes so a repeat episode is classified", {
