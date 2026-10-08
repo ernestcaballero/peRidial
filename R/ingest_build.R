@@ -1,24 +1,14 @@
 
-# These are helper functions to ingest raw files, specifically to build patient,
-# catheter, and infection objects
+# These are the helper functions to ingest raw files.
+# pd_unit() calls them in order: create_catheter_id() -> build_infections_by_catheter() -> build_patient_list()
 
 
 #' Create catheter_id from patient_id and insertion_date
 #'
-#' A patient can have more than one PD catheter over time. This builds
-#' \code{catheter_id} as \code{patient_id} plus a two-digit sequence number
+#' This builds \code{catheter_id} as \code{patient_id} plus a two-digit sequence number
 #' ordered by \code{insertion_date} within each patient (e.g. a patient
 #' \code{"XYZ1234"}'s first catheter becomes \code{"XYZ1234_01"}, and so on).
-#'
-#' @param patient_id Character vector. Patient identifier for each row (NHI).
-#' @param insertion_date Date vector, the same length as \code{patient_id}.
-#'   Date each row's catheter was inserted; used to order multiple catheters
-#'   within the same patient.
-#'
-#' @return Character vector, same length and order as the inputs, giving each
-#'   row's generated \code{catheter_id}.
 #' @noRd
-#'
 create_catheter_id <- function(patient_id, insertion_date) {
   stopifnot(length(patient_id) == length(insertion_date))
   stopifnot(inherits(insertion_date, "Date"))
@@ -38,8 +28,12 @@ create_catheter_id <- function(patient_id, insertion_date) {
 
 
 
-# Match each episode to the catheter active on its infection_date
-match_active_catheter_id <- function(pid, infection_date) {
+#' Match one episode to the catheter that was active on its infection_date
+#'
+#' @param raw_catheters Data frame of every catheter row, with \code{patient_id},
+#'   \code{catheter_id}, \code{pd_start_date} and \code{pd_stop_date}.
+#' @noRd
+match_active_catheter_id <- function(pid, infection_date, raw_catheters, log) {
   cath <- raw_catheters[raw_catheters$patient_id == pid, , drop = FALSE]
   if (nrow(cath) == 0) {
     return(NA_character_)
@@ -51,9 +45,7 @@ match_active_catheter_id <- function(pid, infection_date) {
 
   if (length(candidates) == 0) {
     log$add("Patient ", pid, ": no active PD catheter on infection_date ",
-            format(infection_date),
-            "; this episode is not attached to a catheter and is excluded ",
-            "from the unit.")
+            format(infection_date), "; this episode is not attached to a catheter and is excluded from the unit.")
     return(NA_character_)
   }
   if (length(candidates) > 1) {
@@ -61,8 +53,7 @@ match_active_catheter_id <- function(pid, infection_date) {
             " overlapping PD catheters active on infection_date ",
             format(infection_date), " (",
             paste(candidates, collapse = ", "),
-            "); earliest used. Correct the insertion_date/pd_start_date/",
-            "pd_stop_date of these catheters so their windows don't overlap.")
+            "); earliest used. Correct the insertion_date/pd_start_date/pd_stop_date of these catheters so their windows don't overlap.")
   }
   candidates[1]
 }
@@ -70,8 +61,22 @@ match_active_catheter_id <- function(pid, infection_date) {
 
 
 
-# Build pd_infection objects, chained per patient
-build_patient_infections <- function(df) {
+#' Build one patient's pd_infection objects, chained to each prior episode
+#'
+#' \code{get_episode_type()} classifies each episode against the patient's
+#' prior episode (timing of last antibiotic and what organism), so the episodes
+#' are built in order and each is handed the one before it. An episode that
+#' fails validation is logged and skipped.
+#'
+#' @param df Data frame of one patient's PE rows, ordered by
+#'   \code{date_of_infection}, with \code{organism_list}, \code{outcome} and
+#'   \code{outcome_date} already derived.
+#' @param log Issue log from \code{new_issue_log()}.
+#'
+#' @return A list of \code{pd_infection} objects.
+#' @noRd
+#'
+build_patient_infections <- function(df, log) {
   infections <- list()
   prior <- NULL
   for (i in seq_len(nrow(df))) {
@@ -100,31 +105,51 @@ build_patient_infections <- function(df) {
   infections
 }
 
-infections_by_patient <- if (nrow(raw_pe_episodes) > 0) {
-  lapply(split(raw_pe_episodes, raw_pe_episodes$patient_id),
-         build_patient_infections)
-} else {
-  list()
-}
 
-all_infections <- unlist(infections_by_patient, recursive = FALSE,
-                         use.names = FALSE)
-if (is.null(all_infections)) all_infections <- list()
 
-infections_by_catheter <- if (length(all_infections) > 0) {
+
+#' Build every pd_infection object and group them by the catheter that owns them
+#'
+#' @param raw_pe_episodes Data frame of PE rows (see \code{build_patient_infections()}).
+#' @param raw_catheters Data frame of every catheter row.
+#' @param log Issue log from \code{new_issue_log()}.
+#'
+#' @return A named list of \code{pd_infection} lists, one element per
+#'   \code{catheter_id} that owns at least one episode. Episodes that match no
+#'   catheter are logged and left out.
+#' @noRd
+#'
+build_infections_by_catheter <- function(raw_pe_episodes, raw_catheters, log) {
+  infections_by_patient <- if (nrow(raw_pe_episodes) > 0) {
+    lapply(split(raw_pe_episodes, raw_pe_episodes$patient_id),
+           build_patient_infections, log = log)
+  } else {
+    list()
+  }
+
+  all_infections <- unlist(infections_by_patient, recursive = FALSE,
+                           use.names = FALSE)
+  if (is.null(all_infections)) all_infections <- list()
+
+  if (length(all_infections) == 0) {
+    return(list())
+  }
+
   matched_catheter_id <- vapply(all_infections, function(inf) {
-    match_active_catheter_id(inf$patient_id, inf$infection_date)
+    match_active_catheter_id(inf$patient_id, inf$infection_date,
+                             raw_catheters, log)
   }, character(1))
   keep <- !is.na(matched_catheter_id)
   split(all_infections[keep], matched_catheter_id[keep])
-} else {
-  list()
 }
 
 
 
-# Build pd_catheter objects, each owning its peritonitis episodes if any
-build_patient_catheters <- function(pid) {
+
+#' Build one patient's pd_catheter objects, each owning its peritonitis episodes
+#' @noRd
+build_patient_catheters <- function(pid, raw_catheters, infections_by_catheter,
+                                    t0, t1, log) {
   df <- raw_catheters[raw_catheters$patient_id == pid, , drop = FALSE]
   out <- list()
   for (i in seq_len(nrow(df))) {
@@ -142,13 +167,12 @@ build_patient_catheters <- function(pid) {
         pd_stop_date = df$pd_stop_date[i],
         removal_reason = as.character(df$removal_reason[i]),
         infections = cath_infections,
-        # t0/t1 come from pd_unit() so n_peritonitis_episodes and peritonitis_flag are scoped to the survey period
         t0 = t0,
         t1 = t1
       ),
       error = function(e) {
         log$add("Catheter ", cid, ": ", conditionMessage(e),
-                " (catheter skipped)")
+                " (catheter skipped)")    # a catheter that fails validation is logged and skipped
         NULL
       }
     )
@@ -159,73 +183,93 @@ build_patient_catheters <- function(pid) {
 
 
 
-# Build pd_patient objects, each owning its catheters if any
-patient_list <- list()
-transfer_details <- character(0)
-no_catheter_pids <- character(0)  # in-cohort patients left with no valid catheter
 
-for (pid in pids) {
-  tau <- taus[[pid]]
+#' Build the pd_patient objects for everyone on PD during the reporting period
+#'
+#' A patient is in the cohort if they were on PD at any point in
+#' \code{[t0, t1]}, censored at their \code{tau}. Each pd_patient owns its
+#' catheters. A patient whose every catheter failed validation is logged and
+#' returned in \code{no_catheter_pids}, because \code{pd_patient()} would accept
+#' the empty catheter list and leave them counted in \code{n_patients} with zero
+#' patient-years.
+#'
+#' @param pids Character vector of patient ids to consider.
+#' @param taus Named list (by patient id) from \code{derive_patient_tau()}.
+#' @param raw_catheters,raw_patients Data frames of catheter and patient rows.
+#' @param infections_by_catheter Named list from \code{build_infections_by_catheter()}.
+#' @param t0,t1 Dates. Reporting period.
+#' @param log Issue log from \code{new_issue_log()}.
+#'
+#' @return A list with \code{patient_list} (list of \code{pd_patient}),
+#'   \code{transfer_details} (character, named by patient id; the detail of each
+#'   patient's censoring event) and \code{no_catheter_pids} (character).
+#' @noRd
+#'
+build_patient_list <- function(pids, taus, raw_catheters, raw_patients,
+                               infections_by_catheter, t0, t1, log) {
+  patient_list <- list()
+  transfer_details <- character(0)
+  no_catheter_pids <- character(0)  # in-cohort patients left with no valid catheter
 
-  # PD cohort at any point during [t0, t1], censored at tau
-  cath_rows <- raw_catheters[raw_catheters$patient_id == pid, , drop = FALSE]
-  if (!on_pd_in_period(cath_rows, t0, t1, tau$date)) {
-    next
-  }
+  for (pid in pids) {
+    tau <- taus[[pid]]
 
-  catheters <- build_patient_catheters(pid)
-
-  # every catheter failed validation (each already logged above). pd_patient()
-  # would accept an empty catheter list, leaving this patient counted in
-  # n_patients with zero patient-years, so flag it: report_issues() below
-  # raises it as an error rather than a warning
-  if (length(catheters) == 0) {
-    no_catheter_pids <- c(no_catheter_pids, pid)
-    log$add("Patient ", pid, ": no valid PD catheter remains after ",
-            "validation (see the catheter issue(s) above); the patient ",
-            "cannot be included in the unit's counts or patient-years. ",
-            "This is always an error, even with strict = FALSE.")
-  }
-
-  demo <- raw_patients[raw_patients$patient_id == pid, , drop = FALSE]
-
-  p <- tryCatch(
-    pd_patient(
-      patient_id = pid,
-      catheters = catheters,
-      t0 = t0,
-      t1 = t1,
-      gender = patient_demo_value(demo, "gender"),
-      ethnicity = patient_demo_value(demo, "ethnicity"),
-      date_of_birth = patient_dob_value(demo),
-      primary_kidney_disease = patient_demo_value(demo, "primary_kidney_disease"),
-      diabetes_status = patient_demo_value(demo, "diabetes_type"),
-      smoking_status = patient_demo_value(demo, "cigarette_smoking_status"),
-      dialysis_type = patient_demo_value(demo, "dialysis_type"),
-      transfer_reason = tau$reason,
-      transfer_date = tau$date
-    ),
-    error = function(e) {
-      log$add("Patient ", pid, ": ", conditionMessage(e),
-              " (patient skipped)")
-      NULL
+    cath_rows <- raw_catheters[raw_catheters$patient_id == pid, , drop = FALSE]
+    if (!on_pd_in_period(cath_rows, t0, t1, tau$date)) {
+      next
     }
-  )
-  if (!is.null(p)) {
-    patient_list[[length(patient_list) + 1]] <- p
-    transfer_details[pid] <- if (is.null(tau$detail)) NA_character_ else tau$detail
-  }
-}
 
+    catheters <- build_patient_catheters(pid, raw_catheters,
+                                         infections_by_catheter, t0, t1, log)
+
+    if (length(catheters) == 0) {
+      no_catheter_pids <- c(no_catheter_pids, pid)
+      log$add("Error: Patient ", pid, ": no valid PD catheter remains after ",   # always an error even with strict=FALSE
+              "validation (see the catheter issue(s) above); the patient ",
+              "cannot be included in the unit's counts or patient-years. ")
+    }
+
+    demo <- raw_patients[raw_patients$patient_id == pid, , drop = FALSE]
+
+    p <- tryCatch(
+      pd_patient(
+        patient_id = pid,
+        catheters = catheters,
+        t0 = t0,
+        t1 = t1,
+        gender = patient_demo_value(demo, "gender"),
+        ethnicity = patient_demo_value(demo, "ethnicity"),
+        date_of_birth = patient_dob_value(demo),
+        primary_kidney_disease = patient_demo_value(demo, "primary_kidney_disease"),
+        diabetes_status = patient_demo_value(demo, "diabetes_type"),
+        smoking_status = patient_demo_value(demo, "cigarette_smoking_status"),
+        dialysis_type = patient_demo_value(demo, "dialysis_type"),
+        transfer_reason = tau$reason,
+        transfer_date = tau$date
+      ),
+      error = function(e) {
+        log$add("Patient ", pid, ": ", conditionMessage(e),
+                " (patient skipped)")
+        NULL
+      }
+    )
+    if (!is.null(p)) {
+      patient_list[[length(patient_list) + 1]] <- p
+      transfer_details[pid] <- if (is.null(tau$detail)) NA_character_ else tau$detail
+    }
+  }
+
+  list(patient_list = patient_list,
+       transfer_details = transfer_details,
+       no_catheter_pids = no_catheter_pids)
+}
 
 
 
 
 #' Read one demographic value for a patient off their A3 form row
 #'
-#' Small helper behind the \code{gender}/\code{ethnicity}/
-#' \code{primary_kidney_disease}/\code{diabetes_type}/
-#' \code{cigarette_smoking_status} lookups in \code{pd_unit()}: guards
+#' Small helper behind the demographic data lookups in \code{pd_unit()}: guards
 #' against a patient with no matching row in \code{raw_patients} (returns
 #' \code{NA} rather than erroring) and normalises a blank/\code{NA} cell to
 #' \code{NA_character_}.
@@ -269,6 +313,3 @@ patient_dob_value <- function(demo) {
   val <- demo$date_of_birth[1]
   if (is.na(val)) as.Date(NA) else val
 }
-
-
-
