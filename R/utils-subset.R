@@ -21,7 +21,7 @@ flatten_pd_tables <- function(patients = NULL, catheters = NULL, infections = NU
     if (ncol(child) == 0) {
       return(parent)
     }
-    require_unit_cols(child, by, what)
+    require_cols(child, by, what, kind = "table")
     absent <- setdiff(by, names(parent))
     if (length(absent) > 0) {
       stop("Cannot join `", what, "`: the table above it has no ",
