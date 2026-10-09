@@ -301,16 +301,32 @@ test_that("validate_pd_patient errors when an open-ended catheter is followed by
 
 
 
-test_that("validate_pd_patient errors on overlapping catheter intervals", {
+test_that("validate_pd_patient errors when a catheter starts inside another's PD window", {
   first_cath <- make_catheter(
     insertion_date = as.Date("2025-01-01"),
     pd_start_date = as.Date("2025-01-10"),
-    pd_stop_date = as.Date("2025-07-01"),
+    pd_stop_date = as.Date("2025-06-10"),
+    removal_reason = "mechanical failure")
+  second_cath <- make_catheter(
+    catheter_id = "ABC1234_02",
+    insertion_date = as.Date("2025-05-20"),
+    pd_start_date = as.Date("2025-06-01"))   # 9 days before first_cath stops
+  p <- make_patient(catheters = list(first_cath, second_cath))
+  expect_error(validate_pd_patient(p), "overlapping PD intervals")
+})
+
+
+
+test_that("validate_pd_patient errors when a catheter starts on the day another stops", {
+  first_cath <- make_catheter(
+    insertion_date = as.Date("2025-01-01"),
+    pd_start_date = as.Date("2025-01-10"),
+    pd_stop_date = as.Date("2025-06-10"),
     removal_reason = "mechanical failure")
   second_cath <- make_catheter(
     catheter_id = "ABC1234_02",
     insertion_date = as.Date("2025-06-01"),
-    pd_start_date = as.Date("2025-06-10"))   # starts before first_cath's pd_stop_date, overlaps
+    pd_start_date = as.Date("2025-06-10"))   # same day: counted twice by the inclusive exposure
   p <- make_patient(catheters = list(first_cath, second_cath))
   expect_error(validate_pd_patient(p), "overlapping PD intervals")
 })

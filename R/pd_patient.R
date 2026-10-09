@@ -246,7 +246,7 @@ validate_pd_patient <- function(x) {
                "but catheter '", ids[i + 1], "' starts after it.",
                "Catheter intervals within a patient must not overlap.")
         }
-        if (starts[i + 1] < stops[i]) {
+        if (starts[i + 1] <= stops[i]) {
           stop("Catheters '", ids[i], "' and '", ids[i + 1], "' have ",
                "overlapping PD intervals. Catheter intervals within a ",
                "patient must not overlap.")
