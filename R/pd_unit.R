@@ -311,7 +311,7 @@ pd_unit <- function(unit_data_path,
   require_cols(raw_a3, a3_required_cells, "unit (A3)")
   require_cols(raw_pe_file, pe_required_cells, "infection (PE)")
 
-  a3_optional <- c("date_of_birth", "gender", "ethnicity",
+  a3_optional <- c("gender", "ethnicity",
                    "primary_kidney_disease", "height", "weight",
                    "cigarette_smoking_status", "diabetes_type",
                    "dialysis_modality_change", "modality_change_reason",
@@ -320,7 +320,7 @@ pd_unit <- function(unit_data_path,
                    "procedure_type", "pd_stop_date", "removal_reason")
   raw_a3 <- ensure_cols(raw_a3, a3_optional)
 
-  pe_optional <- c("last_dose_antibiotic", "overnight_hospitalisation", "days_hospitalised",
+  pe_optional <- c("overnight_hospitalisation", "days_hospitalised",
                    "catheter_removed", "catheter_removed_date", "interim_hd",
                    "permanent_hd", "first_dialysis_date", "last_dialysis_date")
   raw_pe_file <- ensure_cols(raw_pe_file, pe_optional)
