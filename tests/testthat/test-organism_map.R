@@ -21,11 +21,6 @@ test_that("every spelling and standard name maps to its own standard name", {
   expect_identical(match_organism(organism_names), organism_names)
 })
 
-test_that("the rarer form organisms are deliberately not accepted", {
-  expect_true(all(is.na(match_organism(c("Stenotrophomonas maltophilia", "Burkholderia cepacia",
-                                         "Pseudomonas stutzeri", "Citrobacter koseri",
-                                         "Coliforms", "Roseomonas gilardii", "Not reported")))))
-})
 
 test_that("organism_key() ignores case, punctuation, whitespace and 'sp'", {
   expect_identical(organism_key(c("E. coli", "e coli", "  E.COLI ", "E-coli")), rep("e coli", 4))

@@ -1,9 +1,10 @@
 # Standardising organism names
+# Obtained from PE Form completed every peritonitis episode for each patient
 
 organism_spellings <- rbind(
   data.frame(name = "negative",
     spelling = c(
-      "Culture Negative (PD Use Only)", "culture negative", "culture-negative",
+      "Culture Negative", "culture negative", "culture-negative",
       "negative", "no growth", "culture negative peritonitis", "sterile")),
   data.frame(name = "S. epidermidis",
     spelling = c(
@@ -130,7 +131,7 @@ organism_spellings <- rbind(
 
 
 
-#' Reduce an organism spelling to a comparable key (eg. "E. coli", "escherichia coli" and E.coli " share a key)
+#' Reduce an organism spelling to a comparable key (eg. "E. coli", "escherichia coli" and "E.coli " share a key)
 #' @noRd
 organism_key <- function(x) {
   x <- tolower(as.character(x))
@@ -203,7 +204,7 @@ standardise_organism_cell <- function(cell) {
 
 
 
-#' Standardise the organism column of the PE file, log unrecognised names
+#' Standardise the organism names, log unrecognised names
 #' @noRd
 check_organisms <- function(df, what, log, col = "organism", header_rows = 1L) {
   stopifnot(is.data.frame(df), col %in% names(df))
