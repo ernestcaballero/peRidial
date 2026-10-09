@@ -150,13 +150,19 @@ build_infections_by_catheter <- function(raw_pe_episodes, raw_catheters, log) {
 #' Build one patient's pd_catheter objects, each owning its peritonitis episodes
 #' @noRd
 build_patient_catheters <- function(pid, raw_catheters, infections_by_catheter,
-                                    t0, t1, log) {
+                                    t0, t1, log, tau = as.Date(NA)) {
   df <- raw_catheters[raw_catheters$patient_id == pid, , drop = FALSE]
   out <- list()
   for (i in seq_len(nrow(df))) {
     cid <- df$catheter_id[i]
     cath_infections <- infections_by_catheter[[cid]]
     if (is.null(cath_infections)) cath_infections <- list()
+
+    # days at risk in [t0, t1]
+    exposure <- as.integer(catheter_exposure_days(
+      list(pd_start_date = df$pd_start_date[i], pd_stop_date = df$pd_stop_date[i]),
+      t0, t1, tau = tau
+    ))
 
     cath <- tryCatch(
       pd_catheter(
@@ -169,7 +175,8 @@ build_patient_catheters <- function(pid, raw_catheters, infections_by_catheter,
         removal_reason = as.character(df$removal_reason[i]),
         infections = cath_infections,
         t0 = t0,
-        t1 = t1
+        t1 = t1,
+        total_exposure_days = exposure
       ),
       error = function(e) {
         log$add("Catheter ", cid, ": ", conditionMessage(e),
@@ -219,7 +226,8 @@ build_patient_list <- function(pids, taus, raw_catheters, raw_patients,
     }
 
     catheters <- build_patient_catheters(pid, raw_catheters,
-                                         infections_by_catheter, t0, t1, log)
+                                         infections_by_catheter, t0, t1, log,
+                                         tau = tau$date)
 
     if (length(catheters) == 0) {
       log$add("Patient ", pid, ": no valid PD catheter remains after ",
