@@ -91,14 +91,17 @@ test_that("classify_episode_types() does not compare episodes across different p
 
 
 test_that("classify_episode_types() treats a catheter-removed outcome with no outcome_date as invalid", {
-  x <- classify_episode_types(
-    patient_id = rep("ABC1234", 2),
-    infection_date = as.Date(c("2025-01-01", "2025-01-25")),
-    last_dose_antibiotic = as.Date(c("2025-01-15", "2025-02-08")),
-    organism_list = list(list("E. coli"), list("E. coli")),
-    outcome = c(NA_character_, "catheter removed")   # outcome_date left NA, so validation rejects row 2
+  expect_warning(
+    x <- classify_episode_types(
+      patient_id = rep("ABC1234", 2),
+      infection_date = as.Date(c("2025-01-01", "2025-01-25")),
+      last_dose_antibiotic = as.Date(c("2025-01-15", "2025-02-08")),
+      organism_list = list(list("E. coli"), list("E. coli")),
+      outcome = c(NA_character_, "catheter removed")   # outcome_date left NA, so validation rejects row 2
+    ),
+    "row 2: Missing date of catheter removal"
   )
-  expect_equal(x, c(NA_character_, NA_character_))
+  expect_identical(x, c(NA_character_, NA_character_))
 })
 
 

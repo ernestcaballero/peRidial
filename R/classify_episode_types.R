@@ -39,8 +39,15 @@ classify_episode_types <- function(patient_id,
             length(outcome_date) == n
             )
 
-  # validate first
-  valid <- vapply(seq_len(n), function(i) {
+  # a malformed call, should be a list of lists
+  not_list <- !vapply(organism_list, is.list, logical(1))
+  if (any(not_list)) {
+    stop("`organism_list` must be a list of lists, one inner list per episode, ",
+         paste(which(not_list)[seq_len(min(5, sum(not_list)))], collapse = ", "))
+  }
+
+  # validate first, keeping the reason each row failed (NA = valid)
+  problem <- vapply(seq_len(n), function(i) {
     tryCatch({
       validate_pd_infection(new_pd_infection(
         patient_id = patient_id[i],
@@ -51,9 +58,18 @@ classify_episode_types <- function(patient_id,
         outcome = outcome[i],
         outcome_date = outcome_date[i]
       ))
-      TRUE
-    }, error = function(e) FALSE)
-  }, logical(1))
+      NA_character_
+    }, error = function(e) conditionMessage(e))
+  }, character(1))
+  valid <- is.na(problem)
+
+  if (any(!valid)) {
+    bad <- which(!valid)
+    shown <- bad[seq_len(min(5, length(bad)))]
+    warning(length(bad), " of ", n, " episode(s) failed validation and were left ",
+            "unclassified (NA, and not used as a prior episode):\n",
+            paste0("  row ", shown, ": ", problem[shown], collapse = "\n"))
+  }
 
   # one comparable string per episode, same as get_episode_type() - eg. lowercase and sorted
   key <- vapply(organism_list,
