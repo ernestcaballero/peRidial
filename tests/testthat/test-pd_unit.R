@@ -4,8 +4,8 @@ test_that("new_pd_unit() returns an object of class pd_unit with all fields", {
   x <- make_unit()
   expect_s3_class(x, "pd_unit")
   expect_named(x, c("unit_id", "t0", "t1", "n_new", "n_patients", "tpyar",
-                    "rate_benchmark", "patients", "catheters", "infections",
-                    "patient_list"))
+                    "rate_benchmark", "pf_benchmark", "patients", "catheters",
+                    "infections", "patient_list"))
 })
 
 test_that("new_pd_unit() defaults rate_benchmark to 0.40", {

@@ -31,6 +31,12 @@
 #'   \code{summary.pd_unit()} and \code{plot.pd_unit()} judge and plot
 #'   against the same threshold by default. Defaults to 0.40, the ISPD
 #'   standard.
+#' @param pf_benchmark Numeric. The ISPD peritonitis-free benchmark for this
+#'   unit, as a proportion between 0 and 1: the peritonitis-free percentage
+#'   is judged "MET" when it is strictly above this value. Carried on the
+#'   object so \code{summary.pd_unit()} and \code{plot.pd_unit()} judge and
+#'   plot against the same threshold. Defaults to 0.80 (i.e. 80\%), the ISPD
+#'   standard.
 #' @param patients Tibble. One row per patient, flattened from
 #'   \code{patient_list}.
 #' @param catheters Tibble. One row per catheter, flattened from the
@@ -62,6 +68,7 @@ new_pd_unit <- function(unit_id = NA_character_,
                         n_patients = NA_integer_,
                         tpyar = NA_real_,        # total patient-years-at-risk
                         rate_benchmark = 0.40,   # ISPD peritonitis-rate benchmark
+                        pf_benchmark = 0.80,     # ISPD peritonitis-free benchmark (proportion)
                         patients = tibble::tibble(),
                         catheters = tibble::tibble(),
                         infections = tibble::tibble(),
@@ -74,6 +81,7 @@ new_pd_unit <- function(unit_id = NA_character_,
   stopifnot(length(n_patients) == 1, is.na(n_patients) || is.numeric(n_patients))
   stopifnot(length(tpyar) == 1, is.na(tpyar) || is.numeric(tpyar))
   stopifnot(length(rate_benchmark) == 1, is.numeric(rate_benchmark))
+  stopifnot(length(pf_benchmark) == 1, is.numeric(pf_benchmark))
   stopifnot(is.data.frame(patients), is.data.frame(catheters),
             is.data.frame(infections))
   stopifnot(is.list(patient_list))
@@ -87,6 +95,7 @@ new_pd_unit <- function(unit_id = NA_character_,
       n_patients = n_patients,
       tpyar = tpyar,
       rate_benchmark = rate_benchmark,
+      pf_benchmark = pf_benchmark,
       patients = patients,
       catheters = catheters,
       infections = infections,
@@ -144,6 +153,14 @@ validate_pd_unit <- function(x) {
   }
   if (x$rate_benchmark < 0) {
     stop("rate_benchmark cannot be negative.")
+  }
+
+  # checks pf_benchmark is present and is a proportion
+  if (is.na(x$pf_benchmark)) {
+    stop("pf_benchmark is missing.")
+  }
+  if (x$pf_benchmark < 0 || x$pf_benchmark > 1) {
+    stop("pf_benchmark must be a proportion between 0 and 1.")
   }
 
   # `patients` and `patient_list` are two views of the same cohort: must match (nrow(patients) = n_patients)
@@ -258,8 +275,12 @@ validate_pd_unit <- function(x) {
 #'   \code{"Auckland PD Unit"}. Defaults to \code{NA_character_}.
 #' @param rate_benchmark Numeric. The ISPD peritonitis-rate benchmark for
 #'   this unit, in episodes per patient-year, used by \code{summary.pd_unit()}
-#'   and \code{plot.pd_unit()} to judge/plot the headline rate against.
-#'   Defaults to 0.40, the ISPD standard.
+#'   and \code{plot.pd_unit()} to plot the headline rate against.
+#'   Defaults to 0.40, the ISPD recommendation.
+#' @param pf_benchmark Numeric. The ISPD peritonitis-free benchmark for this
+#'   unit, as a proportion between 0 and 1, used by \code{summary.pd_unit()}
+#'   and \code{plot.pd_unit()} to judge/plot the peritonitis-free percentage against.
+#'   Defaults to 0.80, the ISPD recommendation.
 #' @param censor_on_last_stop Logical. Treat a patient whose every catheter
 #'   has closed, with none reopened, as having left PD on the last
 #'   \code{pd_stop_date}. Defaults to \code{TRUE}. Set \code{FALSE} if your
@@ -287,6 +308,7 @@ pd_unit <- function(unit_data_path,
                     t1,
                     unit_id = NA_character_,
                     rate_benchmark = 0.40,
+                    pf_benchmark = 0.80,
                     censor_on_last_stop = TRUE) {
 
   stopifnot(inherits(t0, "Date"), length(t0) == 1, !is.na(t0))
@@ -515,6 +537,7 @@ pd_unit <- function(unit_data_path,
     n_patients     = as.integer(n_patients),
     tpyar          = tpyar,
     rate_benchmark = rate_benchmark,
+    pf_benchmark   = pf_benchmark,
     patients       = patients_tbl,
     catheters    = catheters_tbl,
     infections   = infections_tbl,
