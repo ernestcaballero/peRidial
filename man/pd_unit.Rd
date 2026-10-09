@@ -59,22 +59,6 @@ The returned object carries both the nested \code{patient_list} and three
 flat tibbles (\code{patients}, \code{catheters}, \code{infections})
 derived from it, plus the headline numbers the ISPD indicators need:
 \code{n_new}, \code{n_patients} and \code{tpyar}.
-
-Data-quality problems come in two kinds. A gap in the source data (for
-example a patient_id that is not a valid NHI, a blank required cell, an
-organism that is not on the accepted list, an episode that cannot be matched
-to an active catheter, or a patient left with no valid catheter) is an
-error: they are collected across both files and raised together, so no unit
-is built from incomplete data. Each one needs a correction in the source
-file: fix them and run \code{pd_unit()} again until it builds. The error
-carries the problems as a table (read it with \code{\link{pd_issues}()}), and
-\code{\link{check_unit_data}()} returns that table without raising an error.
-
-An assumption the build can carry on with (for example two columns that could
-both be \code{patient_id}, or a patient whose censoring date is unknown and
-who is treated as still on PD) does not stop the build. It is kept in the
-unit's \code{notes}, shown by \code{print()} and \code{summary()}, and
-signalled by one warning of class \code{peridial_notes}.
 }
 \examples{
 unit <- pd_unit(
@@ -89,7 +73,5 @@ unit <- pd_unit(
 unit
 }
 \seealso{
-\code{\link{new_pd_unit}()} for the underlying constructor,
-\code{\link{check_unit_data}()} to check the files without building, and
-\code{\link{pd_issues}()} to read the data-quality problems as a table.
+\code{\link{new_pd_unit}()} for the underlying constructor.
 }
