@@ -1,8 +1,7 @@
+
 #' Calculate exposure days between two dates
 #'
-#' Computes the number of days a patient is active on PD (at risk)
-#' between two dates. Intended to be called with dates that have been
-#' truncated/censored to the reporting window.
+#' Computes the number of days a patient is active on PD (at risk) between two dates.
 #'
 #' @param min_date Date. The truncated start of the exposure interval (e.g. \code{t0} or
 #'    start date of PD therapy.

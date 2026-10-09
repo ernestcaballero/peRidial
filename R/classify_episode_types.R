@@ -5,7 +5,8 @@
 #' with [new_pd_infection()] and passing it through `validate_pd_infection()`.
 #' Valid rows are then classified as \code{"relapsing"}, \code{"recurrent"} or \code{"repeat"}
 #' (ISPD 2022 definitions) against the same patient's immediately preceding
-#' valid episode. The classification loop runs in C++.
+#' valid episode. By default the classification loop runs in C++; set
+#' `use_cpp = FALSE` to run the equivalent pure-R loop instead.
 #'
 #' @param patient_id Character. Patient identifier for each episode.
 #' @param infection_date Date. Date each episode was diagnosed.
@@ -16,6 +17,10 @@
 #' @param outcome Character. Outcome of each episode, or \code{NA} when resolved.
 #'   Defaults to all \code{NA}.
 #' @param outcome_date Date. Date of each outcome. Defaults to all \code{NA}.
+#' @param use_cpp Logical. \code{TRUE} (the default) classifies with the compiled C++
+#'   loop, which is faster on large inputs. \code{FALSE} uses a pure-R loop that calls
+#'   [get_episode_type()] once per episode, and needs no compiled code. Both apply the
+#'   same validation and the same ISPD rule, so the result is the same either way.
 #'
 #' @returns Character vector, the same length as the inputs: \code{"relapsing"},
 #'   \code{"recurrent"}, \code{"repeat"}, or \code{NA_character_} (first valid
@@ -26,7 +31,8 @@ classify_episode_types <- function(patient_id,
                                    last_dose_antibiotic,
                                    organism_list,
                                    outcome = rep(NA_character_, length(patient_id)),
-                                   outcome_date = rep(as.Date(NA), length(patient_id))) {
+                                   outcome_date = rep(as.Date(NA), length(patient_id)),
+                                   use_cpp = TRUE) {
   n <- length(patient_id)
   stopifnot(inherits(infection_date, "Date"),
             inherits(last_dose_antibiotic, "Date"),
@@ -36,7 +42,8 @@ classify_episode_types <- function(patient_id,
             length(last_dose_antibiotic) == n,
             length(organism_list) == n,
             length(outcome) == n,
-            length(outcome_date) == n
+            length(outcome_date) == n,
+            is.logical(use_cpp), length(use_cpp) == 1, !is.na(use_cpp)
             )
 
   # a malformed call, should be a list of lists
@@ -71,21 +78,56 @@ classify_episode_types <- function(patient_id,
             paste0("  row ", shown, ": ", problem[shown], collapse = "\n"))
   }
 
-  # one comparable string per episode, same as get_episode_type() - eg. lowercase and sorted
-  key <- vapply(organism_list,
-                function(x) paste(sort(tolower(unlist(x))), collapse = "|"),
-                character(1)
-                )
-
-  # Rcpp implementation of classify_episode_types_cpp
   ord <- order(patient_id, infection_date)   # grouped by patient and oldest infection first
   out <- character(n)
-  out[ord] <- classify_episode_types_cpp(
-    patient_id = as.character(patient_id)[ord],
-    infection_date = as.numeric(infection_date)[ord],
-    last_dose_antibiotic = as.numeric(last_dose_antibiotic)[ord],
-    organism_key = key[ord],
-    valid = valid[ord]
-  )
+
+  if (use_cpp) {
+    # one comparable string per episode, same as get_episode_type() - eg. lowercase and sorted
+    key <- vapply(organism_list,
+                  function(x) paste(sort(tolower(unlist(x))), collapse = "|"),
+                  character(1)
+                  )
+    # Rcpp implementation of classify_episode_types_cpp
+    out[ord] <- classify_episode_types_cpp(
+      patient_id = as.character(patient_id)[ord],
+      infection_date = as.numeric(infection_date)[ord],
+      last_dose_antibiotic = as.numeric(last_dose_antibiotic)[ord],
+      organism_key = key[ord],
+      valid = valid[ord]
+    )
+  } else {
+    out[ord] <- classify_episode_types_r(
+      patient_id = as.character(patient_id)[ord],
+      infection_date = infection_date[ord],
+      last_dose_antibiotic = last_dose_antibiotic[ord],
+      organism_list = organism_list[ord],
+      valid = valid[ord]
+    )
+  }
+  out
+}
+
+
+
+#' R equivalent of classify_episode_types_cpp()
+#' @noRd
+classify_episode_types_r <- function(patient_id, infection_date, last_dose_antibiotic,
+                                     organism_list, valid) {
+  out <- rep(NA_character_, length(patient_id))
+  prior <- NULL
+  prior_patient <- ""
+  for (i in seq_along(patient_id)) {
+    # a new patient has no prior episode
+    if (!identical(patient_id[i], prior_patient)) prior <- NULL
+    if (is.na(valid[i]) || !valid[i]) next
+
+    out[i] <- get_episode_type(infection_date[i], organism_list[[i]], prior)
+
+    prior <- new_pd_infection(patient_id = patient_id[i],
+                              infection_date = infection_date[i],
+                              organism_list = organism_list[[i]],
+                              last_dose_antibiotic = last_dose_antibiotic[i])
+    prior_patient <- patient_id[i]
+  }
   out
 }
