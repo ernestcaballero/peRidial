@@ -205,22 +205,20 @@ check_organisms <- function(df, what, log, col = "organism", header_rows = 1L) {
 
   cells <- as.character(df[[col]])
   std <- cells
-  bad <- integer(0)
 
   for (i in seq_along(cells)) {
     if (is.na(cells[i]) || !nzchar(trimws(cells[i]))) next
     res <- standardise_organism_cell(cells[i])
     if (length(res$unknown) > 0) {
-      bad <- c(bad, i)
+      # the row keeps its original spelling; the logged issue stops the build later
       log$add("The ", what, " file, row ", sheet_row(df, i, header_rows),
               ": organism ", paste0("`", res$unknown, "`", collapse = ", "),
-              " is not in the accepted organism list; row excluded from the unit.")
+              " not found in accepted list, check and correct in source file.")
     } else {
       std[i] <- paste(res$std, collapse = ", ")
     }
   }
 
   df[[col]] <- std
-  if (length(bad) > 0) df <- df[-bad, , drop = FALSE]
   df
 }
