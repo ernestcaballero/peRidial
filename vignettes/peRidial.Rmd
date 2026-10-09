@@ -76,7 +76,7 @@ unit <- pd_unit(
 unit
 ```
 
-Any data-quality problems found while building (for example an episode that cannot be matched to an active catheter) are collected and raised together as a single error. Correct them in the source files and run `pd_unit()` again until it builds.
+Gaps in the source data found while building (for example an episode that cannot be matched to an active catheter, or an organism that is not on the accepted list) are collected and raised together as a single error, and no unit is built. Correct them in the source files and run `pd_unit()` again until it builds. An assumption the build can carry on with, such as a patient whose censoring date is unknown, does not stop it: it is reported as an R warning.
 
 ### Using your own data
 
