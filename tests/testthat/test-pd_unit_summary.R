@@ -162,3 +162,40 @@ test_that("summary.pd_unit() timing works on the unit built from the bundled fil
   expect_lte(tc$time_to_first_peritonitis_days[["n"]], unit$n_new)
   expect_gt(tc$time_to_first_peritonitis_days[["mean"]], 0)
 })
+
+
+# benchmark verdicts
+
+test_that("rate_met and pf_met are NA, not FALSE, when there is nothing to judge", {
+  empty <- list(infections = tibble::tibble(), patients = tibble::tibble(),
+                tpyar = 0, n_patients = 0L, rate_benchmark = 0.40)
+  expect_true(is.na(summarise_rate(empty)$rate_met))
+  expect_true(is.na(summarise_pf(empty)$pf_met))
+})
+
+test_that("rate_met and pf_met are still TRUE/FALSE when there is data", {
+  unit <- list(
+    infections = tibble::tibble(counts_toward_rate = c(TRUE, TRUE)),
+    patients = tibble::tibble(n_episodes = c(0, 0, 0, 1, 2)),
+    tpyar = 10, n_patients = 5L, rate_benchmark = 0.40)
+  expect_equal(summarise_rate(unit)$rate, 0.2)
+  expect_true(summarise_rate(unit)$rate_met)       # 0.2 <= 0.40
+  expect_equal(summarise_pf(unit)$pf, 0.6)
+  expect_false(summarise_pf(unit)$pf_met)          # 60% is not above 80%
+})
+
+test_that("summary.pd_unit() prints NO DATA, not NOT MET, for an empty unit", {
+  empty <- new_pd_unit(unit_id = "Empty", t0 = as.Date("2025-01-01"),
+                       t1 = as.Date("2025-12-31"), n_new = 0L, n_patients = 0L, tpyar = 0)
+  txt <- capture.output(res <- summary(empty))
+  expect_equal(sum(grepl("NO DATA", txt, fixed = TRUE)), 2)   # rate and PF lines
+  expect_false(any(grepl("NOT MET", txt, fixed = TRUE)))
+  expect_true(is.na(res$rate_met))
+  expect_true(is.na(res$pf_met))
+})
+
+test_that("summary.pd_unit() still prints MET / NOT MET when there is data", {
+  txt <- capture.output(summary(make_subset_unit()))
+  expect_true(any(grepl("\\[ (MET|NOT MET) \\]", txt)))
+  expect_false(any(grepl("NO DATA", txt, fixed = TRUE)))
+})

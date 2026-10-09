@@ -10,6 +10,9 @@ has_col <- function(df, col) nrow(df) > 0 && col %in% names(df)
 
 
 #' Peritonitis rate against ISPD benchmark
+#'
+#' \code{rate_met} is \code{NA} (no verdict) when the rate itself is \code{NA}, i.e. there
+#' is no patient-time-at-risk to judge, rather than \code{FALSE}.
 #' @noRd
 summarise_rate <- function(x) {
   rate_num <- if (has_col(x$infections, "counts_toward_rate")) {
@@ -22,12 +25,15 @@ summarise_rate <- function(x) {
   rate_benchmark <- x$rate_benchmark
   list(rate = rate, rate_num = rate_num, rate_den = rate_den,
        rate_benchmark = rate_benchmark,
-       rate_met = !is.na(rate) && rate <= rate_benchmark)
+       rate_met = if (is.na(rate)) NA else rate <= rate_benchmark)
 }
 
 
 
 #' Peritonitis-free percentage against ISPD benchmark
+#'
+#' \code{pf_met} is \code{NA} (no verdict) when there are no patients to judge, rather
+#' than \code{FALSE}.
 #' @noRd
 summarise_pf <- function(x) {
   pf_num <- if (has_col(x$patients, "n_episodes")) {
@@ -37,10 +43,11 @@ summarise_pf <- function(x) {
   }
   pf_den <- x$n_patients
   pf <- if (is.na(pf_den) || pf_den == 0) NA_real_ else pf_num / pf_den
-  pf_benchmark <- 0.80
+  # unit-level threshold; fall back to the ISPD standard for objects without the field
+  pf_benchmark <- if (is.null(x$pf_benchmark)) 0.80 else x$pf_benchmark
   list(pf = pf, pf_num = pf_num, pf_den = pf_den,
        pf_benchmark = pf_benchmark,
-       pf_met = !is.na(pf) && pf > pf_benchmark)
+       pf_met = if (is.na(pf)) NA else pf > pf_benchmark)
 }
 
 
@@ -252,6 +259,14 @@ summarise_infections <- function(x) {
 
 
 
+#' Label a benchmark verdict: MET, NOT MET, or NO DATA when there is nothing to judge
+#' @noRd
+verdict_label <- function(met) {
+  if (is.na(met)) "NO DATA" else if (met) "MET" else "NOT MET"
+}
+
+
+
 #' Summarise a pd_unit object
 #'
 #' Reports the unit's headline peritonitis indicators (unit's peritonitis rate
@@ -265,7 +280,9 @@ summarise_infections <- function(x) {
 #'
 #' @return Invisibly, a list with components \code{rate}, \code{rate_num},
 #'   \code{rate_den}, \code{rate_benchmark}, \code{rate_met}, \code{pf},
-#'   \code{pf_num}, \code{pf_den}, \code{pf_benchmark}, \code{pf_met},
+#'   \code{pf_num}, \code{pf_den}, \code{pf_benchmark}, \code{pf_met}
+#'   (\code{rate_met} and \code{pf_met} are \code{NA}, printed as \code{NO DATA},
+#'   when there is no rate or percentage to judge),
 #'   \code{episode_types} (a table of episode counts by \code{episode_type}),
 #'   \code{outcomes} (a table of patient counts by how their PD ended:
 #'   \code{death}, \code{transplant}, \code{permanent transfer to HD},
@@ -320,14 +337,14 @@ summary.pd_unit <- function(object, ...) {
   cat("    numerator (countable episodes)      : ", rate$rate_num, "\n", sep = "")
   cat("    denominator (patient-years at risk) : ", sprintf("%.2f", rate$rate_den), "\n", sep = "")
   cat("    ISPD benchmark <= ", sprintf("%.2f", rate$rate_benchmark),
-      "  [ ", if (rate$rate_met) "MET" else "NOT MET", " ]\n\n", sep = "")
+      "  [ ", verdict_label(rate$rate_met), " ]\n\n", sep = "")
 
   cat("  Peritonitis-free (PF) : ",
       if (is.na(pf$pf)) "NA" else sprintf("%.1f%%", pf$pf * 100), "\n", sep = "")
   cat("    numerator (patients with zero countable episodes)   : ", pf$pf_num, "\n", sep = "")
   cat("    denominator (total patients, N)                     : ", pf$pf_den, "\n", sep = "")
   cat("    ISPD benchmark >  ", sprintf("%.0f%%", pf$pf_benchmark * 100),
-      "  [ ", if (pf$pf_met) "MET" else "NOT MET", " ]\n\n", sep = "")
+      "  [ ", verdict_label(pf$pf_met), " ]\n\n", sep = "")
 
   cat("  Peritonitis episodes by type:\n")
   if (length(episode_types) == 0) {
