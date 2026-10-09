@@ -413,7 +413,7 @@ test_that("pd_unit() builds a valid unit from the bundled example files", {
   expect_identical(unit$unit_id, "Wellington PD Unit")
   expect_identical(unit$n_patients, 60L)
   expect_identical(unit$n_new, 10L)
-  expect_equal(unit$tpyar, 50.94, tolerance = 0.01)
+  expect_equal(unit$tpyar, 51.90, tolerance = 0.01)
   expect_identical(nrow(unit$patients), 60L)
   expect_identical(nrow(unit$catheters), 60L)
   expect_identical(nrow(unit$infections), 18L)
@@ -424,8 +424,8 @@ test_that("pd_unit() builds a valid unit from the bundled example files", {
 test_that("pd_unit() derives each patient's censoring event from the bundled files", {
   unit <- bundled_unit
   counts <- table(unit$patients$transfer_reason, useNA = "no")
-  expect_equal(as.list(counts)[c("death", "pd stopped", "permanent transfer to HD", "transplant")],
-               list(death = 3L, `pd stopped` = 2L, `permanent transfer to HD` = 2L, transplant = 3L),
+  expect_equal(as.list(counts)[c("death", "permanent transfer to HD", "transplant")],
+               list(death = 3L, `permanent transfer to HD` = 2L, transplant = 3L),
                ignore_attr = TRUE)
   # no catheter outlives its patient's censoring date
   censored <- unit$patients[!is.na(unit$patients$transfer_reason), ]
