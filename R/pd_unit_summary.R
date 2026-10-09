@@ -10,9 +10,6 @@ has_col <- function(df, col) nrow(df) > 0 && col %in% names(df)
 
 
 #' Peritonitis rate against ISPD benchmark
-#'
-#' \code{rate_met} is \code{NA} (no verdict) when the rate itself is \code{NA}, i.e. there
-#' is no patient-time-at-risk to judge, rather than \code{FALSE}.
 #' @noRd
 summarise_rate <- function(x) {
   rate_num <- if (has_col(x$infections, "counts_toward_rate")) {
@@ -22,18 +19,16 @@ summarise_rate <- function(x) {
   }
   rate_den <- x$tpyar
   rate <- if (is.na(rate_den) || rate_den == 0) NA_real_ else rate_num / rate_den
-  rate_benchmark <- x$rate_benchmark
+  # unit-level threshold; fall back to the ISPD standard for objects without the field
+  rate_benchmark <- if (is.null(x$rate_benchmark)) 0.40 else x$rate_benchmark
   list(rate = rate, rate_num = rate_num, rate_den = rate_den,
        rate_benchmark = rate_benchmark,
-       rate_met = if (is.na(rate)) NA else rate <= rate_benchmark)
+       rate_met = if (is.na(rate)) NA else rate <= rate_benchmark)  # rate_met is NA when rate itself is NA for an empty unit
 }
 
 
 
 #' Peritonitis-free percentage against ISPD benchmark
-#'
-#' \code{pf_met} is \code{NA} (no verdict) when there are no patients to judge, rather
-#' than \code{FALSE}.
 #' @noRd
 summarise_pf <- function(x) {
   pf_num <- if (has_col(x$patients, "n_episodes")) {
@@ -47,7 +42,7 @@ summarise_pf <- function(x) {
   pf_benchmark <- if (is.null(x$pf_benchmark)) 0.80 else x$pf_benchmark
   list(pf = pf, pf_num = pf_num, pf_den = pf_den,
        pf_benchmark = pf_benchmark,
-       pf_met = if (is.na(pf)) NA else pf > pf_benchmark)
+       pf_met = if (is.na(pf)) NA else pf > pf_benchmark)  # pf_met is NA when there are no patients
 }
 
 
