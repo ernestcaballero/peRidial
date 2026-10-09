@@ -1,5 +1,5 @@
 # Standardising organism names
-# Obtained from PE Form completed every peritonitis episode for each patient
+# Sourced from PE Form completed every peritonitis episode for each patient
 
 organism_spellings <- rbind(
   data.frame(name = "negative",

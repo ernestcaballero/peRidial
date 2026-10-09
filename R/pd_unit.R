@@ -345,7 +345,7 @@ pd_unit <- function(unit_data_path,
                                       "infection (PE)", log)
 
   # organisms are matched against the ANZDATA PE form's list and given standard names;
-  # an organism that is not on the list is logged and its row dropped
+  # an organism that is not on the list is logged and its row kept as written
   raw_pe_file <- check_organisms(raw_pe_file, "infection (PE)", log)
 
   # tidy the A3 form into patients, catheters and modality changes

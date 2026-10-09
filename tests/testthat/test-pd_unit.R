@@ -550,4 +550,5 @@ test_that("pd_unit() errors on an organism that is not in the accepted list, nam
     list(id = "ABC1234", date = "2025-06-01", last_dose = "2025-06-15", organism = "Staph auerus")))
   err <- expect_error(build_unit(a3, pe), "1 data-quality issue")
   expect_match(conditionMessage(err), "infection \\(PE\\) file, row 3: organism `Staph auerus`")
+  expect_match(conditionMessage(err), "not found in accepted list, check and correct in source file")
 })

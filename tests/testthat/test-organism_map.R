@@ -94,14 +94,13 @@ test_that("check_organisms() replaces each cell with the standard names and logs
   expect_identical(out$organism, c("S. aureus", "E. coli, Klebsiella", "negative"))
 })
 
-test_that("check_organisms() drops and logs a row with an unrecognised organism, with its sheet row", {
+test_that("check_organisms() keeps a row with an unrecognised organism as written and logs it with its sheet row", {
   df <- data.frame(organism = c("E. coli", "Staph auerus", "Klebsiella"), v = 1:3)
   log <- new_issue_log()
   out <- check_organisms(df, "infection (PE)", log)
-  expect_identical(out$organism, c("E. coli", "Klebsiella"))
-  expect_identical(out$v, c(1L, 3L))
+  expect_identical(out$organism, c("E. coli", "Staph auerus", "Klebsiella"))
   expect_match(log$get(), "infection \\(PE\\) file, row 3: organism `Staph auerus`")
-  expect_match(log$get(), "not in the accepted organism list")
+  expect_match(log$get(), "not found in accepted list, check and correct in source file")
 })
 
 test_that("check_organisms() names every unrecognised organism in a row", {
