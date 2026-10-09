@@ -57,9 +57,6 @@ organism_spellings <- rbind(
     spelling = c(
       "Diptheroids (Corynebacteria)", "Diphtheroids", "Corynebacterium",
       "Corynebacteria")),
-  data.frame(name = "Gram-positive (other)",
-    spelling = c(
-      "Gram Positive Organism, Other (Specify)")),
   data.frame(name = "Gram-positive",
     spelling = c(
       "Gram Positive Organism, Unknown", "Gram positive",
@@ -68,15 +65,12 @@ organism_spellings <- rbind(
   data.frame(name = "P. aeruginosa",
     spelling = c("Pseudomonas Aeruginosa",
       "Pseudomonas aeruginosa", "Ps aeruginosa", "P aeruginosa")),
-  data.frame(name = "Pseudomonas (other)",
-    spelling = c(
-      "Pseudomonas, Other (Specify)")),
   data.frame(name = "Pseudomonas",
     spelling = c("Pseudomonas, Unknown",
       "Pseudomonas species")),
   data.frame(name = "E. coli",
     spelling = c("E. Coli", "Escherichia coli",
-      "E coli")),
+      "E coli", "ecoli")),
   data.frame(name = "Klebsiella",
     spelling = c("Klebsiella Sp",
       "Klebsiella pneumoniae", "K. pneumoniae", "Klebsiella oxytoca",
@@ -92,9 +86,6 @@ organism_spellings <- rbind(
       "Proteus mirabilis", "P. mirabilis")),
   data.frame(name = "Neisseria",
     spelling = c("Neisseria Sp")),
-  data.frame(name = "Gram-negative (other)",
-    spelling = c(
-      "Gram Negative Organisms, Other (Specify)")),
   data.frame(name = "Gram-negative",
     spelling = c(
       "Gram Negative Organisms, Unknown", "Gram negative",
