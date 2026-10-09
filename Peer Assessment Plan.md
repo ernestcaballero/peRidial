@@ -1,6 +1,6 @@
 # Peer Assessment Plan — peRidial
 
-**Package:** `peridial` — provides a standardised framework to ingest, validate, structure and summarise clinical PD unit data and supporting the reproducible calculation of peritonitis indicators as recommended by the International Society for Peritoneal Dialysis (ISPD). See Reference for the article.
+**Package:** `peridial` — provides a standardised framework to ingest, validate, structure and summarise clinical peritoneal dialysis (PD) unit data and supporting the reproducible calculation of peritonitis indicators as recommended by the International Society for Peritoneal Dialysis (ISPD). See Reference for the article.
 
 **Repository:** https://github.com/ernestcaballero/peRidial
 
