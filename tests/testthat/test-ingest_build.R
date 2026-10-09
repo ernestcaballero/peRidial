@@ -126,7 +126,7 @@ test_that("build_patient_infections() logs and skips an invalid episode, and kee
   expect_length(out, 1)
   expect_identical(out[[1]]$infection_date, d("2025-08-01"))
   expect_length(log$get(), 1)
-  expect_match(log$get(), "Patient P1, episode on 2025-03-01: .*\\(episode skipped\\)")
+  expect_match(log$get(), "Patient P1, episode on 2025-03-01: .*\\(episode not checked further")
 })
 
 test_that("build_patient_infections() returns an empty list for no rows", {
@@ -251,7 +251,7 @@ test_that("build_patient_list() logs and skips a patient whose open catheter out
   log <- new_issue_log()
   out <- run_bpl(inp, log = log)
   expect_length(out$patient_list, 0)
-  expect_match(log$get()[1], "Patient P1: .*\\(patient skipped\\)")
+  expect_match(log$get()[1], "Patient P1: .*\\(patient not checked further")
 })
 
 
@@ -262,7 +262,7 @@ test_that("build_patient_list() logs a patient whose every catheter fails valida
   log <- new_issue_log()
   out <- run_bpl(bpl_inputs(caths = caths), log = log)
   expect_length(out$patient_list, 1)   # still built; the logged issue stops pd_unit()
-  expect_true(any(grepl("catheter skipped", log$get())))
+  expect_true(any(grepl("catheter not checked further", log$get())))
   expect_true(any(grepl("Patient P1: no valid PD catheter remains", log$get())))
 })
 

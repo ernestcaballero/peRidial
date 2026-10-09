@@ -230,6 +230,28 @@ test_that("report_issues() raises one error listing every issue", {
 })
 
 
+test_that("new_issue_log() keeps errors and warnings apart", {
+  log <- new_issue_log()
+  log$add("bad id")
+  log$add("assumed", level = "warning")
+  expect_identical(log$get(), c("bad id", "assumed"))
+  expect_identical(log$get("error"), "bad id")
+  expect_identical(log$get("warning"), "assumed")
+})
+
+
+test_that("report_issues() counts only errors and ignores warnings", {
+  log <- new_issue_log()
+  log$add("problem A")
+  log$add("just an assumption", level = "warning")
+  expect_error(report_issues(log), "1 data-quality issue\\(s\\) found")
+
+  only_warnings <- new_issue_log()
+  only_warnings$add("an assumption", level = "warning")
+  expect_no_error(report_issues(only_warnings))
+})
+
+
 # is_blank_cell()
 
 test_that("is_blank_cell() flags NA, empty and whitespace-only text", {

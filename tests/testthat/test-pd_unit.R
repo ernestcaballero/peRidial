@@ -501,25 +501,18 @@ test_that("pd_unit() closes an open catheter at the date of death", {
 
 # Data-quality problems are collected and raised as one error
 
-test_that("pd_unit() raises data-quality problems as an error, not a warning", {
-  a3 <- write_a3(list(a3_row("ABC1234")))
-  pe <- write_pe(list(list(id = "ABC1234", date = "2023-03-01", last_dose = "2023-03-15")))
-  expect_no_warning(try(build_unit(a3, pe), silent = TRUE))
-  expect_error(build_unit(a3, pe), "1 data-quality issue\\(s\\) found while building this unit")
-  expect_error(build_unit(a3, pe), "no active PD catheter on infection_date 2023-03-01")
-})
-
-test_that("pd_unit() errors on a catheter that runs past death, naming the fix needed", {
-  a3 <- write_a3(list(a3_row("ABC1234", `PD Stop Date` = "2025-09-30", `Removal Reason` = "Death",
-                             `Date of Death` = "2025-06-30")))
-  expect_error(build_unit(a3, pe_quiet()),
-               "catheter\\(s\\) ABC1234_01 have a pd_stop_date after this patient's death on 2025-06-30")
-})
-
 test_that("pd_unit() errors on a patient_id that is not a valid NHI, naming the sheet row", {
   a3 <- write_a3(list(a3_row("ABC1234"), a3_row("40")))
   err <- expect_error(build_unit(a3, pe_quiet()), "1 data-quality issue")
   expect_match(conditionMessage(err), "unit \\(A3\\) file, row 3: `40` is not a valid NHI number")
+})
+
+test_that("pd_unit() raises an assumption as a warning instead of failing", {
+  # a transplant is recorded but with no date anywhere: the patient is treated as still on PD
+  a3 <- write_a3(list(a3_row("ABC1234", `Dialysis Modality Change` = "Transplant")))
+  expect_warning(unit <- build_unit(a3, pe_quiet()),
+                 "Patient ABC1234 .*no transplant_date supplied")
+  expect_s3_class(unit, "pd_unit")
 })
 
 

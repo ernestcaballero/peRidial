@@ -53,7 +53,8 @@ map_columns <- function(df, spec, what, log = NULL) {
     if (length(hits) > 1 && !is.null(log)) {
       log$add("The ", what, " file has ", length(hits), " columns that could be `",
               key, "` (", paste(nms[hits], collapse = ", "), "); used `",
-              nms[hits[1]], "`. Rename the columns in the source file if that is wrong.")
+              nms[hits[1]], "`. Rename the columns in the source file if that is wrong.",
+              level = "warning")
     }
     new_nms[hits[1]] <- key
     claimed[hits[1]] <- TRUE
@@ -164,15 +165,26 @@ as_logical_safe <- function(x) {
 
 
 #' Collect data-quality problems
+#'
+#' \code{add()} pastes its arguments into one message. \code{level} is
+#' \code{"error"} (a gap in the source data, which stops the build) or
+#' \code{"warning"} (an assumption the build made and carries on with, kept on
+#' the unit). \code{get(level)} returns the messages of that level;
+#' \code{level = NULL} (the default) returns every message.
 #' @noRd
 new_issue_log <- function() {
   issues <- character(0)
+  kinds <- character(0)
   list(
-    add = function(...) {
+    add = function(..., level = "error") {
+      level <- match.arg(level, c("error", "warning"))
       issues <<- c(issues, paste0(...))
+      kinds <<- c(kinds, level)
       invisible(NULL)
     },
-    get = function() issues
+    get = function(level = NULL) {
+      if (is.null(level)) issues else issues[kinds %in% level]
+    }
   )
 }
 
@@ -180,13 +192,12 @@ new_issue_log <- function() {
 
 
 
-#' Stop with every accumulated data-quality issue, if there are any
-#'
-#' Each issue needs the user to correct the source file, so they are raised
-#' together as one error: fix the source data and re-run until none remain.
+#' Stop with every accumulated data-quality error, if there are any
+#' Fix the source data and re-run until none remain.
+#' Issues logged at level \code{"warning"} do not stop the build.
 #' @noRd
 report_issues <- function(log) {
-  issues <- log$get()
+  issues <- log$get("error")
   if (length(issues) == 0) {
     return(invisible(NULL))
   }
@@ -195,6 +206,13 @@ report_issues <- function(log) {
     paste0("  - ", issues, collapse = "\n"),
     "\nCorrect these in the source data and re-run."
   )
+  if (nchar(msg, type = "bytes") > getOption("warning.length", 1000L) - 150L) {
+    message(msg)
+    msg <- paste0(
+      length(issues), " data-quality issue(s) found while building this unit; ",
+      "the full list is printed above. Correct them in the source data and re-run."
+    )
+  }
   stop(msg)
 }
 
@@ -203,7 +221,6 @@ report_issues <- function(log) {
 
 #' Test which cells of a column are blank (white-space) then trim. Empty cells are NA from \code{readxl}
 #' @noRd
-#'
 is_blank_cell <- function(x) {
   if (is.character(x)) {
     is.na(x) | !nzchar(trimws(x))
@@ -241,7 +258,7 @@ check_required_cells <- function(df, cols, what, log, id_col = "patient_id",
     log$add("The ", what, " file, row ", sheet_row(df, i, header_rows), " (", who,
             "): missing required value(s) in ",
             paste(cols[blank[i, ]], collapse = ", "),
-            "; row excluded from the unit.")
+            "; row not checked further, fill in the value(s) in the source file.")
   }
 
   df[-bad, , drop = FALSE]
@@ -289,7 +306,7 @@ check_patient_ids <- function(df, what, log, id_col = "patient_id", header_rows 
   for (i in bad) {
     log$add("The ", what, " file, row ", sheet_row(df, i, header_rows), ": `", ids[i],
             "` is not a valid NHI number (three letters then four digits, e.g. ",
-            "ABC1234); row excluded from the unit.")
+            "ABC1234); row not checked further, correct the patient_id in the source file.")
   }
 
   df[[id_col]] <- toupper(ids)
@@ -317,7 +334,8 @@ check_known_patients <- function(df, known_ids, what, log, id_col = "patient_id"
   for (i in bad) {
     log$add("The ", what, " file, row ", sheet_row(df, i, header_rows), ": patient ", ids[i],
             " has no row in the unit (A3) file, so this episode cannot be ",
-            "attached to a catheter; row excluded from the unit.")
+            "attached to a catheter; row not checked further, check the patient_id ",
+            "or add the patient to the unit (A3) file.")
   }
 
   df[-bad, , drop = FALSE]

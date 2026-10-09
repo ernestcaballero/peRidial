@@ -15,7 +15,8 @@ new_pd_unit(
   patients = tibble::tibble(),
   catheters = tibble::tibble(),
   infections = tibble::tibble(),
-  patient_list = list()
+  patient_list = list(),
+  notes = empty_issues()
 )
 }
 \arguments{
@@ -58,6 +59,12 @@ the \code{catheter_id} of the catheter that owns it.}
 
 \item{patient_list}{List of \code{pd_patient} objects: the nested object
 graph the three tibbles above are views of.}
+
+\item{notes}{Tibble. The data-quality warnings raised while building the
+unit: assumptions the build made and carried on with (see
+\code{\link{pd_unit}()}), one row each, with columns \code{level},
+\code{file}, \code{row}, \code{patient}, \code{field} and \code{problem}.
+Empty when there were none. \code{\link{pd_issues}()} reads it back.}
 }
 \value{
 An object of class \code{pd_unit}.

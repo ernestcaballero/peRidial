@@ -45,7 +45,8 @@ match_active_catheter_id <- function(pid, infection_date, raw_catheters, log) {
 
   if (length(candidates) == 0) {
     log$add("Patient ", pid, ": no active PD catheter on infection_date ",
-            format(infection_date), "; this episode is not attached to a catheter and is excluded from the unit.")
+            format(infection_date), "; this episode is not attached to a catheter and is not ",
+            "checked further. Check the episode date and this patient's catheter dates in the source files.")
     return(NA_character_)
   }
   if (length(candidates) > 1) {
@@ -93,7 +94,7 @@ build_patient_infections <- function(df, log) {
       error = function(e) {
         log$add("Patient ", df$patient_id[i], ", episode on ",
                 format(df$date_of_infection[i]), ": ", conditionMessage(e),
-                " (episode skipped)")
+                " (episode not checked further; correct the source file)")
         NULL
       }
     )
@@ -172,7 +173,7 @@ build_patient_catheters <- function(pid, raw_catheters, infections_by_catheter,
       ),
       error = function(e) {
         log$add("Catheter ", cid, ": ", conditionMessage(e),
-                " (catheter skipped)")    # a catheter that fails validation is logged and skipped
+                " (catheter not checked further; correct the source file)")    # a catheter that fails validation is logged and left out of the remaining checks
         NULL
       }
     )
@@ -221,9 +222,9 @@ build_patient_list <- function(pids, taus, raw_catheters, raw_patients,
                                          infections_by_catheter, t0, t1, log)
 
     if (length(catheters) == 0) {
-      log$add("Error: Patient ", pid, ": no valid PD catheter remains after ",
+      log$add("Patient ", pid, ": no valid PD catheter remains after ",
               "validation (see the catheter issue(s) above); the patient ",
-              "cannot be included in the unit's counts or patient-years. ")
+              "cannot be included in the unit's counts or patient-years.")
     }
 
     demo <- raw_patients[raw_patients$patient_id == pid, , drop = FALSE]
@@ -246,7 +247,7 @@ build_patient_list <- function(pids, taus, raw_catheters, raw_patients,
       ),
       error = function(e) {
         log$add("Patient ", pid, ": ", conditionMessage(e),
-                " (patient skipped)")
+                " (patient not checked further; correct the source file)")
         NULL
       }
     )

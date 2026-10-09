@@ -238,13 +238,6 @@ validate_pd_unit <- function(x) {
 #' derived from it, plus the headline numbers the ISPD indicators need:
 #' \code{n_new}, \code{n_patients} and \code{tpyar}.
 #'
-#' Data-quality problems (for example a patient_id that is not a valid NHI, an
-#' episode that cannot be matched to an active catheter, or a patient left with
-#' no valid catheter) are collected
-#' across both files and raised together as a single error. Each one needs a
-#' correction in the source file: fix them and run \code{pd_unit()} again until
-#' it builds without error.
-#'
 #' @param unit_data_path Character. Path to the raw unit (A3) Excel file
 #'   containing both patient and catheter data. Every \code{patient_id} must be a
 #'   valid NHI number (three letters then four digits, e.g. \code{ABC1234}); case
@@ -441,7 +434,7 @@ pd_unit <- function(unit_data_path,
                 paste(raw_catheters$catheter_id[late], collapse = ", "),
                 " have a pd_stop_date after this patient's ",
                 taus[[pid]]$reason, " on ", format(tau),
-                "; clipped to that date.")
+                "; clipped to that date for the remaining checks, correct the pd_stop_date in the source file.")
         raw_catheters$pd_stop_date[late] <- tau
       }
     }
@@ -462,7 +455,8 @@ pd_unit <- function(unit_data_path,
               "but no transplant_date supplied (and no catheter ",
               "removal_reason mentioning transplant); this patient's true ",
               "censoring date is unknown and they are being treated as if ",
-              "still active on PD.")
+              "still active on PD.",
+              level = "warning")
     }
 
     # for 'Any PD to HD': the modality change was recorded the row is missing date_modality_change
@@ -470,7 +464,8 @@ pd_unit <- function(unit_data_path,
       log$add("Patient ", pid, " has an 'Any PD to HD' modality change ",
               "recorded but no date_modality_change supplied for it; this ",
               "patient's true censoring date is unknown and they are being ",
-              "treated as if still active on PD.")
+              "treated as if still active on PD.",
+              level = "warning")
     }
   }
 
@@ -500,8 +495,12 @@ pd_unit <- function(unit_data_path,
   # PY: total patient-years at risk, censored to [t0, t1] and each patient's tau
   tpyar <- total_patient_years(patient_list, t0, t1)
 
-  # any data-quality issue is an error: the source files need correcting
+  # a gap in the source data is an error: the source files need correcting.
+  # An assumption the build made (level "warning") does not stop it; it is raised as an R warning.
   report_issues(log)
+  for (msg in log$get("warning")) {
+    warning(msg, call. = FALSE)
+  }
 
   x <- new_pd_unit(
     unit_id        = unit_id,
