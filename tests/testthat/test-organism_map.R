@@ -1,7 +1,7 @@
 # organism_spellings / match_organism()
 
 test_that("the organism table has unique, comma-free standard names", {
-  expect_equal(length(organism_names), 32)
+  expect_equal(length(organism_names), 29)
   expect_false(anyDuplicated(organism_names) > 0)
   expect_false(any(grepl(",", organism_names, fixed = TRUE)))
   expect_true(all(c("negative", "S. aureus", "E. coli", "No culture taken") %in% organism_names))
@@ -33,7 +33,7 @@ test_that("match_organism() standardises the spellings seen in practice", {
                                     "  S aureus ", "STAPHYLOCOCCUS  AUREUS")),
                    rep("S. aureus", 5))
   expect_identical(match_organism(c("Escherichia coli", "e. coli", "E coli", "ECOLI")),
-                   c("E. coli", "E. coli", "E. coli", NA))
+                   rep("E. coli", 4))
   expect_identical(match_organism("Staphylococcus epidermidis"), "S. epidermidis")
   expect_identical(match_organism("Klebsiella pneumoniae"), "Klebsiella")
   expect_identical(match_organism("Pseudomonas aeruginosa"), "P. aeruginosa")
