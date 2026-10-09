@@ -153,7 +153,8 @@ validate_pd_unit <- function(x) {
          x$n_patients, ").")
   }
   if (nrow(x$patients) > 0) {
-    require_cols(x$patients, "patient_id", "patients", kind = "table")
+    require_cols(x$patients, c("patient_id",
+                               "n_episodes"), "patients", kind = "table")
     if (anyDuplicated(x$patients$patient_id) > 0) {
       stop("Duplicate patient_id(s) in `patients`: ",
            paste(unique(x$patients$patient_id[duplicated(x$patients$patient_id)]),
@@ -196,7 +197,8 @@ validate_pd_unit <- function(x) {
 
   # checks catheters reference a valid patient_id
   if (nrow(x$catheters) > 0) {
-    require_cols(x$catheters, c("patient_id", "catheter_id"), "catheters", kind = "table")
+    require_cols(x$catheters, c("patient_id",
+                                "catheter_id"), "catheters", kind = "table")
     if (!all(x$catheters$patient_id %in% x$patients$patient_id)) {
       stop("Some catheter records reference a patient_id not present in `patients`.")
     }
@@ -210,7 +212,10 @@ validate_pd_unit <- function(x) {
   }
   # checks infections reference a valid catheter_id
   if (nrow(x$infections) > 0) {
-    require_cols(x$infections, c("patient_id", "catheter_id"), "infections", kind = "table")
+    require_cols(x$infections, c("patient_id",
+                                 "catheter_id",
+                                 "infection_date",
+                                 "counts_toward_rate"), "infections", kind = "table")
     if (!all(x$infections$catheter_id %in% x$catheters$catheter_id)) {
       stop("Some infection records reference a catheter_id not present in `catheters`.")
     }
