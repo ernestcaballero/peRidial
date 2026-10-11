@@ -117,7 +117,7 @@ test_that("validate_pd_unit() requires nrow(patients) to match n_patients", {
 test_that("validate_pd_unit() rejects duplicate patient_id in patients", {
   p <- make_patient()
   x <- make_unit(n_patients = 2L,
-                 patients = tibble::tibble(patient_id = c("ABC1234", "ABC1234")
+                 patients = tibble::tibble(patient_id = c("ABC1234", "ABC1234"),
                                            n_episodes = c(0L, 0L)),
                  patient_list = list(p, p))
   expect_error(validate_pd_unit(x), "Duplicate patient_id")

@@ -30,7 +30,7 @@
 #' @param transfer_reason Character. Reason the patient left PD permanently
 #'   (e.g. \code{"death"}, \code{"transplant"}, \code{"permanent transfer to HD"}),
 #'   or \code{NA} if they are still on PD. This together with
-#'   \code{transfer_date} is the patient-level censoring point \eqn{tau} (see vignette).
+#'   \code{transfer_date} is the patient-level censoring point \eqn{tau}.
 #' @param transfer_date Date. Date the patient left PD (\eqn{tau}). Required
 #'   whenever \code{transfer_reason} is supplied, and vice versa.
 #' @param new_patient_flag Logical. \code{TRUE} if this patient first started

@@ -1,16 +1,6 @@
 
 #' Calculate exposure days between two dates
-#'
-#' Computes the number of days a patient is active on PD (at risk) between two dates.
-#'
-#' @param min_date Date. The truncated start of the exposure interval (e.g. \code{t0} or
-#'    start date of PD therapy.
-#' @param max_date Date. The truncated end of the exposure interval (e.g. \code{t1},
-#'    death, transplant, or permanent HD transfer).
-#'
-#' @return A non-negative numeric vector of exposure days.
-#' @export
-#'
+#' @noRd
 exposure_days <- function(min_date, max_date) {
   stopifnot(inherits(min_date, "Date"), inherits(max_date, "Date"))
   as.numeric(pmax(0, max_date - min_date + 1))

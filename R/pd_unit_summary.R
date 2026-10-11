@@ -310,7 +310,7 @@ summary.pd_unit <- function(object, ...) {
   infections <- summarise_infections(x)
 
   fmt_demo <- function(tbl) {
-    if (length(tbl) == 0) return("(No Data)")
+    if (length(tbl) == 0) return("(none)")
     paste(sprintf("%s %d", names(tbl), tbl), collapse = ", ")
   }
 
