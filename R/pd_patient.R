@@ -1,5 +1,4 @@
 
-
 #' Create pd_patient object
 #'
 #' This represents a single unique person receiving PD at any point during the reporting period.
@@ -270,7 +269,6 @@ validate_pd_patient <- function(x) {
     stop("n_episodes does not match the countable (non-relapsing) peritonitis ",
          "episodes across this patient's catheters within [t0, t1].")
   }
-
   x
 }
 

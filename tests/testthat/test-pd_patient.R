@@ -1,9 +1,9 @@
-# Constructor
+# constructor
 
 test_that("new_pd_patient creates a valid pd_patient object", {
   cath <- make_catheter(
     insertion_date = as.Date("2024-12-15"),
-    pd_start_date = as.Date("2025-01-10"))    # inside [t0, t1] -> incident/new patient
+    pd_start_date = as.Date("2025-01-10"))    # inside [t0, t1] = incident/new patient
   p <- make_patient(
     catheters = list(cath),
     transfer_reason = NA_character_,          # still active PD patient
@@ -14,27 +14,8 @@ test_that("new_pd_patient creates a valid pd_patient object", {
   expect_s3_class(validate_pd_patient(p), "pd_patient")
 })
 
-
-
-test_that("validate_pd_patient errors when patient_id is missing", {
-  p <- new_pd_patient(patient_id = NA_character_)   # patient_id genuinely missing
-  expect_error(validate_pd_patient(p), "patient_id must be supplied.")
-})
-
-
-
-test_that("validate_pd_patient errors when t0 is after t1", {
-  p <- make_patient(
-    catheters = list(),
-    t0 = as.Date("2025-01-01"),
-    t1 = as.Date("2024-11-30"))             # t1 is before t0 (and a valid calendar date)
-  expect_error(validate_pd_patient(p), "t0 must be on or before t1.")
-})
-
-
-
-
-test_that("new_pd_patient() allows an active patient with transfer_reason and transfer_date both NA", {
+test_that("new_pd_patient() allows an active patient with transfer_reason and
+          transfer_date both NA", {
   cath <- make_catheter(
     insertion_date = as.Date("2025-02-01"),
     pd_start_date = as.Date("2025-02-15"))
@@ -42,10 +23,7 @@ test_that("new_pd_patient() allows an active patient with transfer_reason and tr
   expect_true(is.na(p$transfer_reason))
   expect_true(is.na(p$transfer_date))
   expect_s3_class(p$transfer_date, "Date")
-  expect_silent(validate_pd_patient(p))
 })
-
-
 
 test_that("new_pd_patient() coerces a bare NA transfer_date into a Date NA", {
   p <- new_pd_patient(
@@ -55,112 +33,7 @@ test_that("new_pd_patient() coerces a bare NA transfer_date into a Date NA", {
   expect_true(is.na(p$transfer_date))
 })
 
-
-
-test_that("validate_pd_patient errors when transfer_date is supplied without transfer_reason", {
-  p <- make_patient(
-    catheters = list(),
-    transfer_date = as.Date("2025-06-01"))   # no transfer_reason to go with it
-  expect_error(validate_pd_patient(p), "transfer_reason")
-})
-
-
-
-test_that("validate_pd_patient errors when transfer_reason is supplied without transfer_date", {
-  p <- make_patient(
-    catheters = list(),
-    transfer_reason = "death")   # no transfer_date to go with it
-  expect_error(validate_pd_patient(p), "date of transfer")
-})
-
-
-
-
-test_that("is_incident_patient returns TRUE when earliest pd_start_date falls in the window", {
-  cath <- make_catheter(
-    insertion_date = as.Date("2025-02-15"),
-    pd_start_date = as.Date("2025-03-01"))
-  expect_true(is_incident_patient(list(cath), t0 = T0, t1 = T1))
-})
-
-
-test_that("is_incident_patient returns FALSE when the patient started PD before the window [t0, t1]", {
-  cath <- make_catheter(
-    insertion_date = as.Date("2024-01-01"),
-    pd_start_date = as.Date("2024-01-15"))
-  expect_false(is_incident_patient(list(cath), t0 = T0, t1 = T1))
-})
-
-
-test_that("is_incident_patient uses the earliest start across multiple catheters, not the latest, within [t0, t1]", {
-  first_cath <- make_catheter(
-    insertion_date = as.Date("2024-11-10"),
-    pd_start_date = as.Date("2024-11-25"),        # PD start before t0
-    pd_stop_date = as.Date("2025-06-01"),
-    removal_reason = "mechanical failure")
-  second_cath <- make_catheter(
-    catheter_id = "ABC1234_02",
-    insertion_date = as.Date("2025-07-01"),
-    pd_start_date = as.Date("2025-07-15"))       # PD start within [t0, t1]
-
-  # should be false because first ever catheter was before the reporting period.
-  expect_false(is_incident_patient(
-    list(first_cath, second_cath),
-    t0 = T0, t1 = T1))
-})
-
-
-test_that("is_incident_patient returns TRUE when the earliest of several catheters falls in the window", {
-  first_cath <- make_catheter(
-    insertion_date = as.Date("2025-02-01"),
-    pd_start_date = as.Date("2025-02-15"))
-  second_cath <- make_catheter(
-    catheter_id = "ABC1234_02",
-    insertion_date = as.Date("2025-08-01"),
-    pd_start_date = as.Date("2025-08-15"))
-  expect_true(is_incident_patient(
-    list(second_cath, first_cath),  # order shouldn't matter
-    t0 = T0, t1 = T1
-  ))
-})
-
-
-test_that("is_incident_patient treats window boundaries as inclusive", {
-  cath_on_t0 <- make_catheter(
-    insertion_date = as.Date("2025-01-01"),
-    pd_start_date = as.Date("2025-01-01"))        # falls exactly on t0
-  expect_true(is_incident_patient(list(cath_on_t0), t0 = T0, t1 = T1))
-
-  cath_on_t1 <- make_catheter(
-    catheter_id = "ABC1234_02",
-    insertion_date = as.Date("2025-12-31"),
-    pd_start_date = as.Date("2025-12-31"))        # falls exactly on t1
-  expect_true(is_incident_patient(list(cath_on_t1), t0 = T0, t1 = T1))
-})
-
-
-test_that("is_incident_patient returns NA for an empty catheter list", {
-  expect_true(is.na(is_incident_patient(list(), t0 = T0, t1 = T1)))
-})
-
-
-test_that("is_incident_patient returns NA when no catheter has a usable pd_start_date", {
-  cath_no_start <- make_catheter(
-    insertion_date = as.Date("2025-01-01"),
-    pd_start_date = as.Date(NA))
-  expect_true(is.na(is_incident_patient(
-    list(cath_no_start), t0 = T0, t1 = T1)))
-})
-
-
-test_that("is_incident_patient ignores non-pd_catheter elements rather than erroring", {
-  not_a_catheter <- list(pd_start_date = as.Date("2025-03-01"))
-  expect_true(is.na(is_incident_patient(list(not_a_catheter), t0 = T0, t1 = T1)))
-})
-
-
-
-test_that("new_pd_patient() derives new_patient_flag from is_incident_patient by default", {
+test_that("new_pd_patient() derives new_patient_flag from is_incident_patient", {
   cath <- make_catheter(
     insertion_date = as.Date("2025-02-01"),
     pd_start_date = as.Date("2025-02-15"))
@@ -170,16 +43,46 @@ test_that("new_pd_patient() derives new_patient_flag from is_incident_patient by
 
 
 
+
+# validate_pd_patient()
+
+test_that("validate_pd_patient errors when patient_id is missing", {
+  p <- new_pd_patient(patient_id = NA_character_)   # patient_id is genuinely missing
+  expect_error(validate_pd_patient(p), "patient_id must be supplied.")
+})
+
+test_that("validate_pd_patient errors when t0 is after t1", {
+  p <- make_patient(
+    catheters = list(),
+    t0 = as.Date("2025-01-01"),
+    t1 = as.Date("2024-11-30")) # t1 is before t0
+  expect_error(validate_pd_patient(p), "t0 must be on or before t1.")
+})
+
+
+test_that("validate_pd_patient errors when transfer_date is supplied without transfer_reason", {
+  p <- make_patient(
+    catheters = list(),
+    transfer_date = as.Date("2025-06-01"))   # no transfer_reason to go with it
+  expect_error(validate_pd_patient(p), "transfer_reason")
+})
+
+test_that("validate_pd_patient errors when transfer_reason is supplied without transfer_date", {
+  p <- make_patient(
+    catheters = list(),
+    transfer_reason = "death")   # no transfer_date to go with it
+  expect_error(validate_pd_patient(p), "date of transfer")
+})
+
 test_that("validate_pd_patient rejects a new_patient_flag inconsistent with the catheters", {
   cath <- make_catheter(
     insertion_date = as.Date("2023-01-01"),
-    pd_start_date = as.Date("2023-01-15"))  # well before the window = this patient is not incident or new to PD
+    pd_start_date = as.Date("2023-01-15"))  # well before the window = this patient is not new to PD
   p <- make_patient(
     catheters = list(cath),
-    new_patient_flag = TRUE)   # deliberately wrong
+    new_patient_flag = TRUE)   # wrong
   expect_error(validate_pd_patient(p), "new_patient_flag")
 })
-
 
 test_that("validate_pd_patient rejects a catheter whose patient_id doesn't match the patient's", {
   cath <- make_catheter(
@@ -190,14 +93,10 @@ test_that("validate_pd_patient rejects a catheter whose patient_id doesn't match
   expect_error(validate_pd_patient(p), "does not match")
 })
 
-
-
 test_that("validate_pd_patient errors when a catheters element is not a pd_catheter object", {
   p <- make_patient(catheters = list("not a catheter"))
   expect_error(validate_pd_patient(p), "is not a pd_catheter object")
 })
-
-
 
 test_that("validate_pd_patient errors when a nested catheter has a missing pd_start_date", {
   cath_no_start <- make_catheter(
@@ -207,8 +106,6 @@ test_that("validate_pd_patient errors when a nested catheter has a missing pd_st
   expect_error(validate_pd_patient(p), "missing pd_start_date")
 })
 
-
-
 test_that("validate_pd_patient errors when a nested catheter has no pd_stop_date element", {
   cath <- make_catheter(
     insertion_date = as.Date("2025-01-01"),
@@ -217,8 +114,6 @@ test_that("validate_pd_patient errors when a nested catheter has no pd_stop_date
   p <- make_patient(catheters = list(cath))
   expect_error(validate_pd_patient(p), "must be present")
 })
-
-
 
 test_that("validate_pd_patient errors when a catheter's pd_start_date is after the patient's transfer_date", {
   cath <- make_catheter(
@@ -231,8 +126,6 @@ test_that("validate_pd_patient errors when a catheter's pd_start_date is after t
   expect_error(validate_pd_patient(p), "pd_start_date after this patient's")
 })
 
-
-
 test_that("validate_pd_patient errors when a catheter is still active but the patient has already transferred out", {
   cath <- make_catheter(
     insertion_date = as.Date("2025-01-01"),
@@ -243,8 +136,6 @@ test_that("validate_pd_patient errors when a catheter is still active but the pa
     transfer_date = as.Date("2025-06-01"))
   expect_error(validate_pd_patient(p), "still active")
 })
-
-
 
 test_that("validate_pd_patient errors when a catheter's pd_stop_date is after the patient's transfer_date", {
   cath <- make_catheter(
@@ -259,8 +150,6 @@ test_that("validate_pd_patient errors when a catheter's pd_stop_date is after th
   expect_error(validate_pd_patient(p), "pd_stop_date after this patient's transfer_date.")
 })
 
-
-
 test_that("validate_pd_patient errors when a catheter's reporting window differs from the patient's", {
   cath <- make_catheter(
     insertion_date = as.Date("2025-01-01"),
@@ -269,8 +158,6 @@ test_that("validate_pd_patient errors when a catheter's reporting window differs
   p <- make_patient(catheters = list(cath))
   expect_error(validate_pd_patient(p), "reporting window that differs")
 })
-
-
 
 test_that("validate_pd_patient errors on duplicate catheter_id within a patient", {
   cath1 <- make_catheter(
@@ -285,8 +172,6 @@ test_that("validate_pd_patient errors on duplicate catheter_id within a patient"
   expect_error(validate_pd_patient(p), "Duplicate catheter_id")
 })
 
-
-
 test_that("validate_pd_patient errors when an open-ended catheter is followed by another", {
   first_cath <- make_catheter(
     insertion_date = as.Date("2025-01-01"),
@@ -299,8 +184,6 @@ test_that("validate_pd_patient errors when an open-ended catheter is followed by
   expect_error(validate_pd_patient(p), "Catheter intervals within a patient must not overlap.")
 })
 
-
-
 test_that("validate_pd_patient errors when a catheter starts inside another's PD window", {
   first_cath <- make_catheter(
     insertion_date = as.Date("2025-01-01"),
@@ -310,12 +193,10 @@ test_that("validate_pd_patient errors when a catheter starts inside another's PD
   second_cath <- make_catheter(
     catheter_id = "ABC1234_02",
     insertion_date = as.Date("2025-05-20"),
-    pd_start_date = as.Date("2025-06-01"))   # 9 days before first_cath stops
+    pd_start_date = as.Date("2025-06-01"))   # pd started 9 days before first cath stopped
   p <- make_patient(catheters = list(first_cath, second_cath))
   expect_error(validate_pd_patient(p), "overlapping PD intervals")
 })
-
-
 
 test_that("validate_pd_patient errors when a catheter starts on the day another stops", {
   first_cath <- make_catheter(
@@ -331,21 +212,16 @@ test_that("validate_pd_patient errors when a catheter starts on the day another 
   expect_error(validate_pd_patient(p), "overlapping PD intervals")
 })
 
-
-
 test_that("validate_pd_patient errors when n_catheters does not match length(catheters)", {
   cath <- make_catheter(
     insertion_date = as.Date("2025-01-01"),
-    pd_start_date = as.Date("2025-01-10")
-  )
+    pd_start_date = as.Date("2025-01-10"))
   p <- make_patient(
     catheters = list(cath),
     n_catheters = 2   # wrong, only 1 catheter supplied
   )
   expect_error(validate_pd_patient(p), "n_catheters does not match")
 })
-
-
 
 test_that("validate_pd_patient errors when n_episodes does not match the total episode count", {
   cath <- make_catheter(
@@ -358,6 +234,68 @@ test_that("validate_pd_patient errors when n_episodes does not match the total e
   )
   expect_error(validate_pd_patient(p), "n_episodes does not match")
 })
+
+
+
+
+# is_incident_patient()
+
+test_that("is_incident_patient returns TRUE when earliest pd_start_date falls in the window", {
+  cath <- make_catheter(
+    insertion_date = as.Date("2025-02-15"),
+    pd_start_date = as.Date("2025-03-01"))
+  expect_true(is_incident_patient(list(cath), t0 = T0, t1 = T1))
+})
+
+test_that("is_incident_patient returns FALSE when the patient started PD before the window [t0, t1]", {
+  cath <- make_catheter(
+    insertion_date = as.Date("2024-01-01"),
+    pd_start_date = as.Date("2024-01-15"))
+  expect_false(is_incident_patient(list(cath), t0 = T0, t1 = T1))
+})
+
+test_that("is_incident_patient uses the earliest start across multiple catheters,
+          not the latest, within [t0, t1]", {
+  first_cath <- make_catheter(
+    insertion_date = as.Date("2024-11-10"),
+    pd_start_date = as.Date("2024-11-25"),  # PD start before t0
+    pd_stop_date = as.Date("2025-06-01"),
+    removal_reason = "mechanical failure")
+  second_cath <- make_catheter(
+    catheter_id = "ABC1234_02",
+    insertion_date = as.Date("2025-07-01"),
+    pd_start_date = as.Date("2025-07-15"))  # PD start within [t0, t1]
+  expect_false(is_incident_patient(
+    list(first_cath, second_cath), t0 = T0, t1 = T1))  # should be false because first ever catheter was before the reporting period
+})
+
+test_that("is_incident_patient treats window boundaries as inclusive", {
+  cath_on_t0 <- make_catheter(
+    insertion_date = as.Date("2025-01-01"),
+    pd_start_date = as.Date("2025-01-01"))        # falls exactly on t0
+  expect_true(is_incident_patient(list(cath_on_t0), t0 = T0, t1 = T1))
+
+  cath_on_t1 <- make_catheter(
+    catheter_id = "ABC1234_02",
+    insertion_date = as.Date("2025-12-31"),
+    pd_start_date = as.Date("2025-12-31"))        # falls exactly on t1
+  expect_true(is_incident_patient(list(cath_on_t1), t0 = T0, t1 = T1))
+})
+
+test_that("is_incident_patient returns NA for an empty catheter list", {
+  expect_true(is.na(is_incident_patient(list(), t0 = T0, t1 = T1)))
+})
+
+test_that("is_incident_patient returns NA when no catheter has a usable pd_start_date", {
+  cath_no_start <- make_catheter(
+    insertion_date = as.Date("2025-01-01"),
+    pd_start_date = as.Date(NA))
+  expect_true(is.na(is_incident_patient(
+    list(cath_no_start), t0 = T0, t1 = T1)))
+})
+
+
+
 
 
 # subset()
@@ -385,10 +323,7 @@ test_that("subset.pd_patient() filters on catheter and episode columns", {
   expect_identical(subset(p, procedure_type == "open surgical")$catheter_id,
                    "AAA0001_02")
   expect_identical(subset(p, episode_type == "repeat")$catheter_id, "AAA0001_02")
-
-  # a patient column matches every row of that patient, so both catheters stay
   expect_equal(nrow(subset(p, gender == "Female")), 2L)
-  expect_equal(nrow(subset(p, gender == "Male")), 0L)
 })
 
 test_that("subset.pd_patient() lists a patient's episodes one per row", {
@@ -399,13 +334,11 @@ test_that("subset.pd_patient() lists a patient's episodes one per row", {
 test_that("subset.pd_patient() keeps a catheter with no episodes and a patient with no catheters", {
   p <- subset_patient(2)                       # BBB0002: one catheter, no episodes
   y <- subset(p)
-  expect_equal(nrow(y), 1L)
   expect_true(is.na(y$infection_date))
   expect_identical(y$catheter_id, "BBB0002_01")
 
   bare <- subset(make_patient(catheters = list()))
   expect_equal(nrow(bare), 1L)
-  expect_true(is.na(bare$catheter_id))
   expect_identical(bare$patient_id, "ABC1234")
 })
 

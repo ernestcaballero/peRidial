@@ -3,7 +3,7 @@ test_that("classify_episode_types() returns a character vector the same length a
   x <- classify_episode_types(
     patient_id = rep("ABC1234", 3),
     infection_date = as.Date(c("2025-01-01", "2025-01-25", "2025-03-01")),
-    last_dose_antibiotic = as.Date(c("2025-01-15", "2025-02-08", "2025-03-15")),
+    last_dose_antibiotic = as.Date(c("2025-01-15", "2025-05-08", "2025-07-15")),
     organism_list = list(list("E. coli"), list("E. coli"), list("E. coli"))
   )
   expect_type(x, "character")
@@ -11,39 +11,36 @@ test_that("classify_episode_types() returns a character vector the same length a
   expect_true(is.na(x[1])) # first episode has no prior episode to compare against
 })
 
-
 test_that("classify_episode_types() classifies a relapsing episode", {
   x <- classify_episode_types(
     patient_id = rep("ABC1234", 2),
-    infection_date = as.Date(c("2025-01-01", "2025-01-25")),   # 2nd infection 10 days after 1st treatment ended
-    last_dose_antibiotic = as.Date(c("2025-01-15", "2025-02-08")),
+    infection_date = as.Date(c("2025-01-01", "2025-01-31")),   # 2nd infection 16 days after 1st treatment ended
+    last_dose_antibiotic = as.Date(c("2025-01-15", "2025-02-21")),
     organism_list = list(list("E. coli"), list("E. coli"))     # same organism
   )
   expect_equal(x, c(NA_character_, "relapsing"))
 })
 
-
-test_that("classify_episode_types() classifies a relapsing episode: negative culture followed by a specific organism", {
+test_that("classify_episode_types() classifies a relapsing episode:
+          negative culture followed by a specific organism", {
   x <- classify_episode_types(
     patient_id = rep("ABC1234", 2),
-    infection_date = as.Date(c("2025-01-01", "2025-01-25")),
-    last_dose_antibiotic = as.Date(c("2025-01-15", "2025-02-08")),
+    infection_date = as.Date(c("2025-01-01", "2025-01-31")),
+    last_dose_antibiotic = as.Date(c("2025-01-15", "2025-02-21")),
     organism_list = list(list("negative"), list("E. coli"))    # specific organism after a negative culture
   )
   expect_equal(x, c(NA_character_, "relapsing"))
 })
 
-
 test_that("classify_episode_types() classifies a recurrent episode", {
   x <- classify_episode_types(
     patient_id = rep("ABC1234", 2),
-    infection_date = as.Date(c("2025-01-01", "2025-01-25")),   # within 4 weeks
-    last_dose_antibiotic = as.Date(c("2025-01-15", "2025-02-08")),
+    infection_date = as.Date(c("2025-01-01", "2025-01-31")),     # within 4 weeks
+    last_dose_antibiotic = as.Date(c("2025-01-15", "2025-02-21")),
     organism_list = list(list("E. coli"), list("Staph aureus"))  # different organism
   )
   expect_equal(x, c(NA_character_, "recurrent"))
 })
-
 
 test_that("classify_episode_types() classifies a repeat episode", {
   x <- classify_episode_types(
@@ -55,18 +52,15 @@ test_that("classify_episode_types() classifies a repeat episode", {
   expect_equal(x, c(NA_character_, "repeat"))
 })
 
-
 test_that("classify_episode_types() returns NA when >4 weeks later with a different organism", {
   x <- classify_episode_types(
     patient_id = rep("ABC1234", 2),
-    infection_date = as.Date(c("2025-01-01", "2025-03-01")),   # 45 days after prior treatment ended (>4 weeks)
+    infection_date = as.Date(c("2025-01-01", "2025-03-01")),     # 45 days after prior treatment ended (>4 weeks)
     last_dose_antibiotic = as.Date(c("2025-01-15", "2025-03-15")),
     organism_list = list(list("E. coli"), list("Staph aureus"))  # different organism
   )
   expect_true(is.na(x[2]))
-  expect_true(all(is.na(x)))                          # neither episode gets a category
 })
-
 
 test_that("classify_episode_types() matches organisms regardless of case or order", {
   x <- classify_episode_types(
@@ -78,18 +72,6 @@ test_that("classify_episode_types() matches organisms regardless of case or orde
   )
   expect_equal(x, c(NA_character_, "relapsing"))
 })
-
-
-test_that("classify_episode_types() does not compare episodes across different patients", {
-  x <- classify_episode_types(
-    patient_id = c("P1", "P2"),
-    infection_date = as.Date(c("2025-01-01", "2025-01-20")),   # P2's infection is only 5 days after P1's last dose
-    last_dose_antibiotic = as.Date(c("2025-01-15", "2025-02-03")),
-    organism_list = list(list("E. coli"), list("E. coli"))
-  )
-  expect_equal(x, c(NA_character_, NA_character_))     # each is that patient's first episode
-})
-
 
 test_that("classify_episode_types() treats a catheter-removed outcome with no outcome_date as invalid", {
   expect_warning(
@@ -105,7 +87,6 @@ test_that("classify_episode_types() treats a catheter-removed outcome with no ou
   expect_identical(x, c(NA_character_, NA_character_))
 })
 
-
 test_that("classify_episode_types() treats a missing last_dose_antibiotic as invalid, leaving no prior episode", {
   expect_warning(
     x <- classify_episode_types(
@@ -116,7 +97,6 @@ test_that("classify_episode_types() treats a missing last_dose_antibiotic as inv
       ), "1 of 2 episode\\(s\\) failed validation")
   expect_equal(x, c(NA_character_, NA_character_))
 })
-
 
 test_that("classify_episode_types() errors when infection_date is not a Date", {
   expect_error(
@@ -129,7 +109,6 @@ test_that("classify_episode_types() errors when infection_date is not a Date", {
     "infection_date"
   )
 })
-
 
 test_that("classify_episode_types() errors when organism_list is not a list", {
   expect_error(

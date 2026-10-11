@@ -51,7 +51,6 @@ pe_spec <- list(
   date_of_infection = list(all = c("date", "infect")),
   organism = list(all = "organism"),
   last_dose_antibiotic = list(all = "antibiotic"),           # last_dose_antibiotic, final_antibiotic_dose_date
-  # hospitalisation: days first (needs a day/night keyword), overnight flag second
   days_hospitalised = list(all = "hospital", any = c("days", "nights")),
   overnight_hospitalisation = list(all = c("overnight", "hospital")),
   catheter_removed_date = list(all = c("catheter", "remov", "date")),  # specific first

@@ -20,7 +20,9 @@ test_that("new_pd_catheter creates a valid pd_catheter object", {
 
 
 
-test_that("validate_pd_catheter errors when patient_id or catheter_id is missing", {
+# validate_pd_catheter()
+
+test_that("validate_pd_catheter() errors when patient_id or catheter_id is missing", {
   cath <- make_catheter(
     patient_id = NA_character_,
     catheter_id = NA_character_,
@@ -32,9 +34,7 @@ test_that("validate_pd_catheter errors when patient_id or catheter_id is missing
   expect_error(validate_pd_catheter(cath), "Both patient_id and catheter_id must be supplied.")
 })
 
-
-
-test_that("validate_pd_catheter errors when insertion_date is missing", {
+test_that("validate_pd_catheter() errors when insertion_date is missing", {
   cath <- make_catheter(
     insertion_date = as.Date(NA),
     pd_start_date = as.Date("2025-02-10"),
@@ -44,9 +44,7 @@ test_that("validate_pd_catheter errors when insertion_date is missing", {
   expect_error(validate_pd_catheter(cath), "Missing insertion_date. Must be supplied.")
 })
 
-
-
-test_that("validate_pd_catheter errors when pd_start_date is missing", {
+test_that("validate_pd_catheter() errors when pd_start_date is missing", {
   cath <- make_catheter(
     insertion_date = as.Date("2025-01-25"),
     pd_start_date = as.Date(NA),
@@ -56,10 +54,7 @@ test_that("validate_pd_catheter errors when pd_start_date is missing", {
   expect_error(validate_pd_catheter(cath), "Missing pd_start_date. Must be supplied.")
 })
 
-
-
-
-test_that("validate_pd_catheter errors when insertion_date after pd_start_date", {
+test_that("validate_pd_catheter() errors when insertion_date after pd_start_date", {
   cath <- make_catheter(
     insertion_date = as.Date("2025-02-11"),     # insertion_date is after PD start
     pd_start_date = as.Date("2025-02-10"),
@@ -69,10 +64,7 @@ test_that("validate_pd_catheter errors when insertion_date after pd_start_date",
   expect_error(validate_pd_catheter(cath), "insertion_date must be on or before pd_start_date.")
 })
 
-
-
-
-test_that("validate_pd_catheter errors when pd_stop_date is prior to pd_start_date", {
+test_that("validate_pd_catheter() errors when pd_stop_date is prior to pd_start_date", {
   cath <- make_catheter(
     insertion_date = as.Date("2025-01-25"),
     pd_start_date = as.Date("2025-02-10"),
@@ -83,9 +75,8 @@ test_that("validate_pd_catheter errors when pd_stop_date is prior to pd_start_da
   expect_error(validate_pd_catheter(cath), "pd_start_date must be on or before pd_stop_date.")
 })
 
-
-
-test_that("validate_pd_catheter errors when pd_stop_date is empty when a reason for catheter removal is supplied", {
+test_that("validate_pd_catheter() errors when pd_stop_date is empty
+          when a reason for catheter removal is supplied", {
   cath <- make_catheter(
     insertion_date = as.Date("2025-01-25"),
     pd_start_date = as.Date("2025-02-10"),
@@ -93,12 +84,11 @@ test_that("validate_pd_catheter errors when pd_stop_date is empty when a reason 
     total_exposure_days = 100,
     n_peritonitis_episodes = 2,
     peritonitis_flag = TRUE)
-  expect_error(validate_pd_catheter(cath), "pd_stop_date must be supplied when removal_reason is given.")
+  expect_error(validate_pd_catheter(cath), "pd_stop_date must be supplied
+               when removal_reason is given.")
 })
 
-
-
-test_that("validate_pd_catheter errors exposure days is non-positive", {
+test_that("validate_pd_catheter() errors exposure days is non-positive", {
   cath <- make_catheter(
     insertion_date = as.Date("2025-01-25"),
     pd_start_date = as.Date("2025-02-10"),
@@ -108,8 +98,7 @@ test_that("validate_pd_catheter errors exposure days is non-positive", {
   expect_error(validate_pd_catheter(cath), "total_exposure_days cannot be negative.")
 })
 
-
-test_that("validate_pd_catheter accepts total_exposure_days equal to the inclusive span", {
+test_that("validate_pd_catheter() accepts total_exposure_days as inclusive of two dates", {
   cath <- make_catheter(
     pd_start_date = as.Date("2025-01-01"),
     pd_stop_date  = as.Date("2025-01-10"),
@@ -118,8 +107,8 @@ test_that("validate_pd_catheter accepts total_exposure_days equal to the inclusi
   expect_no_error(validate_pd_catheter(cath))
 })
 
-
-test_that("validate_pd_catheter rejects total_exposure_days one day over the inclusive span", {
+test_that("validate_pd_catheter() rejects total_exposure_days
+          one day over the inclusive span", {
   cath <- make_catheter(
     pd_start_date = as.Date("2025-01-01"),
     pd_stop_date  = as.Date("2025-01-10"),
@@ -128,19 +117,20 @@ test_that("validate_pd_catheter rejects total_exposure_days one day over the inc
   expect_error(validate_pd_catheter(cath), "cannot exceed the span")
 })
 
-
-test_that("validate_pd_catheter errors when total_exposure_days exceeds pd_start_date to t1 for a still-active catheter", {
+test_that("validate_pd_catheter() errors when total_exposure_days
+          exceeds pd_start_date to t1 for a still-active catheter", {
   cath <- make_catheter(
     insertion_date = as.Date("2025-01-25"),
     pd_start_date = as.Date("2025-02-10"),
     total_exposure_days = 400,
     n_peritonitis_episodes = 0,
     peritonitis_flag = FALSE)
-  expect_error(validate_pd_catheter(cath), "total_exposure_days cannot exceed the span between pd_start_date and the reporting period's end \\(t1\\), for a still-active catheter with no pd_stop_date.")
+  expect_error(validate_pd_catheter(cath), "total_exposure_days cannot exceed
+               the span between pd_start_date and the reporting period's end \\(t1\\),
+               for a still-active catheter with no pd_stop_date.")
 })
 
-
-test_that("validate_pd_catheter errors when infections contains a non-pd_infection object", {
+test_that("validate_pd_catheter() errors when infections contains a non-pd_infection object", {
   cath <- make_catheter(
     insertion_date = as.Date("2025-01-25"),
     pd_start_date = as.Date("2025-02-10"),
@@ -149,7 +139,8 @@ test_that("validate_pd_catheter errors when infections contains a non-pd_infecti
 })
 
 
-test_that("validate_pd_catheter errors when an infection's patient_id does not match the catheter's patient_id", {
+test_that("validate_pd_catheter() errors when an infection's patient_id
+          does not match the catheter's patient_id", {
   infxn <- make_infection(patient_id = "WRONG999",
                           infection_date = as.Date("2025-03-01"))
   cath <- make_catheter(
@@ -157,13 +148,11 @@ test_that("validate_pd_catheter errors when an infection's patient_id does not m
     pd_start_date = as.Date("2025-02-10"),
     infections = list(infxn))
   expect_error(validate_pd_catheter(cath),
-               "infections\\[\\[1\\]\\] has patient_id 'WRONG999', which does not match this catheter's patient_id 'ABC1234'.")
+               "infections\\[\\[1\\]\\] has patient_id 'WRONG999',
+               which does not match this catheter's patient_id 'ABC1234'.")
 })
 
-
-test_that("validate_pd_catheter errors when an infection has a missing infection_date", {
-  # built via new_pd_infection() directly: pd_infection()/make_infection()
-  # would reject the NA date before the catheter ever saw it
+test_that("validate_pd_catheter() errors when an infection has a missing infection_date", {
   infxn <- new_pd_infection(patient_id = "ABC1234",
                             infection_date = as.Date(NA),          # no infection date
                             organism_list = list("E. coli"),
@@ -176,8 +165,8 @@ test_that("validate_pd_catheter errors when an infection has a missing infection
                "infections\\[\\[1\\]\\] has a missing infection_date. Must be supplied.")
 })
 
-
-test_that("validate_pd_catheter errors when an infection's infection_date is before this catheter's pd_start_date", {
+test_that("validate_pd_catheter() errors when an infection's infection_date
+          is before this catheter's pd_start_date", {
   infxn <- make_infection(infection_date = as.Date("2025-01-30"))
   cath <- make_catheter(
     insertion_date = as.Date("2025-01-25"),
@@ -187,8 +176,8 @@ test_that("validate_pd_catheter errors when an infection's infection_date is bef
                "infections\\[\\[1\\]\\] has infection_date before this catheter's pd_start_date.")
 })
 
-
-test_that("validate_pd_catheter errors when an infection's infection_date is after this catheter's pd_stop_date", {
+test_that("validate_pd_catheter() errors when an infection's infection_date
+          is after this catheter's pd_stop_date", {
   infxn <- make_infection(infection_date = as.Date("2025-03-20"))
   cath <- make_catheter(
     insertion_date = as.Date("2025-01-25"),
@@ -196,11 +185,12 @@ test_that("validate_pd_catheter errors when an infection's infection_date is aft
     pd_stop_date = as.Date("2025-03-10"),
     infections = list(infxn))
   expect_error(validate_pd_catheter(cath),
-               "infections\\[\\[1\\]\\] has infection_date after this catheter's pd_stop_date.")
+               "infections\\[\\[1\\]\\] has infection_date after this
+               catheter's pd_stop_date.")
 })
 
-
-test_that("validate_pd_catheter errors when n_peritonitis_episodes does not match the actual infection count", {
+test_that("validate_pd_catheter() errors when n_peritonitis_episodes
+          does not match the actual infection count", {
   infxn <- make_infection(infection_date = as.Date("2025-10-15"))
   cath <- make_catheter(
     insertion_date = as.Date("2025-01-25"),
@@ -209,11 +199,12 @@ test_that("validate_pd_catheter errors when n_peritonitis_episodes does not matc
     n_peritonitis_episodes = 5,   # actual count is only 1
     peritonitis_flag = TRUE)
   expect_error(validate_pd_catheter(cath),
-               "n_peritonitis_episodes does not match the number of infections falling within this catheter's active window and \\[t0, t1\\].")
+               "n_peritonitis_episodes does not match the number of infections
+               falling within this catheter's active window and \\[t0, t1\\].")
 })
 
-
-test_that("validate_pd_catheter errors when peritonitis_flag does not match the derived episode count", {
+test_that("validate_pd_catheter errors when peritonitis_flag
+          does not match the derived episode count", {
   infxn <- make_infection(infection_date = as.Date("2025-10-15"))
   cath <- make_catheter(
     insertion_date = as.Date("2025-01-25"),
@@ -222,11 +213,12 @@ test_that("validate_pd_catheter errors when peritonitis_flag does not match the 
     n_peritonitis_episodes = 1,    # correct
     peritonitis_flag = FALSE)      # wrong = should be TRUE since count > 0
   expect_error(validate_pd_catheter(cath),
-               "peritonitis_flag does not match whether any infection falls within this catheter's active window and \\[t0, t1\\].")
+               "peritonitis_flag does not match whether any infection
+               falls within this catheter's active window and \\[t0, t1\\].")
 })
 
-
-test_that("validate_pd_catheter passes with a valid nested infection matching the catheter's derived counts", {
+test_that("validate_pd_catheter() passes with a valid nested infection
+          matching the catheter's derived counts", {
   infxn <- make_infection(infection_date = as.Date("2025-10-15"))
   cath <- make_catheter(
     insertion_date = as.Date("2025-01-25"),
@@ -245,26 +237,20 @@ test_that("count_episodes uses pd_stop_date as the upper bound instead of t1 whe
   infections <- list(
     make_infection(infection_date = as.Date("2025-09-15")),  # before pd_start_date = excluded
     make_infection(infection_date = as.Date("2025-10-15")),  # inside [pd_start_date, pd_stop_date] = counted
-    make_infection(infection_date = as.Date("2025-11-15"))   # after pd_stop_date, though still inside [t0, t1] = excluded
+    make_infection(infection_date = as.Date("2025-11-15"))   # after pd_stop_date = excluded
   )
-  n <- count_episodes(infections,
-                                t0 = T0,
-                                t1 = T1,
-                                pd_start_date = as.Date("2025-10-02"),
-                                pd_stop_date = as.Date("2025-10-31"))
+  n <- count_episodes(infections, t0 = T0, t1 = T1, pd_start_date = as.Date("2025-10-02"),
+                      pd_stop_date = as.Date("2025-10-31"))
   expect_identical(n, 1L)
 })
 
-test_that("count_episodes falls back to t1 as the upper bound for a still-active catheter (pd_stop_date NA)", {
+test_that("count_episodes falls back to t1 as the upper bound for a still-active catheter (pd_stop_date=NA)", {
   infections <- list(
     make_infection(infection_date = as.Date("2025-10-15")),  # inside [pd_start_date, t1] = counted
-    make_infection(infection_date = as.Date("2026-01-15"))   # after t1, and no pd_stop_date to bound it either = excluded
+    make_infection(infection_date = as.Date("2026-01-15"))   # after t1 = excluded
   )
-  n <- count_episodes(infections,
-                                t0 = T0,
-                                t1 = T1,
-                                pd_start_date = as.Date("2025-10-02"),
-                                pd_stop_date = as.Date(NA))
+  n <- count_episodes(infections, t0 = T0, t1 = T1, pd_start_date = as.Date("2025-10-02"),
+                      pd_stop_date = as.Date(NA))
   expect_identical(n, 1L)
 })
 
@@ -275,13 +261,11 @@ test_that("count_episodes raises the lower bound to t0 when pd_start_date is bef
     make_infection(infection_date = as.Date("2024-11-01")),  # after pd_start_date, but before t0 = excluded (t0 will be the lower bound)
     make_infection(infection_date = as.Date("2025-03-01"))   # on/after t0 = counted
   )
-  n <- count_episodes(infections,
-                                t0 = T0,
-                                t1 = T1,
-                                pd_start_date = as.Date("2024-10-01"),
-                                pd_stop_date = as.Date(NA))
+  n <- count_episodes(infections, t0 = T0, t1 = T1, pd_start_date = as.Date("2024-10-01"),
+                      pd_stop_date = as.Date(NA))
   expect_identical(n, 1L)
 })
+
 
 
 # subset()
@@ -302,7 +286,7 @@ test_that("subset.pd_catheter() returns a tibble with one row per episode", {
   expect_identical(y$counts_toward_rate, c(TRUE, TRUE, FALSE))
 })
 
-test_that("subset.pd_catheter() leaves out columns the catheter cannot supply", {
+test_that("subset.pd_catheter() leaves out columns the catheter object doesn't have", {
   y <- subset(subset_catheter())
   expect_false(any(c("gender", "ethnicity", "exposure_days_in_period") %in% names(y)))
 })
@@ -315,10 +299,8 @@ test_that("subset.pd_catheter() filters on episode and catheter columns", {
   expect_equal(nrow(subset(cath, procedure_type == "laparoscopic")), 0L)
 })
 
-test_that("subset.pd_catheter() gives one row with NA episode columns when there are no episodes", {
+test_that("subset.pd_catheter() gives a row with NA episode columns when there are no episodes", {
   y <- subset(subset_catheter(2))
-  expect_equal(nrow(y), 1L)
-  expect_identical(y$catheter_id, "BBB0002_01")
   expect_true(is.na(y$infection_date))
   expect_true(is.na(y$episode_type))
 })

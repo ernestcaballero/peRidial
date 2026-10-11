@@ -1,3 +1,6 @@
+
+# new_pd_patient()
+
 test_that("new_pd_infection creates a valid pd_infection object", {
   x <- new_pd_infection(
     patient_id = "ABC1234",
@@ -10,26 +13,13 @@ test_that("new_pd_infection creates a valid pd_infection object", {
   expect_s3_class(x, "pd_infection")
 })
 
-test_that("validate_pd_infection errors when patient_id is NA", {
-  x <- new_pd_infection(
-    patient_id = NA_character_,
-    infection_date = as.Date("2025-03-15"),
-    organism_list = list("Staphylococcus aureus"),
-    last_dose_antibiotic = as.Date("2025-03-29")
-  )
-  expect_error(validate_pd_infection(x), "patient_id must be supplied")
-})
-
-
-# Checks for Date formatting
 test_that("new_pd_infection errors when infection_date is not a Date", {
   expect_error(
     new_pd_infection(
       patient_id = "ABC1234",
       infection_date = "2025-03-15",   # character, not a Date
       organism_list = list("Staphylococcus aureus"),
-      last_dose_antibiotic = as.Date("2025-03-29")
-    )
+      last_dose_antibiotic = as.Date("2025-03-29"))
   )
 })
 
@@ -58,6 +48,17 @@ test_that("new_pd_infection errors when outcome_date is not a Date", {
 })
 
 
+# validate_pd_infection()
+
+test_that("validate_pd_infection errors when patient_id is NA", {
+  x <- new_pd_infection(
+    patient_id = NA_character_,
+    infection_date = as.Date("2025-03-15"),
+    organism_list = list("Staphylococcus aureus"),
+    last_dose_antibiotic = as.Date("2025-03-29")
+  )
+  expect_error(validate_pd_infection(x), "patient_id must be supplied")
+})
 
 test_that("validate_pd_infection rejects 'negative' combined with other organisms", {
   x <- new_pd_infection(
@@ -69,19 +70,16 @@ test_that("validate_pd_infection rejects 'negative' combined with other organism
   expect_error(validate_pd_infection(x), "'negative' cannot be combined with other organisms in the organism_list.")
 })
 
-
-
 test_that("validate_pd_infection rejects an invalid episode_type", {
   x <- new_pd_infection(
     patient_id = "ABC1234",
     infection_date = as.Date("2025-03-15"),
     organism_list = list("negative"),
-    episode_type = "initial",   # not one of the three valid categories
+    episode_type = "initial",   # not one of the valid categories
     last_dose_antibiotic = as.Date("2025-03-29")
   )
   expect_error(validate_pd_infection(x), "episode_type")
 })
-
 
 test_that("validate_pd_infection rejects outcome_date without an outcome", {
   x <- new_pd_infection(
@@ -94,7 +92,6 @@ test_that("validate_pd_infection rejects outcome_date without an outcome", {
   expect_error(validate_pd_infection(x), "outcome_date")
 })
 
-
 test_that("validate_pd_infection requires outcome_date when catheter is removed", {
   x <- new_pd_infection(
     patient_id = "ABC1234",
@@ -106,6 +103,8 @@ test_that("validate_pd_infection requires outcome_date when catheter is removed"
   expect_error(validate_pd_infection(x), "catheter removal")
 })
 
+
+# pd_infection(), similar to classify_episode_type()
 
 test_that("pd_infection() classifies a relapsing episode", {
   prior <- new_pd_infection(
@@ -124,7 +123,6 @@ test_that("pd_infection() classifies a relapsing episode", {
   expect_equal(x$episode_type, "relapsing")
 })
 
-
 test_that("pd_infection() classifies a relapsing episode: negative culture followed by a specific organism", {
   prior <- new_pd_infection(
     patient_id = "ABC1234",
@@ -141,7 +139,6 @@ test_that("pd_infection() classifies a relapsing episode: negative culture follo
   )
   expect_equal(x$episode_type, "relapsing")
 })
-
 
 test_that("pd_infection() classifies a relapsing episode: specific organism followed by a negative culture", {
   prior <- new_pd_infection(
@@ -160,7 +157,6 @@ test_that("pd_infection() classifies a relapsing episode: specific organism foll
   expect_equal(x$episode_type, "relapsing")
 })
 
-
 test_that("pd_infection() classifies a relapsing episode: negative culture followed by another negative culture", {
   prior <- new_pd_infection(
     patient_id = "ABC1234",
@@ -177,7 +173,6 @@ test_that("pd_infection() classifies a relapsing episode: negative culture follo
   )
   expect_equal(x$episode_type, "relapsing")
 })
-
 
 test_that("pd_infection() classifies a recurrent episode", {
   prior <- new_pd_infection(
@@ -196,8 +191,6 @@ test_that("pd_infection() classifies a recurrent episode", {
   expect_equal(x$episode_type, "recurrent")
 })
 
-
-
 test_that("pd_infection() classifies a repeat episode", {
   prior <- new_pd_infection(
     patient_id = "ABC1234",
@@ -214,8 +207,6 @@ test_that("pd_infection() classifies a repeat episode", {
   )
   expect_equal(x$episode_type, "repeat")
 })
-
-
 
 test_that("pd_infection() returns NA episode_type when >4 weeks later with a different organism", {
   prior <- new_pd_infection(
