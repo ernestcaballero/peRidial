@@ -218,10 +218,12 @@ test_that("build_patient_catheters() fills total_exposure_days, inclusive of bot
   expect_equal(out[[1]]$total_exposure_days, 10)
 
   # window entirely before the period: no exposure in it
-  caths <- raw_cath(pd_start_date = d("2023-01-01"), pd_stop_date = d("2024-12-31"))
+  caths <- raw_cath(insertion_date = d("2022-12-01"),
+                    pd_start_date = d("2023-01-01"), pd_stop_date = d("2024-12-31"))
   out <- build_patient_catheters("P1", caths, list(), T0, T1, new_issue_log())
   expect_equal(out[[1]]$total_exposure_days, 0)
 })
+
 
 test_that("build_patient_catheters() censors total_exposure_days at the patient's tau", {
   # still-active catheter, patient left PD on 31 Mar: 1 Jan - 31 Mar 2025 = 90 days

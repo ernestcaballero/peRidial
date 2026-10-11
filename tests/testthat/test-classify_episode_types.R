@@ -1,3 +1,4 @@
+
 test_that("classify_episode_types() returns a character vector the same length as its inputs", {
   x <- classify_episode_types(
     patient_id = rep("ABC1234", 3),
@@ -106,12 +107,13 @@ test_that("classify_episode_types() treats a catheter-removed outcome with no ou
 
 
 test_that("classify_episode_types() treats a missing last_dose_antibiotic as invalid, leaving no prior episode", {
-  x <- classify_episode_types(
-    patient_id = rep("ABC1234", 2),
-    infection_date = as.Date(c("2025-01-01", "2025-01-25")),
-    last_dose_antibiotic = c(as.Date(NA), as.Date("2025-02-08")),   # row 1 fails validation
-    organism_list = list(list("E. coli"), list("E. coli"))
-  )
+  expect_warning(
+    x <- classify_episode_types(
+      patient_id = rep("ABC1234", 2),
+      infection_date = as.Date(c("2025-01-01", "2025-01-25")),
+      last_dose_antibiotic = c(as.Date(NA), as.Date("2025-02-08")),   # row 1 fails validation
+      organism_list = list(list("E. coli"), list("E. coli"))
+      ), "1 of 2 episode\\(s\\) failed validation")
   expect_equal(x, c(NA_character_, NA_character_))
 })
 

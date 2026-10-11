@@ -184,11 +184,11 @@ test_that("rate_met and pf_met are still TRUE/FALSE when there is data", {
   expect_false(summarise_pf(unit)$pf_met)          # 60% is not above 80%
 })
 
-test_that("summary.pd_unit() prints NO DATA, not NOT MET, for an empty unit", {
+test_that("summary.pd_unit() prints No Data, not NOT MET, for an empty unit", {
   empty <- new_pd_unit(unit_id = "Empty", t0 = as.Date("2025-01-01"),
                        t1 = as.Date("2025-12-31"), n_new = 0L, n_patients = 0L, tpyar = 0)
   txt <- capture.output(res <- summary(empty))
-  expect_equal(sum(grepl("NO DATA", txt, fixed = TRUE)), 2)   # rate and PF lines
+  expect_equal(sum(grepl("No Data", txt, fixed = TRUE)), 2)   # rate and PF lines
   expect_false(any(grepl("NOT MET", txt, fixed = TRUE)))
   expect_true(is.na(res$rate_met))
   expect_true(is.na(res$pf_met))
@@ -197,5 +197,5 @@ test_that("summary.pd_unit() prints NO DATA, not NOT MET, for an empty unit", {
 test_that("summary.pd_unit() still prints MET / NOT MET when there is data", {
   txt <- capture.output(summary(make_subset_unit()))
   expect_true(any(grepl("\\[ (MET|NOT MET) \\]", txt)))
-  expect_false(any(grepl("NO DATA", txt, fixed = TRUE)))
+  expect_false(any(grepl("No Data", txt, fixed = TRUE)))
 })

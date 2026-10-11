@@ -90,7 +90,7 @@ test_that("validate_pd_unit() rejects tpyar larger than the period allows", {
 
 test_that("validate_pd_unit() rejects n_new inconsistent with new_patient_flag", {
   # the single patient is prevalent, so n_new must be 0
-  x <- make_unit(n_new = 1L)
+  x <- make_unit(n_new = 1L, n_patients = 1L)
   expect_error(validate_pd_unit(x), "does not match the number of patients")
 })
 
@@ -117,7 +117,8 @@ test_that("validate_pd_unit() requires nrow(patients) to match n_patients", {
 test_that("validate_pd_unit() rejects duplicate patient_id in patients", {
   p <- make_patient()
   x <- make_unit(n_patients = 2L,
-                 patients = tibble::tibble(patient_id = c("ABC1234", "ABC1234")),
+                 patients = tibble::tibble(patient_id = c("ABC1234", "ABC1234")
+                                           n_episodes = c(0L, 0L)),
                  patient_list = list(p, p))
   expect_error(validate_pd_unit(x), "Duplicate patient_id")
 })
@@ -137,9 +138,12 @@ test_that("validate_pd_unit() rejects duplicate catheter_id across the unit", {
 
 test_that("validate_pd_unit() rejects an infection with an unknown catheter_id", {
   x <- make_unit(infections = tibble::tibble(patient_id = "ABC1234",
-                                             catheter_id = "NOPE0000_01"))
+                                             catheter_id = "NOPE0000_01",
+                                             infection_date = as.Date("2025-03-01"),
+                                             counts_toward_rate = TRUE))
   expect_error(validate_pd_unit(x), "catheter_id not present in `catheters`")
 })
+
 
 test_that("validate_pd_unit() requires infections to carry a catheter_id column", {
   # a silently-missing column must not pass as vacuously valid
@@ -152,7 +156,8 @@ test_that("validate_pd_unit() requires infections to carry a catheter_id column"
 
 test_that("validate_pd_unit() requires patient_list length to match n_patients", {
   x <- make_unit(n_patients = 2L,
-                 patients = tibble::tibble(patient_id = c("ABC1234", "XYZ9999")))
+                 patients = tibble::tibble(patient_id = c("ABC1234", "XYZ9999"),
+                                           n_episodes = c(0L, 0L)))
   expect_error(validate_pd_unit(x), "does not match n_patients")
 })
 
@@ -168,7 +173,7 @@ test_that("validate_pd_unit() rejects a patient scoped to a different window", {
 })
 
 test_that("validate_pd_unit() rejects patients tibble disagreeing with patient_list", {
-  x <- make_unit(patients = tibble::tibble(patient_id = "SOMEONE_ELSE"))
+  x <- make_unit(patients = tibble::tibble(patient_id = "SOMEONE_ELSE", n_episodes = 0L))
   expect_error(validate_pd_unit(x), "do not match those in")
 })
 
@@ -288,7 +293,7 @@ test_that("subset() copes with a unit whose tibbles are partly or wholly empty",
 
   # patients and catheters only: no episode columns to join
   y <- subset(make_unit())
-  expect_identical(names(y), c("patient_id", "catheter_id"))
+  expect_identical(names(y), c("patient_id", "n_episodes", "catheter_id"))
   expect_equal(nrow(y), 1L)
 })
 

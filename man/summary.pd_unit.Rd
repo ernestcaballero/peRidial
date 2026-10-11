@@ -15,7 +15,7 @@
 Invisibly, a list with components \code{rate}, \code{rate_num},
 \code{rate_den}, \code{rate_benchmark}, \code{rate_met}, \code{pf},
 \code{pf_num}, \code{pf_den}, \code{pf_benchmark}, \code{pf_met}
-(\code{rate_met} and \code{pf_met} are \code{NA}, printed as \code{NO DATA},
+(\code{rate_met} and \code{pf_met} are \code{NA}, printed as \code{No Data},
 when there is no rate or percentage to judge),
 \code{episode_types} (a table of episode counts by \code{episode_type}),
 \code{outcomes} (a table of patient counts by how their PD ended:
@@ -39,5 +39,5 @@ Reports the unit's headline peritonitis indicators (unit's peritonitis rate
 and peritonitis free percentage against their ISPD benchmarks),
 a breakdown of episodes by type, the cohort's outcomes and
 incident/prevalent split, patient demographics, a catheter summary,
-and infection detail (organisms cultured and PE outcomes).
+and peritonitis episodes summary.
 }
