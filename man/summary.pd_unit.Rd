@@ -14,7 +14,9 @@
 \value{
 Invisibly, a list with components \code{rate}, \code{rate_num},
 \code{rate_den}, \code{rate_benchmark}, \code{rate_met}, \code{pf},
-\code{pf_num}, \code{pf_den}, \code{pf_benchmark}, \code{pf_met},
+\code{pf_num}, \code{pf_den}, \code{pf_benchmark}, \code{pf_met}
+(\code{rate_met} and \code{pf_met} are \code{NA}, printed as \code{NO DATA},
+when there is no rate or percentage to judge),
 \code{episode_types} (a table of episode counts by \code{episode_type}),
 \code{outcomes} (a table of patient counts by how their PD ended:
 \code{death}, \code{transplant}, \code{permanent transfer to HD},

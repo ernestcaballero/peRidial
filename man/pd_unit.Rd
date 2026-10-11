@@ -11,6 +11,7 @@ pd_unit(
   t1,
   unit_id = NA_character_,
   rate_benchmark = 0.4,
+  pf_benchmark = 0.8,
   censor_on_last_stop = TRUE
 )
 }
@@ -35,8 +36,13 @@ aureus"} becomes \code{"S. aureus"}.}
 
 \item{rate_benchmark}{Numeric. The ISPD peritonitis-rate benchmark for
 this unit, in episodes per patient-year, used by \code{summary.pd_unit()}
-and \code{plot.pd_unit()} to judge/plot the headline rate against.
-Defaults to 0.40, the ISPD standard.}
+and \code{plot.pd_unit()} to plot the headline rate against.
+Defaults to 0.40, the ISPD recommendation.}
+
+\item{pf_benchmark}{Numeric. The ISPD peritonitis-free benchmark for this
+unit, as a proportion between 0 and 1, used by \code{summary.pd_unit()}
+and \code{plot.pd_unit()} to judge/plot the peritonitis-free percentage against.
+Defaults to 0.80, the ISPD recommendation.}
 
 \item{censor_on_last_stop}{Logical. Treat a patient whose every catheter
 has closed, with none reopened, as having left PD on the last

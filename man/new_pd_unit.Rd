@@ -12,6 +12,7 @@ new_pd_unit(
   n_patients = NA_integer_,
   tpyar = NA_real_,
   rate_benchmark = 0.4,
+  pf_benchmark = 0.8,
   patients = tibble::tibble(),
   catheters = tibble::tibble(),
   infections = tibble::tibble(),
@@ -44,6 +45,13 @@ this unit, in episodes per patient-year: the headline rate is judged
 "MET" when it is at or below this value. Carried on the object so
 \code{summary.pd_unit()} and \code{plot.pd_unit()} judge and plot
 against the same threshold by default. Defaults to 0.40, the ISPD
+standard.}
+
+\item{pf_benchmark}{Numeric. The ISPD peritonitis-free benchmark for this
+unit, as a proportion between 0 and 1: the peritonitis-free percentage
+is judged "MET" when it is strictly above this value. Carried on the
+object so \code{summary.pd_unit()} and \code{plot.pd_unit()} judge and
+plot against the same threshold. Defaults to 0.80 (i.e. 80\\%), the ISPD
 standard.}
 
 \item{patients}{Tibble. One row per patient, flattened from

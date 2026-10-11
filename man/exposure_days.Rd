@@ -17,7 +17,5 @@ death, transplant, or permanent HD transfer).}
 A non-negative numeric vector of exposure days.
 }
 \description{
-Computes the number of days a patient is active on PD (at risk)
-between two dates. Intended to be called with dates that have been
-truncated/censored to the reporting window.
+Computes the number of days a patient is active on PD (at risk) between two dates.
 }

@@ -10,7 +10,8 @@ classify_episode_types(
   last_dose_antibiotic,
   organism_list,
   outcome = rep(NA_character_, length(patient_id)),
-  outcome_date = rep(as.Date(NA), length(patient_id))
+  outcome_date = rep(as.Date(NA), length(patient_id)),
+  use_cpp = TRUE
 )
 }
 \arguments{
@@ -28,6 +29,11 @@ that episode's organism name(s). Use \code{"negative"} for culture-negative.}
 Defaults to all \code{NA}.}
 
 \item{outcome_date}{Date. Date of each outcome. Defaults to all \code{NA}.}
+
+\item{use_cpp}{Logical. \code{TRUE} (the default) classifies with the compiled C++
+loop, which is faster on large inputs. \code{FALSE} uses a pure-R loop that calls
+\code{\link[=get_episode_type]{get_episode_type()}} once per episode, and needs no compiled code. Both apply the
+same validation and the same ISPD rule, so the result is the same either way.}
 }
 \value{
 Character vector, the same length as the inputs: \code{"relapsing"},
@@ -40,5 +46,6 @@ exactly as \code{\link[=pd_infection]{pd_infection()}} would check it, by buildi
 with \code{\link[=new_pd_infection]{new_pd_infection()}} and passing it through \code{validate_pd_infection()}.
 Valid rows are then classified as \code{"relapsing"}, \code{"recurrent"} or \code{"repeat"}
 (ISPD 2022 definitions) against the same patient's immediately preceding
-valid episode. The classification loop runs in C++.
+valid episode. By default the classification loop runs in C++; set
+\code{use_cpp = FALSE} to run the equivalent pure-R loop instead.
 }
