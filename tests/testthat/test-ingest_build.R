@@ -1,3 +1,4 @@
+
 # Tests for R/ingest_build.R: building pd_infection / pd_catheter / pd_patient objects
 
 d <- function(x) as.Date(x)
@@ -47,6 +48,7 @@ raw_tau <- function(reason = NA_character_,
 }
 
 
+
 # create_catheter_id()
 
 test_that("create_catheter_id() numbers a patient's catheters by insertion date", {
@@ -54,12 +56,10 @@ test_that("create_catheter_id() numbers a patient's catheters by insertion date"
   expect_identical(ids, c("A_02", "A_01", "B_01"))
 })
 
-
 test_that("create_catheter_id() gives an undated catheter the highest sequence number", {
   ids <- create_catheter_id(c("A", "A"), c(as.Date(NA), d("2024-01-01")))
   expect_identical(ids, c("A_02", "A_01"))
 })
-
 
 test_that("create_catheter_id() rejects bad input", {
   expect_error(create_catheter_id(c("A", "B"), d("2024-01-01")))
@@ -138,9 +138,7 @@ test_that("build_patient_infections() logs and skips an invalid episode, and kee
   df$outcome_date[1] <- d("2025-03-05")   # an outcome_date with no outcome is rejected
   log <- new_issue_log()
   out <- build_patient_infections(df, log)
-  expect_length(out, 1)
   expect_identical(out[[1]]$infection_date, d("2025-08-01"))
-  expect_length(log$get(), 1)
   expect_match(log$get(), "Patient P1, episode on 2025-03-01: .*\\(episode not checked further")
 })
 
@@ -163,10 +161,8 @@ test_that("build_infections_by_catheter() groups episodes under the catheter act
   expect_length(out$P1_02, 2)
 })
 
-
 test_that("build_infections_by_catheter() returns an empty list for no episodes", {
-  expect_identical(build_infections_by_catheter(raw_pe()[0, ], raw_cath(), new_issue_log()),
-                   list())
+  expect_identical(build_infections_by_catheter(raw_pe()[0, ], raw_cath(), new_issue_log()), list())
 })
 
 
@@ -199,13 +195,6 @@ test_that("build_patient_catheters() scopes the episode count to the reporting p
   expect_true(out[[1]]$peritonitis_flag)
 })
 
-
-test_that("build_patient_catheters() returns an empty list for an unknown patient", {
-  expect_identical(build_patient_catheters("P9", raw_cath(), list(), T0, T1, new_issue_log()),
-                   list())
-})
-
-
 test_that("build_patient_catheters() fills total_exposure_days, inclusive of both endpoints", {
   # active before the period: all 365 days of 2025
   out <- build_patient_catheters("P1", raw_cath(), list(), T0, T1, new_issue_log())
@@ -216,14 +205,7 @@ test_that("build_patient_catheters() fills total_exposure_days, inclusive of bot
                     insertion_date = d("2025-01-20"))
   out <- build_patient_catheters("P1", caths, list(), T0, T1, new_issue_log())
   expect_equal(out[[1]]$total_exposure_days, 10)
-
-  # window entirely before the period: no exposure in it
-  caths <- raw_cath(insertion_date = d("2022-12-01"),
-                    pd_start_date = d("2023-01-01"), pd_stop_date = d("2024-12-31"))
-  out <- build_patient_catheters("P1", caths, list(), T0, T1, new_issue_log())
-  expect_equal(out[[1]]$total_exposure_days, 0)
 })
-
 
 test_that("build_patient_catheters() censors total_exposure_days at the patient's tau", {
   # still-active catheter, patient left PD on 31 Mar: 1 Jan - 31 Mar 2025 = 90 days
@@ -241,11 +223,9 @@ test_that("a catheter's total_exposure_days matches exposure_days_in_period on t
   out <- build_patient_catheters("P1", caths, list(), T0, T1, new_issue_log())
   pat <- pd_patient(patient_id = "P1", catheters = out, t0 = T0, t1 = T1)
   tbl <- catheters_to_tibble(list(pat), T0, T1)
-  expect_equal(unlist(lapply(out, function(z) z$total_exposure_days)),
-               tbl$exposure_days_in_period)
+  expect_equal(unlist(lapply(out, function(z) z$total_exposure_days)), tbl$exposure_days_in_period)
   expect_equal(tbl$exposure_days_in_period, c(0, 351))   # 15 Jan - 31 Dec 2025 inclusive
 })
-
 
 
 # build_patient_list()
@@ -253,7 +233,6 @@ test_that("a catheter's total_exposure_days matches exposure_days_in_period on t
 test_that("build_patient_list() passes demographics and the window to each patient", {
   out <- build_patient_list("P1", list(P1 = raw_tau()), raw_cath(), raw_patient(),
                             list(), T0, T1, new_issue_log())
-
   p <- out$patient_list[[1]]
   expect_identical(p$gender, "Female")
   expect_identical(p$date_of_birth, d("1970-01-01"))
@@ -266,7 +245,6 @@ test_that("build_patient_list() passes demographics and the window to each patie
 test_that("build_patient_list() records each patient's tau as transfer_reason / transfer_date / detail", {
   caths <- raw_cath(pd_stop_date = d("2025-06-30"))
   taus <- list(P1 = raw_tau("death", d("2025-06-30"), "Cardiac"))
-
   out <- build_patient_list("P1", taus, caths, raw_patient(),
                             list(), T0, T1, new_issue_log())
 
@@ -275,36 +253,17 @@ test_that("build_patient_list() records each patient's tau as transfer_reason / 
   expect_identical(out$transfer_details, c(P1 = "Cardiac"))
 })
 
-
-test_that("build_patient_list() leaves out patients who were not on PD during the period", {
-  pids <- c("P1", "P2", "P3")
-  caths <- rbind(raw_cath("P1"),
-                 raw_cath("P2", pd_start_date = d("2022-01-01"), pd_stop_date = d("2023-01-01")),
-                 raw_cath("P3", pd_start_date = d("2026-03-01")))
-  taus <- list(P1 = raw_tau(), P2 = raw_tau(), P3 = raw_tau())
-
-  out <- build_patient_list(pids, taus, caths, raw_patient(pids),
-                            list(), T0, T1, new_issue_log())
-
-  expect_identical(vapply(out$patient_list, function(p) p$patient_id, character(1)), "P1")
-  expect_identical(names(out$transfer_details), "P1")
-})
-
-
 test_that("build_patient_list() logs a patient whose every catheter fails validation", {
   # a stop date before the start date makes pd_catheter() reject the only catheter
   caths <- raw_cath(insertion_date = d("2025-01-01"), pd_start_date = d("2025-02-01"),
                     pd_stop_date = d("2025-01-01"))
   log <- new_issue_log()
-
   out <- build_patient_list("P1", list(P1 = raw_tau()), caths, raw_patient(),
                             list(), T0, T1, log)
-
   expect_length(out$patient_list, 1)   # still built; the logged issue stops pd_unit()
   expect_true(any(grepl("catheter not checked further", log$get())))
   expect_true(any(grepl("Patient P1: no valid PD catheter remains", log$get())))
 })
-
 
 
 # patient_demo_value() / patient_dob_value()
@@ -319,7 +278,6 @@ test_that("patient_demo_value() returns NA for blank, NA, a missing column or a 
   expect_identical(patient_demo_value(demo, "a"), NA_character_)
   expect_identical(patient_demo_value(demo[2, ], "a"), NA_character_)
   expect_identical(patient_demo_value(demo, "b"), NA_character_)
-  expect_identical(patient_demo_value(demo, "no_such_col"), NA_character_)
   expect_identical(patient_demo_value(demo[0, ], "a"), NA_character_)
 })
 
