@@ -84,8 +84,7 @@ test_that("validate_pd_catheter() errors when pd_stop_date is empty
     total_exposure_days = 100,
     n_peritonitis_episodes = 2,
     peritonitis_flag = TRUE)
-  expect_error(validate_pd_catheter(cath), "pd_stop_date must be supplied
-               when removal_reason is given.")
+  expect_error(validate_pd_catheter(cath), "pd_stop_date must be supplied when removal_reason is given.")
 })
 
 test_that("validate_pd_catheter() errors exposure days is non-positive", {
@@ -125,9 +124,7 @@ test_that("validate_pd_catheter() errors when total_exposure_days
     total_exposure_days = 400,
     n_peritonitis_episodes = 0,
     peritonitis_flag = FALSE)
-  expect_error(validate_pd_catheter(cath), "total_exposure_days cannot exceed
-               the span between pd_start_date and the reporting period's end \\(t1\\),
-               for a still-active catheter with no pd_stop_date.")
+  expect_error(validate_pd_catheter(cath), "total_exposure_days cannot exceed the span between pd_start_date and the reporting period's end t1.")
 })
 
 test_that("validate_pd_catheter() errors when infections contains a non-pd_infection object", {
@@ -184,8 +181,7 @@ test_that("validate_pd_catheter() errors when an infection's infection_date
     pd_start_date = as.Date("2025-02-10"),
     pd_stop_date = as.Date("2025-03-10"),
     infections = list(infxn))
-  expect_error(validate_pd_catheter(cath),
-               "infections\\[\\[1\\]\\] has infection_date after this
+  expect_error(validate_pd_catheter(cath), "infections\\[\\[1\\]\\] has infection_date after this
                catheter's pd_stop_date.")
 })
 

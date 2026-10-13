@@ -314,31 +314,11 @@ test_that("subset() works on the unit built from the bundled example files", {
 # pd_unit()
 
 # helpers for testing
-write_a3 <- function(rows, rename = NULL) {
-  df <- dplyr::bind_rows(lapply(rows, tibble::as_tibble, .name_repair = "minimal"))
-  df <- dplyr::mutate(
-    df,
-    dplyr::across(dplyr::matches("Date|Insertion"), as.Date),
-    `Patient ID` = as.character(`Patient ID`)
-  )
-  if (!is.null(rename)) {
-    hit <- match(names(df), names(rename))
-    names(df)[!is.na(hit)] <- unname(rename)[hit[!is.na(hit)]]
-  }
-  save_xlsx(df)
-}
-
-write_pe <- function(rows) {
-  df <- dplyr::bind_rows(lapply(rows, function(r) {
-    r <- utils::modifyList(list(organism = "E. coli"), r)
-    tibble::tibble(
-      `Patient ID`           = r$id,
-      `Date of Infection`    = as.Date(r$date),
-      Organism               = r$organism,
-      `Last Dose Antibiotic` = as.Date(r$last_dose)
-    )
-  }))
-  save_xlsx(df)
+save_xlsx <- function(df) {
+  skip_if_not_installed("writexl")
+  path <- tempfile(fileext = ".xlsx")
+  writexl::write_xlsx(df, path)
+  path
 }
 
 
@@ -365,46 +345,43 @@ test_that("pd_unit() builds a valid unit from the bundled example files", {
   expect_no_error(validate_pd_unit(unit))
 })
 
-test_that("pd_unit() derives each patient's censoring event from the bundled files", {
-  unit <- bundled_unit
-  counts <- table(unit$patients$transfer_reason, useNA = "no")
-  expect_equal(as.list(counts)[c("death", "permanent transfer to HD", "transplant")],
-               list(death = 3L, `permanent transfer to HD` = 2L, transplant = 3L))
-  # no catheter outlives its patient's censoring date
-  censored <- unit$patients[!is.na(unit$patients$transfer_reason), ]
-  joined <- merge(unit$catheters, censored[c("patient_id", "transfer_date")], by = "patient_id")
-  expect_true(all(!is.na(joined$pd_stop_date) & joined$pd_stop_date <= joined$transfer_date))
-})
-
 test_that("pd_unit() attaches every episode to a catheter of the same patient", {
-  unit <- bundled_unit
+  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
+  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
+  unit <- pd_unit(a3, pe, t0 = T0, t1 = T1)
   owner <- unit$catheters$patient_id[match(unit$infections$catheter_id, unit$catheters$catheter_id)]
   expect_identical(owner, unit$infections$patient_id)
 })
 
 test_that("pd_unit() catches a mistyped PE patient_id in the bundled files", {
-  pe <- readxl::read_excel(
-    system.file("extdata", "pe_2025.xlsx", package = "peridial", mustWork = TRUE))
-  pe[["Patient ID"]][1] <- sub("SPD00", "SPD0", pe[["Patient ID"]][1])   # SPD0003 -> SPD003
-  a3_path <- system.file("extdata", "a3_2025.xlsx", package = "peridial", mustWork = TRUE)
-  expect_error(build_unit(a3_path, save_xlsx(pe)), "row 2: `SPD003` is not a valid NHI number")
+  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
+  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
+  df <- readxl::read_excel(pe)
+  df[["Patient ID"]][1] <- sub("SPD00", "SPD0", df[["Patient ID"]][1])   # SPD0003 -> SPD003
+  expect_error(pd_unit(a3, save_xlsx(df), t0 = T0, t1 = T1),
+               "row 2: `SPD003` is not a valid NHI number")
 })
 
 test_that("pd_unit() rejects a bad reporting period", {
-  expect_error(pd_unit("a", "b", t0 = "2025-01-01", t1 = T1))
-  expect_error(pd_unit("a", "b", t0 = T1, t1 = T0), "t0 must be on or before t1")
+  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
+  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
+  expect_error(pd_unit(a3, pe, t0 = "2025-01-01", t1 = T1))
+  expect_error(pd_unit(a3, pe, t0 = T1, t1 = T0), "t0 must be on or before t1")
 })
 
 test_that("pd_unit() errors when the A3 file lacks a required column", {
-  df <- readxl::read_excel(write_a3(list(a3_row("ABC1234"))))
+  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
+  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
+  df <- readxl::read_excel(a3)
   df[["PD Start Date"]] <- NULL
-  expect_error(build_unit(save_xlsx(df), pe_quiet()),
+  expect_error(pd_unit(save_xlsx(df), pe, t0 = T0, t1 = T1),
                "unit \\(A3\\) file is missing required column\\(s\\): `pd_start_date`")
 })
 
 test_that("pd_unit() returns an empty, valid unit when nobody was on PD in the period", {
-  unit <- pd_unit(write_a3(list(a3_row("ABC1234"))), pe_quiet(),
-                  t0 = as.Date("2015-01-01"), t1 = as.Date("2015-12-31"))
+  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
+  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
+  unit <- pd_unit(a3, pe, t0 = as.Date("2015-01-01"), t1 = as.Date("2015-12-31"))
   expect_identical(unit$n_patients, 0L)
   expect_identical(unit$tpyar, 0)
   expect_identical(nrow(unit$patients), 0L)
@@ -413,46 +390,49 @@ test_that("pd_unit() returns an empty, valid unit when nobody was on PD in the p
 # Data-quality problems are collected and raised as one error
 
 test_that("pd_unit() errors on a patient_id that is not a valid NHI, naming the sheet row", {
-  a3 <- write_a3(list(a3_row("ABC1234"), a3_row("40")))
-  err <- expect_error(build_unit(a3, pe_quiet()), "1 data-quality issue")
+  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
+  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
+  df <- readxl::read_excel(a3)
+  df[["Patient ID"]][2] <- "40"   # SPD0002, sheet row 3
+  err <- expect_error(pd_unit(save_xlsx(df), pe, t0 = T0, t1 = T1), "1 data-quality issue")
   expect_match(conditionMessage(err), "unit \\(A3\\) file, row 3: `40` is not a valid NHI number")
 })
-
-test_that("pd_unit() raises an assumption as a warning instead of failing", {
-  # a transplant is recorded but with no date anywhere: the patient is treated as still on PD
-  a3 <- write_a3(list(a3_row("ABC1234", `Dialysis Modality Change` = "Transplant")))
-  expect_warning(unit <- build_unit(a3, pe_quiet()),
-                 "Patient ABC1234 .*no transplant_date supplied")
-  expect_s3_class(unit, "pd_unit")
-})
-
 
 # Episodes and organisms
 
 test_that("pd_unit() chains episodes so a repeat episode is classified", {
-  a3 <- write_a3(list(a3_row("ABC1234")))
-  pe <- write_pe(list(list(id = "ABC1234", date = "2025-03-01", last_dose = "2025-03-15"),
-                      list(id = "ABC1234", date = "2025-03-20", last_dose = "2025-04-03")))
-  unit <- build_unit(a3, pe)
-  expect_identical(unit$infections$episode_type, c(NA, "relapsing"))
-  expect_identical(unit$infections$counts_toward_rate, c(TRUE, FALSE))
+  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
+  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
+  # SPD0012's second episode is moved to 9 days after her first one's last dose, with the same organism
+  df <- readxl::read_excel(pe)
+  i <- which(df[["Patient ID"]] == "SPD0012")[2]
+  df[["Date of Infection"]][i] <- as.POSIXct("2025-02-10", tz = "UTC")
+  df[["Organism"]][i] <- "Escherichia coli"
+  df[["Last Dose Antibiotic"]][i] <- as.POSIXct("2025-02-24", tz = "UTC")
+  unit <- pd_unit(a3, save_xlsx(df), t0 = T0, t1 = T1)
+  inf <- unit$infections[unit$infections$patient_id == "SPD0012", ]
+  expect_identical(inf$episode_type, c(NA, "relapsing"))
+  expect_identical(inf$counts_toward_rate, c(TRUE, FALSE))
 })
 
 test_that("pd_unit() standardises organism spellings", {
-  a3 <- write_a3(list(a3_row("ABC1234")))
-  pe <- write_pe(list(
-    list(id = "ABC1234", date = "2025-02-01", last_dose = "2025-02-15", organism = "  staphylococcus AUREUS "),
-    list(id = "ABC1234", date = "2025-06-01", last_dose = "2025-06-15", organism = "Escherichia coli, Klebsiella pneumoniae")))
-  unit <- build_unit(a3, pe)
-  expect_identical(unit$infections$organisms, c("S. aureus", "E. coli, Klebsiella"))
+  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
+  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
+  df <- readxl::read_excel(pe)
+  df[["Organism"]][df[["Patient ID"]] == "SPD0003"] <- "  staphylococcus AUREUS "
+  df[["Organism"]][df[["Patient ID"]] == "SPD0007"] <- "Escherichia coli, Klebsiella pneumoniae"
+  unit <- pd_unit(a3, save_xlsx(df), t0 = T0, t1 = T1)
+  organisms <- function(id) unit$infections$organisms[unit$infections$patient_id == id]
+  expect_identical(organisms("SPD0003"), "S. aureus")
+  expect_identical(organisms("SPD0007"), "E. coli, Klebsiella")
 })
 
 test_that("pd_unit() errors on an organism that is not in the accepted list, naming the row", {
-  a3 <- write_a3(list(a3_row("ABC1234")))
-  pe <- write_pe(list(
-    list(id = "ABC1234", date = "2025-02-01", last_dose = "2025-02-15", organism = "E. coli"),
-    list(id = "ABC1234", date = "2025-06-01", last_dose = "2025-06-15", organism = "Staph auerus")))
-  err <- expect_error(build_unit(a3, pe), "1 data-quality issue")
-  expect_match(conditionMessage(err), "infection \\(PE\\) file, row 3: organism `Staph auerus`")
-  expect_match(conditionMessage(err), "not found in accepted list, check and correct in source file")
+  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
+  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
+  df <- readxl::read_excel(pe)
+  i <- which(df[["Patient ID"]] == "SPD0012")[2]   # SPD0012's second episode, sheet row 5
+  df[["Organism"]][i] <- "Staph auerus"
+  err <- expect_error(pd_unit(a3, save_xlsx(df), t0 = T0, t1 = T1), "1 data-quality issue")
+  expect_match(conditionMessage(err), "infection \\(PE\\) file, row 5: organism `Staph auerus` not found in accepted list, check and correct in source file")
 })

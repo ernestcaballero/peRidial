@@ -180,7 +180,7 @@ validate_pd_catheter <- function(x) {
     } else if (!is.na(x$t1)) {
       raw_exposure_days <- as.numeric(x$t1 - x$pd_start_date + 1)
       if (x$total_exposure_days > raw_exposure_days) {
-        stop("total_exposure_days cannot exceed the span between pd_start_date and the reporting period's end (t1), for a still-active catheter with no pd_stop_date.")
+        stop("total_exposure_days cannot exceed the span between pd_start_date and the reporting period's end t1.")
       }
     }
   }
@@ -196,8 +196,7 @@ validate_pd_catheter <- function(x) {
       # checks if patient_id in pd_infection and pd_catheter matches
       if (!identical(infection$patient_id, x$patient_id)) {
         stop("infections[[", i, "]] has patient_id '", infection$patient_id,
-             "', which does not match this catheter's patient_id '",
-             x$patient_id, "'.")
+             "', which does not match this catheter's patient_id '", x$patient_id, "'.")
       }
       # infection_date is required before the window checks below
       if (is.na(infection$infection_date)) {
