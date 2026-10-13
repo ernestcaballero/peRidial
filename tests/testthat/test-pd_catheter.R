@@ -145,8 +145,7 @@ test_that("validate_pd_catheter() errors when an infection's patient_id
     pd_start_date = as.Date("2025-02-10"),
     infections = list(infxn))
   expect_error(validate_pd_catheter(cath),
-               "infections\\[\\[1\\]\\] has patient_id 'WRONG999',
-               which does not match this catheter's patient_id 'ABC1234'.")
+               "infections\\[\\[1\\]\\] has patient_id 'WRONG999', which does not match this catheter's patient_id 'ABC1234'.")
 })
 
 test_that("validate_pd_catheter() errors when an infection has a missing infection_date", {
@@ -181,8 +180,7 @@ test_that("validate_pd_catheter() errors when an infection's infection_date
     pd_start_date = as.Date("2025-02-10"),
     pd_stop_date = as.Date("2025-03-10"),
     infections = list(infxn))
-  expect_error(validate_pd_catheter(cath), "infections\\[\\[1\\]\\] has infection_date after this
-               catheter's pd_stop_date.")
+  expect_error(validate_pd_catheter(cath), "infections\\[\\[1\\]\\] has infection_date after this catheter's pd_stop_date.")
 })
 
 test_that("validate_pd_catheter() errors when n_peritonitis_episodes
@@ -195,8 +193,7 @@ test_that("validate_pd_catheter() errors when n_peritonitis_episodes
     n_peritonitis_episodes = 5,   # actual count is only 1
     peritonitis_flag = TRUE)
   expect_error(validate_pd_catheter(cath),
-               "n_peritonitis_episodes does not match the number of infections
-               falling within this catheter's active window and \\[t0, t1\\].")
+               "n_peritonitis_episodes does not match the number of infections falling within this catheter's active window and \\[t0, t1\\].")
 })
 
 test_that("validate_pd_catheter errors when peritonitis_flag
@@ -209,8 +206,7 @@ test_that("validate_pd_catheter errors when peritonitis_flag
     n_peritonitis_episodes = 1,    # correct
     peritonitis_flag = FALSE)      # wrong = should be TRUE since count > 0
   expect_error(validate_pd_catheter(cath),
-               "peritonitis_flag does not match whether any infection
-               falls within this catheter's active window and \\[t0, t1\\].")
+               "peritonitis_flag does not match whether any infection falls within this catheter's active window and \\[t0, t1\\].")
 })
 
 test_that("validate_pd_catheter() passes with a valid nested infection

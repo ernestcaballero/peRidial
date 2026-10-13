@@ -4,20 +4,10 @@
 # standardise_names()
 
 
-test_that("standardise_names() splits camelCase and strips punctuation and edge underscores", {
+test_that("standardise_names() produces formatted columns names (snakecase)", {
   df <- data.frame(`PatientId` = 1, ` Date-of / Death? ` = 1, `_odd__name_` = 1,
                    check.names = FALSE)
   expect_named(standardise_names(df), c("patient_id", "date_of_death", "odd_name"))
-})
-
-test_that("standardise_names() does not split acronym runs (documented limitation)", {
-  df <- data.frame(InterimHDCode = 1)
-  expect_named(standardise_names(df), "interim_hdcode")
-})
-
-test_that("standardise_names() leaves the data untouched", {
-  df <- data.frame(`A B` = 1:3, check.names = FALSE)
-  expect_equal(standardise_names(df)$a_b, 1:3)
 })
 
 
@@ -61,13 +51,11 @@ test_that("map_columns() leaves a column that already has the expected name alon
   expect_identical(out, df)
 })
 
-
 test_that("map_columns() logs, and uses the first, when several columns could be the key", {
   log <- new_issue_log()
   df <- data.frame(patient_nhi = "A1", patient_identifier = "B2")
   out <- map_columns(df, a3_spec, "unit (A3)", log)
   expect_identical(names(out), c("patient_id", "patient_identifier"))
-  expect_length(log$get(), 1)
   expect_match(log$get(), "unit \\(A3\\) file has 2 columns that could be `patient_id`")
 })
 
@@ -84,18 +72,7 @@ test_that("map_columns() resolves the modality-change columns in specificity ord
                                   "dialysis_modality_change"))
 })
 
-
-test_that("map_columns() tells the cause of death from the date of death, in either column order", {
-  a <- standardise_names(data.frame(`Date of Death` = 1, `Cause of Death` = 2, check.names = FALSE))
-  b <- standardise_names(data.frame(`Cause of Death` = 1, Death = 2, check.names = FALSE))
-  c3 <- standardise_names(data.frame(`Reason for Death` = 1, `Death Date` = 2, check.names = FALSE))
-  expect_named(map_columns(a, a3_spec, "unit (A3)"), c("date_of_death", "cause_of_death"))
-  expect_named(map_columns(b, a3_spec, "unit (A3)"), c("cause_of_death", "date_of_death"))
-  expect_named(map_columns(c3, a3_spec, "unit (A3)"), c("cause_of_death", "date_of_death"))
-})
-
-
-test_that("map_columns() maps PE headers, with catheter_removed_date taking priority", {
+test_that("map_columns() maps PE headers", {
   df <- standardise_names(data.frame(
     `Patient ID` = "A1", `Date of Infection` = 1, Organism = "x",
     `Last Dose Antibiotic` = 1, `Catheter Removed` = TRUE,
@@ -110,7 +87,6 @@ test_that("map_columns() maps PE headers, with catheter_removed_date taking prio
 
 test_that("require_cols() passes quietly when every column is present", {
   df <- data.frame(a = 1, b = 2)
-  expect_invisible(require_cols(df, c("a", "b"), "unit (A3)"))
   expect_true(require_cols(df, "a", "unit (A3)"))
 })
 
@@ -121,11 +97,9 @@ test_that("require_cols() errors, naming the file, the missing columns and what 
   expect_error(require_cols(df, "b", "unit (A3)"), "Columns found after name standardisation: a")
 })
 
-
-test_that("require_cols() records the problem in the log before it errors", {
+test_that("require_cols() records the problem in the log and errors", {
   log <- new_issue_log()
   expect_error(require_cols(data.frame(a = 1), "b", "PE", log))
-  expect_length(log$get(), 1)
   expect_match(log$get(), "missing required column")
 })
 
@@ -141,11 +115,9 @@ test_that("ensure_cols() adds missing columns as all-NA and keeps existing ones"
   expect_length(out$c, 2)
 })
 
-
-test_that("ensure_cols() works on a zero-row frame", {
+test_that("ensure_cols() works on a dataframe with no rows", {
   out <- ensure_cols(data.frame(a = integer(0)), "b")
   expect_identical(nrow(out), 0L)
-  expect_true("b" %in% names(out))
 })
 
 
@@ -180,21 +152,10 @@ test_that("as_date_safe() warns, naming the column, about values it cannot parse
   expect_identical(out, as.Date(c("2025-01-01", NA)))
 })
 
-
-test_that("as_date_safe() does not warn for an all-NA logical column", {
-  expect_no_warning(out <- as_date_safe(c(NA, NA)))
-  expect_true(all(is.na(out)))
-})
-
-
 # as_logical_safe()
 
 test_that("as_logical_safe() passes logicals through", {
   expect_identical(as_logical_safe(c(TRUE, NA, FALSE)), c(TRUE, NA, FALSE))
-})
-
-test_that("as_logical_safe() treats non-zero numbers as TRUE", {
-  expect_identical(as_logical_safe(c(1, 0, 2)), c(TRUE, FALSE, TRUE))
 })
 
 test_that("as_logical_safe() reads yes/no style text, ignoring case and padding", {

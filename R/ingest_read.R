@@ -6,30 +6,35 @@
 #' Standardise raw column names to snake_case
 #' @noRd
 standardise_names <- function(df) {
-  nms <- trimws(names(df))
+  nms <- trimws(names(df))                           # trim whitespace
   nms <- gsub("([a-z0-9])([A-Z])", "\\1_\\2", nms)   # camelCase -> camel_Case
   nms <- gsub("[^A-Za-z0-9]+", "_", nms)             # spaces/punctuation -> _
-  nms <- tolower(nms)
-  nms <- gsub("_+", "_", nms)
-  nms <- gsub("^_|_$", "", nms)
-  names(df) <- nms
+  nms <- tolower(nms)                                # lowercase
+  nms <- gsub("_+", "_", nms)                        # collapse repeated _
+  nms <- gsub("^_|_$", "", nms)                      # drop leading/trailing _
+  names(df) <- nms                                   # set cleaned names
   df
 }
 
 
 
 #' Test a standardised column name against a keyword, returns TRUE or FALSE
+#'
+#' exact: name equals one of these will be TRUE straight away
+#' all: name must contain every keyword
+#' any: name must contain at least one keyword (ignored if NULL)
+#' a rule with no all/any (and no exact hit) never matches
 #' @noRd
 matches_keywords <- function(name, rule) {
-  if (name %in% rule$exact) {
+  if (name %in% rule$exact) {                         # exact name wins
     return(TRUE)
   }
-  if (is.null(rule$all) && is.null(rule$any)) {
+  if (is.null(rule$all) && is.null(rule$any)) {       # nothing else to test
     return(FALSE)
   }
-  has <- function(kw) grepl(kw, name, fixed = TRUE)
-  all_ok <- all(vapply(rule$all, has, logical(1)))
-  any_ok <- is.null(rule$any) || any(vapply(rule$any, has, logical(1)))
+  has <- function(kw) grepl(kw, name, fixed = TRUE)   # literal substring check
+  all_ok <- all(vapply(rule$all, has, logical(1)))    # every `all` keyword present
+  any_ok <- is.null(rule$any) || any(vapply(rule$any, has, logical(1)))  # >=1 `any` keyword present
   all_ok && any_ok
 }
 
@@ -41,23 +46,23 @@ matches_keywords <- function(name, rule) {
 map_columns <- function(df, spec, what, log = NULL) {
   nms <- names(df)
   new_nms <- nms
-  claimed <- nms %in% names(spec)
+  claimed <- nms %in% names(spec)     # columns already have a standard name are claimed
 
-  for (key in setdiff(names(spec), nms)) {
+  for (key in setdiff(names(spec), nms)) {          # skip keys the file already has
     is_hit <- vapply(nms, matches_keywords, logical(1), rule = spec[[key]],
-                     USE.NAMES = FALSE)
+                     USE.NAMES = FALSE)             # which columns fit this key's rule and aren't already claimed
     hits <- which(is_hit & !claimed)
-    if (length(hits) == 0) {
+    if (length(hits) == 0) {                        # no match: leave key unmapped
       next
     }
-    if (length(hits) > 1 && !is.null(log)) {
+    if (length(hits) > 1 && !is.null(log)) {        # warn, use the first
       log$add("The ", what, " file has ", length(hits), " columns that could be `",
               key, "` (", paste(nms[hits], collapse = ", "), "); used `",
               nms[hits[1]], "`. Rename the columns in the source file if that is wrong.",
               level = "warning")
     }
-    new_nms[hits[1]] <- key
-    claimed[hits[1]] <- TRUE
+    new_nms[hits[1]] <- key                         # rename the first match to the standard name
+    claimed[hits[1]] <- TRUE                        # so later keys can't claim it
   }
 
   names(df) <- new_nms
