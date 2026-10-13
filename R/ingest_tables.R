@@ -5,7 +5,7 @@
 #' Flatten patient_list into the unit's patients tibble
 #' @noRd
 patients_to_tibble <- function(patient_list, t0, t1, details = character(0)) {
-  if (length(patient_list) == 0) {
+  if (length(patient_list) == 0) {          # if no patients, return a zero-row tibble with the full column types
     return(tibble::tibble(
       patient_id = character(0), t0 = as.Date(character(0)),
       t1 = as.Date(character(0)), new_patient_flag = logical(0),
@@ -21,9 +21,8 @@ patients_to_tibble <- function(patient_list, t0, t1, details = character(0)) {
     ))
   }
 
-  # computed before tibble(), which evaluates its arguments in a data mask
   ids <- vapply(patient_list, function(p) p$patient_id, character(1))
-
+  # earliest PD start across the patient's catheters (do.call(c, ...) keeps the Date class)
   first_start <- do.call(c, lapply(patient_list, function(p) {
     starts <- do.call(c, lapply(p$catheters, function(cath) cath$pd_start_date))
     if (is.null(starts) || length(starts) == 0) as.Date(NA) else min(starts)
@@ -35,9 +34,9 @@ patients_to_tibble <- function(patient_list, t0, t1, details = character(0)) {
 
   tibble::tibble(
     patient_id = ids,
-    t0 = rep(t0, length(patient_list)),
+    t0 = rep(t0, length(patient_list)),        # period repeated on every row
     t1 = rep(t1, length(patient_list)),
-    new_patient_flag = vapply(patient_list,
+    new_patient_flag = vapply(patient_list,    # vapply with an explicit type fails loudly if a field comes back the wrong type
                               function(p) as.logical(p$new_patient_flag),
                               logical(1)),
     n_catheters = vapply(patient_list,
@@ -46,7 +45,7 @@ patients_to_tibble <- function(patient_list, t0, t1, details = character(0)) {
                         function(p) as.numeric(p$n_episodes), numeric(1)),
     gender = vapply(patient_list, function(p) as.character(p$gender), character(1)),
     ethnicity = vapply(patient_list, function(p) as.character(p$ethnicity), character(1)),
-    date_of_birth = do.call(c, lapply(patient_list, function(p) p$date_of_birth)),
+    date_of_birth = do.call(c, lapply(patient_list, function(p) p$date_of_birth)),   # c() keeps Date class
     primary_kidney_disease = vapply(patient_list,
                                     function(p) as.character(p$primary_kidney_disease),
                                     character(1)),
@@ -60,8 +59,8 @@ patients_to_tibble <- function(patient_list, t0, t1, details = character(0)) {
                              function(p) as.character(p$transfer_reason),
                              character(1)),
     transfer_date = do.call(c, lapply(patient_list, function(p) p$transfer_date)),
-    transfer_detail = unname(ifelse(ids %in% names(details),
-                                    details[ids], NA_character_)),
+    # look up the censoring detail by patient id; NA where there is none
+    transfer_detail = unname(ifelse(ids %in% names(details), details[ids], NA_character_)),
     first_pd_start_date = first_start,
     patient_years_at_risk = py
   )
@@ -73,10 +72,10 @@ patients_to_tibble <- function(patient_list, t0, t1, details = character(0)) {
 #' Flatten every catheter in patient_list into the unit's catheters tibble
 #' @noRd
 catheters_to_tibble <- function(patient_list, t0, t1) {
-  caths <- unlist(lapply(patient_list, function(p) p$catheters),
+  caths <- unlist(lapply(patient_list, function(p) p$catheters),      # one flat list of all catheters across patients
                   recursive = FALSE, use.names = FALSE)
 
-  if (length(caths) == 0) {
+  if (length(caths) == 0) {       # no catheters will produce zero-row tibble with the full column types
     return(tibble::tibble(
       patient_id = character(0), catheter_id = character(0),
       insertion_date = as.Date(character(0)), procedure_type = character(0),
@@ -91,7 +90,7 @@ catheters_to_tibble <- function(patient_list, t0, t1) {
     rep(list(p$transfer_date), length(p$catheters))
   }), recursive = FALSE, use.names = FALSE)
 
-  # computed before tibble(), which evaluates its arguments in a data mask
+  # computed before tibble()
   exposure <- vapply(seq_along(caths), function(i) {
     catheter_exposure_days(caths[[i]], t0, t1, tau = taus[[i]])
   }, numeric(1))
@@ -99,7 +98,7 @@ catheters_to_tibble <- function(patient_list, t0, t1) {
   tibble::tibble(
     patient_id = vapply(caths, function(z) z$patient_id, character(1)),
     catheter_id = vapply(caths, function(z) z$catheter_id, character(1)),
-    insertion_date = do.call(c, lapply(caths, function(z) z$insertion_date)),
+    insertion_date = do.call(c, lapply(caths, function(z) z$insertion_date)),    # c() keeps Date class
     procedure_type = vapply(caths, function(z) as.character(z$procedure_type),
                             character(1)),
     pd_start_date = do.call(c, lapply(caths, function(z) z$pd_start_date)),
@@ -116,11 +115,12 @@ catheters_to_tibble <- function(patient_list, t0, t1) {
 }
 
 
+
 #' Flatten every peritonitis episode into the unit's infections tibble
 #' @noRd
 infections_to_tibble <- function(patient_list, t0, t1) {
   rows <- list()
-
+  # patient -> catheter -> episode, one tibble row per episode
   for (p in patient_list) {
     for (cath in p$catheters) {
       for (inf in cath$infections) {
@@ -133,7 +133,7 @@ infections_to_tibble <- function(patient_list, t0, t1) {
           catheter_id = cath$catheter_id,
           infection_date = inf$infection_date,
           episode_type = as.character(inf$episode_type),
-          organisms = paste(unlist(inf$organism_list), collapse = ", "),
+          organisms = paste(unlist(inf$organism_list), collapse = ", "),     # list -> one string
           n_organisms = length(inf$organism_list),
           last_dose_antibiotic = inf$last_dose_antibiotic,
           outcome = as.character(inf$outcome),
@@ -143,7 +143,7 @@ infections_to_tibble <- function(patient_list, t0, t1) {
       }
     }
   }
-
+  # no episodes will produce zero-row tibble with the full column types
   if (length(rows) == 0) {
     return(tibble::tibble(
       patient_id = character(0), catheter_id = character(0),
@@ -153,9 +153,8 @@ infections_to_tibble <- function(patient_list, t0, t1) {
       outcome_date = as.Date(character(0)), counts_toward_rate = logical(0)
     ))
   }
-
-  out <- do.call(rbind, rows)
-  out[order(out$patient_id, out$infection_date), ]
+  out <- do.call(rbind, rows)                           # stack the one-row tibbles
+  out[order(out$patient_id, out$infection_date), ]      # sort by patient, then date
 }
 
 

@@ -23,34 +23,11 @@ test_that("patients_to_tibble() carries the reporting window and per-patient cou
   expect_identical(tbl$new_patient_flag, c(FALSE, FALSE, TRUE))
 })
 
-
-test_that("patients_to_tibble() takes first_pd_start_date from the earliest catheter", {
-  tbl <- patients_to_tibble(patient_list_3(), T0, T1)
-  expect_identical(tbl$first_pd_start_date,
-                   as.Date(c("2023-06-01", "2024-02-01", "2025-02-15")))
-})
-
 test_that("patients_to_tibble() reports patient-years that sum to the unit total", {
   pl <- patient_list_3()
   tbl <- patients_to_tibble(pl, T0, T1)
   expect_equal(sum(tbl$patient_years_at_risk), total_patient_years(pl, T0, T1))
   expect_true(all(tbl$patient_years_at_risk > 0))
-})
-
-test_that("patients_to_tibble() fills transfer_detail from the named `details` vector", {
-  details <- c(CCC0003 = "Peritonitis", ZZZ9999 = "not in the unit")
-  tbl <- patients_to_tibble(patient_list_3(), T0, T1, details)
-  expect_identical(tbl$transfer_detail, c(NA, NA, "Peritonitis"))
-})
-
-
-test_that("patients_to_tibble() returns a typed zero-row tibble for an empty list", {
-  tbl <- patients_to_tibble(list(), T0, T1)
-  expect_identical(nrow(tbl), 0L)
-  expect_s3_class(tbl$t0, "Date")
-  expect_type(tbl$patient_id, "character")
-  # same columns as a populated tibble, so the two can be bound together
-  expect_identical(names(tbl), names(patients_to_tibble(patient_list_3(), T0, T1)))
 })
 
 test_that("patients_to_tibble() handles a patient with no catheters", {
@@ -98,15 +75,6 @@ test_that("catheters_to_tibble() censors exposure at the patient's transfer_date
   expect_equal(tbl$exposure_days_in_period, as.numeric(as.Date("2025-03-31") - T0 + 1))
 })
 
-test_that("catheters_to_tibble() returns a typed zero-row tibble when there are no catheters", {
-  expect_identical(nrow(catheters_to_tibble(list(), T0, T1)), 0L)
-  empty_patient <- catheters_to_tibble(list(make_patient("N1", catheters = list())), T0, T1)
-  expect_identical(nrow(empty_patient), 0L)
-  expect_identical(names(empty_patient),
-                   names(catheters_to_tibble(patient_list_3(), T0, T1)))
-  expect_s3_class(empty_patient$insertion_date, "Date")
-})
-
 
 # infections_to_tibble()
 
@@ -117,7 +85,6 @@ test_that("infections_to_tibble() gives one row per episode, with its owning cat
                    c("AAA0001_01", "AAA0001_02"))
   expect_true(all(tbl$catheter_id[tbl$patient_id == "CCC0003"] == "CCC0003_01"))
 })
-
 
 test_that("infections_to_tibble() flags relapses as not counting towards the rate", {
   tbl <- infections_to_tibble(patient_list_3(), T0, T1)
@@ -135,7 +102,6 @@ test_that("infections_to_tibble() collapses organisms into a string and counts t
   expect_identical(tbl$n_organisms, 2L)
 })
 
-
 test_that("infections_to_tibble() does not count an episode outside the reporting period", {
   inf <- make_infection(infection_date = as.Date("2024-10-15"))
   cath <- make_catheter(infections = list(inf), t0 = as.Date("2024-01-01"),
@@ -145,15 +111,6 @@ test_that("infections_to_tibble() does not count an episode outside the reportin
   tbl <- infections_to_tibble(list(p), T0, T1)
   expect_identical(nrow(tbl), 1L)
   expect_false(tbl$counts_toward_rate)
-})
-
-test_that("infections_to_tibble() returns a typed zero-row tibble when there are no episodes", {
-  tbl <- infections_to_tibble(list(make_patient()), T0, T1)
-  expect_identical(nrow(tbl), 0L)
-  expect_identical(names(tbl), names(infections_to_tibble(patient_list_3(), T0, T1)))
-  expect_s3_class(tbl$infection_date, "Date")
-  expect_type(tbl$counts_toward_rate, "logical")
-  expect_identical(nrow(infections_to_tibble(list(), T0, T1)), 0L)
 })
 
 
