@@ -18,6 +18,7 @@ standardise_names <- function(df) {
 
 
 
+
 #' Test a standardised column name against a keyword, returns TRUE or FALSE
 #'
 #' exact: name equals one of these will be TRUE straight away
@@ -71,34 +72,22 @@ map_columns <- function(df, spec, what, log = NULL) {
 
 
 
-#' Error if a data frame is missing columns that are required
-#'
-#' Used on the raw files (\code{kind = "file"}, after name standardisation) and
-#' on the unit's own tibbles when validating (\code{kind = "table"}). A missing
-#' required column is recorded in \code{log} if one is given, and an error is raised.
-#'
-#' @param df A data frame.
-#' @param cols Character vector of required column names.
-#' @param what Character. Name of the file or table, used in the message.
-#' @param log Optional issue log from \code{new_issue_log()}.
-#' @param kind Character. \code{"file"} (default) or \code{"table"}; the word
-#'   used after \code{what} in the message.
-#'
-#' @return Invisibly \code{TRUE}; errors otherwise.
+
+#' Stop if required columns are absent; record the problem in the issue log if given
 #' @noRd
 require_cols <- function(df, cols, what, log = NULL, kind = c("file", "table")) {
-  kind <- match.arg(kind)
-  missing <- setdiff(cols, names(df))
+  kind <- match.arg(kind)                            # "file"=raw sheet or "table"=unit tibble
+  missing <- setdiff(cols, names(df))                # required names the data frame lacks
   if (length(missing) > 0) {
     msg <- paste0("The ", what, " ", kind, " is missing required column(s): ",
                   paste0("`", missing, "`", collapse = ", "), ".")
     if (!is.null(log)) {
-      log$add(msg)
+      log$add(msg)                                   # log first
     }
     stop(msg,
          "\nColumns found",
          if (kind == "file") " after name standardisation",
-         ": ", paste(names(df), collapse = ", "),
+         ": ", paste(names(df), collapse = ", "),    # show what was found
          call. = FALSE)
   }
   invisible(TRUE)
@@ -106,11 +95,11 @@ require_cols <- function(df, cols, what, log = NULL, kind = c("file", "table")) 
 
 
 
-#' Missing optional columns will have all-NA
-#' @noRd
+
+# Add any missing optional columns, filled with NA, so later code can rely on them
 ensure_cols <- function(df, cols, type = NA) {
   for (nm in setdiff(cols, names(df))) {
-    df[[nm]] <- rep(type, nrow(df))
+    df[[nm]] <- rep(type, nrow(df))  # one NA per row
   }
   df
 }
@@ -118,24 +107,20 @@ ensure_cols <- function(df, cols, type = NA) {
 
 
 
-#' Coerce a raw column to Date (handling for POSIXct, bare numeric Excel serial or as character date formatting)
+#' Coerce a raw column to Date, whatever format readxl delivered it in
 #' @noRd
 as_date_safe <- function(x, col_name = "date", format = "%Y-%m-%d") {
-  if (inherits(x, "Date")) {
+  if (inherits(x, "Date")) {                         # already a Date
     return(x)
   }
-  # readxl reads Excel dates/datetimes as POSIXct in UTC; converting in any
-  # other timezone can shift the calendar date by 1 day
-  if (inherits(x, "POSIXt")) {
-    return(as.Date(x, tz = "UTC"))
+  if (inherits(x, "POSIXt")) {                       # Excel date/time: convert in UTC, or the
+    return(as.Date(x, tz = "UTC"))                   # calendar day can shift by one
   }
-  # a bare Excel serial number
-  if (is.numeric(x)) {
-    return(as.Date(x, origin = "1899-12-30"))
+  if (is.numeric(x)) {                               # bare Excel serial number
+    return(as.Date(x, origin = "1899-12-30"))        # day-zero
   }
-  # character, or an all-NA/blank column if cannot be parsed
-  out <- as.Date(trimws(as.character(x)), format = format)
-  unparsed <- is.na(out) & !is.na(x)
+  out <- as.Date(trimws(as.character(x)), format = format)   # text dates, YYYY-MM-DD by default
+  unparsed <- is.na(out) & !is_blank_cell(x)           # had a value but it didn't parse
   if (any(unparsed)) {
     warning("Could not parse ", sum(unparsed), " value(s) in `", col_name,
             "` as a date (e.g. \"", as.character(x)[unparsed][1], "\"); set to NA.")
@@ -146,49 +131,42 @@ as_date_safe <- function(x, col_name = "date", format = "%Y-%m-%d") {
 
 
 
-
 #' Coerce a raw yes/no column to logical
 #' @noRd
 as_logical_safe <- function(x) {
-  if (is.logical(x)) {
+  if (is.logical(x)) {                                   # leave as is if already logical
     return(x)
   }
-  if (is.numeric(x)) {
+  if (is.numeric(x)) {                                   # if numbers: 0 = FALSE, anything else = TRUE
     return(x != 0)
   }
   if (is.character(x)) {
-    v <- tolower(trimws(x))
-    out <- rep(NA, length(v))
+    v <- tolower(trimws(x))                              # to lowercase and trim ws
+    out <- rep(NA, length(v))                            # unrecognised text stays NA
     out[v %in% c("y", "yes", "true", "t", "1")] <- TRUE
-    out[v %in% c("n", "no", "false", "f", "0", "")] <- FALSE
+    out[v %in% c("n", "no", "false", "f", "0", "")] <- FALSE   # blank cell counts as FALSE
     return(out)
   }
-  as.logical(x)
+  as.logical(x)                                          # fallback for other types
 }
 
 
 
 
-#' Collect data-quality problems
-#'
-#' \code{add()} pastes its arguments into one message. \code{level} is
-#' \code{"error"} (a gap in the source data, which stops the build) or
-#' \code{"warning"} (an assumption the build made and carries on with, kept on
-#' the unit). \code{get(level)} returns the messages of that level;
-#' \code{level = NULL} (the default) returns every message.
+#' Make an issue log: a small closure that collects messages while a unit is built
 #' @noRd
 new_issue_log <- function() {
-  issues <- character(0)
-  kinds <- character(0)
+  issues <- character(0)                       # message text
+  kinds <- character(0)                        # "error" or "warning"
   list(
     add = function(..., level = "error") {
-      level <- match.arg(level, c("error", "warning"))
-      issues <<- c(issues, paste0(...))
+      level <- match.arg(level, c("error", "warning"))   # reject any other level
+      issues <<- c(issues, paste0(...))        # <<- updates the log's own vectors, not a local copy
       kinds <<- c(kinds, level)
       invisible(NULL)
     },
     get = function(level = NULL) {
-      if (is.null(level)) issues else issues[kinds %in% level]
+      if (is.null(level)) issues else issues[kinds %in% level]   # all messages, or one level only
     }
   )
 }
@@ -197,23 +175,22 @@ new_issue_log <- function() {
 
 
 
-#' Stop with every accumulated data-quality error, if there are any
-#' Fix the source data and re-run until none remain.
-#' Issues logged at level \code{"warning"} do not stop the build.
+#' Stop the build with all collected data-quality errors at once (warnings are ignored here)
 #' @noRd
 report_issues <- function(log) {
-  issues <- log$get("error")
-  if (length(issues) == 0) {
+  issues <- log$get("error")                         # error-level messages only
+  if (length(issues) == 0) {                         # carry on silently
     return(invisible(NULL))
   }
-  msg <- paste0(
+  msg <- paste0(                                     # one bulleted message listing every issue
     length(issues), " data-quality issue(s) found while building this unit:\n",
     paste0("  - ", issues, collapse = "\n"),
     "\nCorrect these in the source data and re-run."
   )
+  # R truncates error text longer than options(warning.length, default 1000 bytes); so leave ~150 bytes of headroom
   if (nchar(msg, type = "bytes") > getOption("warning.length", 1000L) - 150L) {
-    message(msg)
-    msg <- paste0(
+    message(msg)                                     # print the full list as a message instead...
+    msg <- paste0(                                   # and make the error itself a short pointer
       length(issues), " data-quality issue(s) found while building this unit; ",
       "the full list is printed above. Correct them in the source data and re-run."
     )
@@ -224,20 +201,20 @@ report_issues <- function(log) {
 
 
 
-#' Test which cells of a column are blank (white-space) then trim. Empty cells are NA from \code{readxl}
+#' TRUE for each cell that is empty: NA, or "" (for text columns) or only whitespace
 #' @noRd
 is_blank_cell <- function(x) {
   if (is.character(x)) {
-    is.na(x) | !nzchar(trimws(x))
+    is.na(x) | !nzchar(trimws(x))   # NA, or nothing left after trimming
   } else {
-    is.na(x)
+    is.na(x)                        # numbers, dates etc. can only be blank as NA
   }
 }
 
 
 
 
-#' Check rows that are missing a required value, log and drop. The row level equivalent for \code{require_cols()}
+#' Row-level version of \code{require_cols()}: log and drop rows with a blank required cell
 #' @noRd
 check_required_cells <- function(df, cols, what, log, id_col = "patient_id",
                                  header_rows = 1L) {
@@ -246,33 +223,33 @@ check_required_cells <- function(df, cols, what, log, id_col = "patient_id",
     return(df)
   }
 
-  blank <- do.call(cbind, lapply(cols, function(cl) is_blank_cell(df[[cl]])))
+  blank <- do.call(cbind, lapply(cols, function(cl) is_blank_cell(df[[cl]])))  # rows x cols matrix of TRUE = blank
   colnames(blank) <- cols
-  bad <- which(rowSums(blank) > 0)
+  bad <- which(rowSums(blank) > 0)    # rows with at least one blank required cell
   if (length(bad) == 0) {
     return(df)
   }
 
   for (i in bad) {
     pid <- as.character(df[[id_col]][i])
-    who <- if (is.na(pid) || !nzchar(trimws(pid))) {
+    who <- if (is.na(pid) || !nzchar(trimws(pid))) {      # name the patient if the ID is present
       "no patient_id"
     } else {
       paste0("patient ", trimws(pid))
     }
     log$add("The ", what, " file, row ", sheet_row(df, i, header_rows), " (", who,
             "): missing required value(s) in ",
-            paste(cols[blank[i, ]], collapse = ", "),
+            paste(cols[blank[i, ]], collapse = ", "),     # which columns were blank in this row
             "; row not checked further, fill in the value(s) in the source file.")
   }
 
-  df[-bad, , drop = FALSE]
+  df[-bad, , drop=FALSE]      # drop bad rows
 }
 
 
 
 
-#' Row number of a data-frame row as it appears in the source sheet
+#' Row number of a data-frame row as it appears in the source sheet, earlier checks may drop rows
 #' @noRd
 sheet_row <- function(df, i, header_rows = 1L) {
   if (".sheet_row" %in% names(df)) df$.sheet_row[i] else i + header_rows
@@ -280,8 +257,7 @@ sheet_row <- function(df, i, header_rows = 1L) {
 
 
 
-
-#' Check if patient_id is a valid NHI format (three letters followed by four digits)
+#' NHI format: three letters then four digits, case-insensitive (ABC1234)
 #' @noRd
 is_valid_nhi <- function(x) {
   x <- toupper(as.character(x))
@@ -290,9 +266,7 @@ is_valid_nhi <- function(x) {
 
 
 
-
-#' Log and drop rows whose patient_id is not a valid NHI number
-#' Blank identifiers are left to \code{check_required_cells()}.
+#' Log and drop rows whose patient_id isn't a valid NHI (blank IDs are left to \code{check_required_cells})
 #' @noRd
 check_patient_ids <- function(df, what, log, id_col = "patient_id", header_rows = 1L) {
   stopifnot(is.data.frame(df), id_col %in% names(df))
@@ -302,9 +276,9 @@ check_patient_ids <- function(df, what, log, id_col = "patient_id", header_rows 
 
   ids <- trimws(as.character(df[[id_col]]))
   blank <- is.na(ids) | !nzchar(ids)
-  bad <- which(!blank & !is_valid_nhi(ids))
+  bad <- which(!blank & !is_valid_nhi(ids))          # present but malformed
   if (length(bad) == 0) {
-    df[[id_col]] <- toupper(ids)
+    df[[id_col]] <- toupper(ids)                     # normalise valid IDs to upper case
     return(df)
   }
 
@@ -315,7 +289,7 @@ check_patient_ids <- function(df, what, log, id_col = "patient_id", header_rows 
   }
 
   df[[id_col]] <- toupper(ids)
-  df[-bad, , drop = FALSE]
+  df[-bad, , drop=FALSE]        # drop bad rows
 }
 
 
@@ -331,7 +305,7 @@ check_known_patients <- function(df, known_ids, what, log, id_col = "patient_id"
   }
 
   ids <- trimws(as.character(df[[id_col]]))
-  bad <- which(!is.na(ids) & nzchar(ids) & !(toupper(ids) %in% toupper(known_ids)))
+  bad <- which(!is.na(ids) & nzchar(ids) & !(toupper(ids) %in% toupper(known_ids)))     # case-insensitive lookup
   if (length(bad) == 0) {
     return(df)
   }
@@ -342,6 +316,5 @@ check_known_patients <- function(df, known_ids, what, log, id_col = "patient_id"
             "attached to a catheter; row not checked further, check the patient_id ",
             "or add the patient to the unit (A3) file.")
   }
-
-  df[-bad, , drop = FALSE]
+  df[-bad, , drop=FALSE]             # drop bad rows
 }

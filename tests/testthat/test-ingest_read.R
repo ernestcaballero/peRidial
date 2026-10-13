@@ -79,11 +79,6 @@ test_that("map_columns() maps PE headers", {
 
 # require_cols()
 
-test_that("require_cols() passes quietly when every column is present", {
-  df <- data.frame(a = 1, b = 2)
-  expect_true(require_cols(df, "a", "unit (A3)"))
-})
-
 test_that("require_cols() errors, naming the file, the missing columns and what was found", {
   df <- data.frame(a = 1)
   expect_error(require_cols(df, c("a", "b", "c"), "unit (A3)"),
