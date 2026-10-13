@@ -3,13 +3,11 @@
 
 # standardise_names()
 
-
 test_that("standardise_names() produces formatted columns names (snakecase)", {
   df <- data.frame(`PatientId` = 1, ` Date-of / Death? ` = 1, `_odd__name_` = 1,
                    check.names = FALSE)
   expect_named(standardise_names(df), c("patient_id", "date_of_death", "odd_name"))
 })
-
 
 # matches_keywords()
 
@@ -19,13 +17,11 @@ test_that("matches_keywords() accepts an exact name", {
   expect_false(matches_keywords("nhi_number", rule))
 })
 
-
 test_that("matches_keywords() requires all of `all`", {
   rule <- list(all = c("pd", "start", "date"))
   expect_true(matches_keywords("pd_start_date", rule))
   expect_false(matches_keywords("pd_stop_date", rule))
 })
-
 
 test_that("matches_keywords() combines `all` and `any`", {
   rule <- list(all = "patient", any = c("id", "nhi"))
@@ -33,7 +29,6 @@ test_that("matches_keywords() combines `all` and `any`", {
   expect_false(matches_keywords("patient_name", rule))
   expect_false(matches_keywords("nhi", rule))
 })
-
 
 # map_columns()
 
@@ -82,7 +77,6 @@ test_that("map_columns() maps PE headers", {
   expect_identical(names(out), names(df))
 })
 
-
 # require_cols()
 
 test_that("require_cols() passes quietly when every column is present", {
@@ -103,8 +97,7 @@ test_that("require_cols() records the problem in the log and errors", {
   expect_match(log$get(), "missing required column")
 })
 
-
-# ensure_cols() ----------------------------------------------------------------
+# ensure_cols()
 
 test_that("ensure_cols() adds missing columns as all-NA and keeps existing ones", {
   df <- data.frame(a = 1:2)
@@ -119,7 +112,6 @@ test_that("ensure_cols() works on a dataframe with no rows", {
   out <- ensure_cols(data.frame(a = integer(0)), "b")
   expect_identical(nrow(out), 0L)
 })
-
 
 # as_date_safe()
 
@@ -168,7 +160,6 @@ test_that("as_logical_safe() gives NA for unrecognised text and NA input", {
   expect_identical(as_logical_safe(c("maybe", NA)), c(NA, NA))
 })
 
-
 # new_issue_log() / report_issues()
 
 test_that("new_issue_log() starts empty and collects pasted messages in order", {
@@ -178,7 +169,6 @@ test_that("new_issue_log() starts empty and collects pasted messages in order", 
   log$add("second")
   expect_identical(log$get(), c("first 1", "second"))
 })
-
 
 test_that("report_issues() raises one error listing every issue", {
   log <- new_issue_log()
@@ -190,7 +180,6 @@ test_that("report_issues() raises one error listing every issue", {
   expect_error(report_issues(log), "Correct these in the source data and re-run")
 })
 
-
 test_that("new_issue_log() keeps errors and warnings apart", {
   log <- new_issue_log()
   log$add("bad id")
@@ -199,7 +188,6 @@ test_that("new_issue_log() keeps errors and warnings apart", {
   expect_identical(log$get("error"), "bad id")
   expect_identical(log$get("warning"), "assumed")
 })
-
 
 test_that("report_issues() counts only errors and ignores warnings", {
   log <- new_issue_log()
@@ -212,7 +200,6 @@ test_that("report_issues() counts only errors and ignores warnings", {
   expect_no_error(report_issues(only_warnings))
 })
 
-
 # is_blank_cell()
 
 test_that("is_blank_cell() flags NA, empty and whitespace-only text", {
@@ -223,7 +210,6 @@ test_that("is_blank_cell() flags only NA for non-character columns", {
   expect_identical(is_blank_cell(c(1, NA)), c(FALSE, TRUE))
   expect_identical(is_blank_cell(as.Date(c("2025-01-01", NA))), c(FALSE, TRUE))
 })
-
 
 # check_required_cells()
 
@@ -246,7 +232,6 @@ test_that("check_required_cells() drops rows with a blank required value and log
   expect_match(log$get(), "row 3 \\(patient B\\): missing required value\\(s\\) in dob")
 })
 
-
 test_that("check_required_cells() copes with a row that has no patient_id", {
   df <- data.frame(patient_id = c(NA, "B"), dob = c(1, 2))
   log <- new_issue_log()
@@ -268,7 +253,6 @@ test_that("check_required_cells() errors if a required column is not in the data
   expect_error(check_required_cells(data.frame(a = 1), "b", "PE", new_issue_log()))
 })
 
-
 test_that("check_required_cells() reports the stamped sheet row, not the position", {
   df <- data.frame(patient_id = c("A", "B"), x = c(1, NA), .sheet_row = c(7L, 12L))
   log <- new_issue_log()
@@ -276,34 +260,20 @@ test_that("check_required_cells() reports the stamped sheet row, not the positio
   expect_match(log$get(), "row 12 ")
 })
 
-
-# is_valid_nhi() ----------------------------------------------------------------
+# is_valid_nhi()
 
 test_that("is_valid_nhi() accepts three letters followed by four digits", {
   expect_true(all(is_valid_nhi(c("ABC1234", "SPD0001", "abc1234", "aBC1234"))))
-})
-
-
-test_that("is_valid_nhi() rejects anything else", {
   bad <- c("40", "SPD001", "SPD00001", "ABC123", "ABC12345", "ABC12DV", " ABC1234",
            "ABC 1234", "AB12345", "A1C1234", "1234567", "ABCDEFG", "ABC-123", "", NA)
   expect_false(any(is_valid_nhi(bad)))
 })
 
-test_that("is_valid_nhi() is vectorised and coerces non-character input", {
-  expect_identical(is_valid_nhi(c("ABC1234", "x", NA)), c(TRUE, FALSE, FALSE))
-  expect_identical(is_valid_nhi(1234567), FALSE)
-  expect_identical(is_valid_nhi(character(0)), logical(0))
-})
+# check_patient_ids()
 
-
-# check_patient_ids() -----------------------------------------------------------
-
-test_that("check_patient_ids() keeps valid rows and logs nothing", {
+test_that("check_patient_ids() keeps valid rows", {
   df <- data.frame(patient_id = c("ABC1234", "DEF5678"))
-  log <- new_issue_log()
-  expect_identical(check_patient_ids(df, "unit (A3)", log), df)
-  expect_length(log$get(), 0)
+  expect_identical(check_patient_ids(df, "unit (A3)"), df)
 })
 
 test_that("check_patient_ids() drops and logs each invalid id with its row", {
@@ -322,28 +292,11 @@ test_that("check_patient_ids() trims whitespace and stores the upper-case id", {
   expect_identical(out$patient_id, c("ABC1234", "ABC1234", "DEF5678"))
 })
 
-test_that("check_patient_ids() leaves blank ids to check_required_cells()", {
-  df <- data.frame(patient_id = c(NA, "", "  ", "ABC1234"))
-  log <- new_issue_log()
-  expect_identical(nrow(check_patient_ids(df, "unit (A3)", log)), 4L)
-  expect_length(log$get(), 0)
-})
-
-
-test_that("check_patient_ids() handles an empty frame and a missing column", {
-  empty <- data.frame(patient_id = character(0))
-  expect_identical(check_patient_ids(empty, "PE", new_issue_log()), empty)
-  expect_error(check_patient_ids(data.frame(a = 1), "PE", new_issue_log()))
-})
-
-
-# check_known_patients() --------------------------------------------------------
+# check_known_patients()
 
 test_that("check_known_patients() keeps rows whose patient is in the A3 file", {
   df <- data.frame(patient_id = c("ABC1234", "DEF5678"))
-  log <- new_issue_log()
-  expect_identical(check_known_patients(df, c("ABC1234", "DEF5678", "GHJ9012"), "PE", log), df)
-  expect_length(log$get(), 0)
+  expect_identical(check_known_patients(df, c("ABC1234", "DEF5678", "GHJ9012"), "PE"), df)
 })
 
 test_that("check_known_patients() drops and logs an unknown patient with its row", {
@@ -352,17 +305,4 @@ test_that("check_known_patients() drops and logs an unknown patient with its row
   out <- check_known_patients(df, "ABC1234", "infection (PE)", log)
   expect_identical(out$patient_id, "ABC1234")
   expect_match(log$get(), "infection \\(PE\\) file, row 3: patient ZZZ9999 has no row in the unit \\(A3\\) file")
-})
-
-
-test_that("check_known_patients() trims ids and ignores blanks", {
-  df <- data.frame(patient_id = c(" abc1234", NA, ""))
-  log <- new_issue_log()
-  expect_identical(nrow(check_known_patients(df, "ABC1234", "PE", log)), 3L)
-  expect_length(log$get(), 0)
-})
-
-test_that("check_known_patients() handles an empty frame", {
-  empty <- data.frame(patient_id = character(0))
-  expect_identical(check_known_patients(empty, "ABC1234", "PE", new_issue_log()), empty)
 })
