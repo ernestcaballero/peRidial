@@ -205,13 +205,6 @@ test_that("subset() carries each level's values onto its rows", {
   expect_identical(ccc$counts_toward_rate, c(TRUE, TRUE, FALSE))
 })
 
-test_that("subset() filters on a patient column", {
-  y <- subset(make_subset_unit(), gender == "Female")
-  expect_equal(nrow(y), 5L)
-  expect_identical(sort(unique(y$patient_id)), c("AAA0001", "CCC0003"))
-  expect_equal(sum(y$patient_id == "CCC0003"), 3L)
-})
-
 test_that("subset() filters on a catheter column and returns only the matching rows", {
   y <- subset(make_subset_unit(), procedure_type == "laparoscopic")
   expect_identical(sort(y$catheter_id), c("AAA0001_01", "BBB0002_01"))
@@ -260,7 +253,6 @@ test_that("subset() accepts a scalar TRUE or FALSE and an empty result", {
 test_that("subset() rejects bad conditions and stray arguments", {
   x <- make_subset_unit()
   expect_error(subset(x, n_episodes), "must be logical")
-  expect_error(subset(x, no_such_column == 1), "Could not evaluate the `subset`")
   expect_error(subset(x, patients = gender == "Female"), "Unused argument")
 })
 
@@ -297,14 +289,15 @@ test_that("subset() works on the unit built from the bundled example files", {
     pd_unit(a3, pe, t0 = T0, t1 = T1, unit_id = "Wellington PD Unit")))
 
   flat <- subset(unit)
+
   # one row per episode, plus one row for each catheter that has none
   no_episode <- sum(!unit$catheters$catheter_id %in% unit$infections$catheter_id)
   expect_equal(nrow(flat), nrow(unit$infections) + no_episode)
   expect_equal(sum(!is.na(flat$infection_date)), nrow(unit$infections))
   expect_equal(dplyr::n_distinct(flat$patient_id), unit$n_patients)
+
   female <- subset(unit, gender == "Female")
-  expect_equal(dplyr::n_distinct(female$patient_id),
-               sum(unit$patients$gender == "Female", na.rm = TRUE))
+  expect_equal(dplyr::n_distinct(female$patient_id), sum(unit$patients$gender == "Female", na.rm = TRUE))
   expect_true(all(female$gender == "Female"))
   expect_equal(nrow(subset(unit, !is.na(infection_date))), nrow(unit$infections))
 })

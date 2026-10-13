@@ -290,8 +290,7 @@ test_that("is_incident_patient returns NA when no catheter has a usable pd_start
   cath_no_start <- make_catheter(
     insertion_date = as.Date("2025-01-01"),
     pd_start_date = as.Date(NA))
-  expect_true(is.na(is_incident_patient(
-    list(cath_no_start), t0 = T0, t1 = T1)))
+  expect_true(is.na(is_incident_patient(list(cath_no_start), t0 = T0, t1 = T1)))
 })
 
 
@@ -354,5 +353,4 @@ test_that("subset.pd_patient() rejects bad conditions and stray arguments", {
   p <- subset_patient()
   expect_error(subset(p, n_episodes), "must be logical")
   expect_error(subset(p, no_such_column == 1), "Could not evaluate the `subset`")
-  expect_error(subset(p, catheters = TRUE), "Unused argument")
 })

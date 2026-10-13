@@ -132,7 +132,7 @@ find_transplant_date <- function(demo, cath) {
 
 
 
-#' Was the patient on PD at any point in [t0, t1] / reporting period?
+#' Was the patient on PD at any point in reporting period (t0, t1)?
 #' @noRd
 on_pd_in_period <- function(cath, t0, t1, tau = as.Date(NA)) {
   if (nrow(cath) == 0) {      # no catheters, never on PD
