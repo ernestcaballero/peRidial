@@ -1,5 +1,5 @@
 # Tests for R/indicators.R. Shared fixtures live in helper-fixtures.R, which testthat sources before every test file.
-# peritonitis_rate_by_period() and monthly_peritonitis_rate() are already tested in test-plot_pd_unit.R.
+# peritonitis_rate_by_period() and monthly_peritonitis_rate() are already tested in test-method-plot.R.
 
 d <- function(x) as.Date(x)
 
@@ -158,7 +158,7 @@ test_that("total_patient_years() accepts a single-day period (t0 == t1)", {
 })
 
 
-# peritonitis_rate_by_period() / monthly_peritonitis_rate(): cases test-plot_pd_unit.R does not cover
+# peritonitis_rate_by_period() / monthly_peritonitis_rate(): cases test-method-plot.R does not cover
 
 test_that("peritonitis_rate_by_period() computes rate as countable episodes / patient-years", {
   x <- make_unit(infections = tibble::tibble(

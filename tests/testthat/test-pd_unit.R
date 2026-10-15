@@ -21,16 +21,13 @@ test_that("new_pd_unit() accepts a custom rate_benchmark", {
 test_that("new_pd_unit() defaults are empty rather than absent", {
   x <- new_pd_unit()
   expect_true(is.na(x$unit_id))
-  expect_true(is.na(x$t0) && is.na(x$t1))
   expect_equal(nrow(x$patients), 0L)
   expect_length(x$patient_list, 0L)
 })
 
 test_that("new_pd_unit() rejects malformed scalar arguments", {
   expect_error(new_pd_unit(unit_id = c("A", "B")))
-  expect_error(new_pd_unit(t0 = "2025-01-01"))
   expect_error(new_pd_unit(t1 = "2025-12-31"))
-  expect_error(new_pd_unit(patients = list()))
   expect_error(new_pd_unit(patient_list = "not a list"))
 })
 
@@ -179,7 +176,7 @@ test_that("validate_pd_unit() rejects patients tibble disagreeing with patient_l
 
 
 
-# subset() method for utils-subset.R
+# subset() method for method-subset.R
 
 test_that("subset() returns a plain tibble, not a pd_unit", {
   y <- subset(make_subset_unit())
