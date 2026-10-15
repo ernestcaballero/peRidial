@@ -364,9 +364,13 @@ pd_unit <- function(unit_data_path,
   raw_pe_file <- check_known_patients(raw_pe_file, trimws(as.character(raw_a3$patient_id)),
                                       "infection (PE)", log)
 
-  # organisms are matched against the ANZDATA PE form's list and given standard names;
-  # an organism that is not on the list is logged and its row kept as written
+  # organisms are matched against the ANZDATA PE form's list and given standard names
   raw_pe_file <- check_organisms(raw_pe_file, "infection (PE)", log)
+
+  # removal reasons (catheter removal, and the reason for a modality change) are checked
+  # against the accepted list in value_maps.R
+  raw_a3$removal_reason <- standardise_removal_reason(raw_a3$removal_reason)
+  raw_a3$modality_change_reason <- standardise_removal_reason(raw_a3$modality_change_reason)
 
   # tidy the A3 form into patients, catheters and modality changes
   raw_a3 <- raw_a3 |>
