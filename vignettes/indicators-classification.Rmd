@@ -1,0 +1,316 @@
+---
+title: "Calculating ISPD Indicators and Peritonitis Episode Classification"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Calculating ISPD Indicators and Peritonitis Episode Classification}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(peridial)
+```
+
+## Overview
+
+This vignette explains how `peridial` calculates the two peritonitis indicators recommended by the International Society for Peritoneal Dialysis (ISPD) 2022 guideline (Li et al., 2022), the **peritonitis rate** and the **peritonitis-free percentage**, and how it classifies each peritonitis episode as relapsing, recurrent or repeat, which decides whether the episode is counted. It then shows the functions that do this work and the compiled (Rcpp) classifier.
+
+Start with `vignette("peridial", package = "peridial")`, which covers building a unit. The companion `vignette("data-structures", package = "peridial")` describes the objects and tibbles the functions below read, and can be read before or after this one.
+
+```{r unit, warning = FALSE}
+# building this unit warns about SPD0012's first episode, explained in vignette("peridial")
+unit <- pd_unit(
+  unit_data = system.file("extdata", "a3_2025.xlsx", package = "peridial"),
+  infection_data = system.file("extdata", "pe_2025.xlsx", package = "peridial"),
+  t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
+  unit_id = "Wellington PD Unit"
+)
+```
+
+
+## The indicators
+
+### Time at risk
+
+ISPD measures time at risk from the day PD starts and counts it for as long as the patient stays on PD. Days in hospital are not taken off. A catheter's time at risk in the period is
+
+$$
+d = \max\Big(0,\; \min(e,\, t_1,\, \tau) - \max(s,\, t_0) + 1\Big)
+$$
+
+where
+
+- $d$ is the catheter's days at risk in the period (`exposure_days_in_period` in `unit$catheters`);
+- $s$ and $e$ are the dates PD started and stopped through that catheter (`pd_start_date`, `pd_stop_date`). $s$ is the start of time at risk, not the catheter insertion date. If there is no stop date the catheter is still in use (`NA`), and $e$ is left out so that $t_1$ closes the interval;
+- $t_0$ and $t_1$ are the first and last day of the reporting period, both included (`unit$t0`, `unit$t1`);
+- $\tau$ is the date the patient permanently left PD: death, transplant, permanent transfer to haemodialysis (HD) or, by default, the last catheter closing with no successor (that last rule is the `censor_on_last_stop` argument of `pd_unit()`). It applies to the patient, on top of any catheter stop date (`transfer_date` on the patient, with `transfer_reason`). If there is none the patient never left PD, and $\tau$ is left out as well.
+
+The minimum uses whichever of $e$, $t_1$ and $\tau$ are supplied. The $+1$ counts both end days, so a catheter that delivers PD on a single day contributes one day, not zero. The unit's patient-years are the total days at risk, converted to years with a 365.25-day year:
+
+$$
+PY = \frac{\sum d}{365.25}
+$$
+
+where the sum runs over every catheter of every patient in the cohort, and $PY$ is the unit's total patient-years at risk (`unit$tpyar`). The same sum over one patient's catheters is that patient's time at risk (`patient_years_at_risk` in `unit$patients`).
+
+The cohort is the $N$ patients with at least one day on PD inside the reporting period (`unit$n_patients`; one row of `unit$patients` each). A patient is in the cohort only if the formula above gives them more than zero days, so $N > 0$ guarantees $PY > 0$. An empty cohort has no rate or percentage: both are `NA`.
+
+### Peritonitis rate
+
+$$
+\text{rate} = \frac{E}{PY}
+\qquad \text{(episodes per patient-year)}
+$$
+
+where $E$ is the number of *countable* episodes in the cohort (`counts_toward_rate` in `unit$infections`; `n_episodes` for each patient in `unit$patients`) and $PY$ is as above. An episode is countable only if
+
+1. its infection date lies inside the active window of the catheter it belongs to, which is $[\max(s, t_0),\; \min(e, t_1, \tau)]$, the same dates that bound the exposure above, so the numerator and the patient-years cover the same time; and
+2. it is not a *relapsing* episode.
+
+ISPD treats a relapse as an extension of the original episode, so only the original is counted. Recurrent and repeat episodes are new episodes and are counted, and so is an episode whose type is `NA` (see the next section). The ISPD 2022 target is a rate of no more than 0.40 episodes per patient-year.
+
+### Peritonitis-free percentage
+
+$$
+\text{PF} = \frac{N_0}{N}
+$$
+
+where $N$ is the number of patients in the cohort and $N_0$ is how many of them had no countable episode in the period (`n_episodes == 0`).
+
+The ISPD 2022 target is more than 80% of patients peritonitis-free per year.
+
+Two things follow from the definition:
+
+- A patient whose only episode in the period was relapsing has no countable episode and counts as peritonitis-free, because the relapse is an extension of an earlier episode.
+- The target is per year. A shorter or longer period gives a percentage that is not comparable with it, because a patient has less or more time to have an episode. `summary()` still calculates it, but raises a warning when the reporting period is not one year (365 or 366 days). The rate is per patient-year, so it is not affected.
+
+The benchmarks are stored on the unit as `rate_benchmark` and `pf_benchmark`, and can be changed in `pd_unit()`.
+
+
+## Classifying episodes
+
+ISPD 2022 classifies an episode by comparing it with the same patient's previous episode. The date that matters is the end of treatment, the last day of antibiotics (`last_dose_antibiotic`), not the date the previous episode was diagnosed.
+
+| Type | Timing | Organism |
+|---|---|---|
+| **Relapsing** | within 4 weeks of finishing treatment for the previous episode | the same organism, or one of the two episodes is culture-negative |
+| **Recurrent** | within 4 weeks of finishing treatment | a different organism |
+| **Repeat** | more than 4 weeks after finishing treatment | the same organism |
+
+The boundary is inclusive: 28 days after the last dose is within 4 weeks, 29 days is not. An episode that fits none of these, which includes a patient's first episode and a different organism more than 4 weeks later, has episode type `NA`.
+
+An `NA` type means *no ISPD category applies*. It is not a missing value, and the episode **is** counted in the rate.
+
+Here is one patient's year, with the day gap measured from the previous episode's last dose:
+
+```{r worked-example}
+episodes <- data.frame(
+  infection_date = as.Date(c("2025-01-01", "2025-02-01", "2025-03-01", "2025-06-01", "2025-09-01")),
+  last_dose_antibiotic = as.Date(c("2025-01-15", "2025-02-15", "2025-03-15", "2025-06-15", "2025-09-15")),
+  organism = c("E. coli", "E. coli", "Klebsiella", "Klebsiella", "Staphylococcus aureus")
+)
+
+episodes$episode_type <- classify_episode_types(
+  patient_id = rep("patient01", 5),
+  infection_date = episodes$infection_date,
+  last_dose_antibiotic = episodes$last_dose_antibiotic,
+  organism_list = lapply(episodes$organism, list)
+)
+# days from the previous episode's last dose to this episode's infection date
+episodes$gap_days <- c(NA, as.numeric(episodes$infection_date[-1] -
+                                        episodes$last_dose_antibiotic[-5]))
+episodes$counts <- is.na(episodes$episode_type) | episodes$episode_type != "relapsing"
+episodes
+```
+
+The second episode is 17 days after the last dose with the same organism, so it is **relapsing** and does not count. The third is 14 days after with a different organism, so it is **recurrent**. The fourth is 78 days after with the same organism, so it is **repeat**. The fifth is a different organism after more than 4 weeks, so it is `NA`. Four of the five episodes count.
+
+
+## Using the functions
+
+### Reading the indicators from a unit
+
+`summary()` reports both indicators against their benchmarks, with the numerator and denominator of each:
+
+```{r summary}
+s <- summary(unit)
+```
+
+The same numbers can be rebuilt from the unit's tables, which shows that the report is exactly the formulas above:
+
+```{r reconcile}
+# rate = countable episodes / patient-years at risk
+numerator <- sum(unit$infections$counts_toward_rate)
+c(numerator = numerator, patient_years = unit$tpyar, rate = numerator / unit$tpyar)
+
+# the same patient-years from the catheter table, and from the patient table
+c(from_catheters = sum(unit$catheters$exposure_days_in_period) / 365.25,
+  from_patients = sum(unit$patients$patient_years_at_risk))
+
+# PF = patients with no countable episode / patients in the cohort
+mean(unit$patients$n_episodes == 0)
+
+all.equal(c(s$rate, s$pf), c(numerator / unit$tpyar, mean(unit$patients$n_episodes == 0)))
+```
+
+`summary()` lists *every* episode under "Episodes by type", including relapsing ones, while "Countable episodes" is the rate numerator. The two do not have to match: the difference is the relapsing episodes, plus any episode outside the period. `print()` shows all episodes in the unit for the same reason.
+
+```{r episode-types}
+table(unit$infections$episode_type, unit$infections$counts_toward_rate,
+      useNA = "ifany", dnn = c("episode_type", "counts_toward_rate"))
+```
+
+### Time at risk for one catheter
+
+`catheter_exposure_days()` applies the exposure formula to one catheter. A catheter that started before the period and is still open is cut at the start of the period and at the patient's $\tau$:
+
+```{r exposure}
+catheter <- list(pd_start_date = as.Date("2024-11-10"), pd_stop_date = as.Date(NA))
+
+catheter_exposure_days(catheter,
+                       t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
+                       tau = as.Date("2025-09-30"))   # patient died on 30 September
+```
+
+That is 1 January to 30 September, both days included: 273 days, or 273 / 365.25 = 0.75 patient-years. Leaving `tau` out (the default, `NA`) means the patient never left PD, so the catheter runs to `t1`.
+
+`total_patient_years()` does this for every catheter of every patient in a list of `pd_patient` objects, pairing each catheter with its own patient's $\tau$, and divides by 365.25. It is what `unit$tpyar` holds:
+
+```{r tpyar}
+total_patient_years(unit$patient_list, unit$t0, unit$t1)
+unit$tpyar
+```
+
+### Which episodes count
+
+`count_episodes()` is the numerator rule for one catheter. An episode after the end of the period is not counted even when the catheter's own stop date is later, and neither is one after $\tau$:
+
+```{r count}
+episode <- function(date) {
+  pd_infection("patient01", as.Date(date), list("E. coli"),
+               last_dose_antibiotic = as.Date(date) + 14)
+}
+infections <- list(episode("2025-12-20"), episode("2026-01-20"))
+
+# the catheter runs on until February 2026, but the period ends on 31 December 2025
+count_episodes(infections,
+               t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
+               pd_start_date = as.Date("2025-03-01"), pd_stop_date = as.Date("2026-02-15"))
+```
+
+### Indicators over time
+
+`peritonitis_rate_by_period()` splits the reporting period into calendar months, quarters or year and recalculates the rate in each. The numerator is the countable episodes dated in that bin and the denominator is `total_patient_years()` over the bin, clipped to the reporting period, so the bins' patient-years add up to the unit's. `monthly_peritonitis_rate()` is the monthly version.
+
+```{r by-period}
+peritonitis_rate_by_period(unit, cal.period = "quarter")
+```
+
+A bin with no patient-years has a rate of `NA`, not zero. `plot(unit, type = "monthly")` and `type = "quarterly"` draw these bins; see `vignette("peridial", package = "peridial")`.
+
+### Classifying one episode
+
+`get_episode_type()` classifies a single episode against the previous one. The previous episode is a `pd_infection`, or `NULL` for a patient's first episode:
+
+```{r get-type}
+first <- pd_infection("patient01", as.Date("2025-04-01"), list("E. coli"),
+                      last_dose_antibiotic = as.Date("2025-04-15"))
+
+get_episode_type(as.Date("2025-05-12"), list("E. coli"), prior_episode = first)
+```
+
+### Classifying many episodes
+
+`classify_episode_types()` is the vectorised counterpart. Each row is first validated as a `pd_infection`, and episodes are only compared within the same patient, in date order. The result is returned in the order the rows were supplied.
+
+```{r classify}
+classify_episode_types(
+  patient_id = c("patient01", "patient01", "patient02", "patient02"),
+  infection_date = as.Date(c("2025-04-01", "2025-05-12", "2025-03-31", "2025-07-13")),
+  last_dose_antibiotic = as.Date(c("2025-04-15", "2025-06-01", "2025-04-14", "2025-07-27")),
+  organism_list = list(list("E. coli"), list("E. coli"), list("E. coli"), list("E. coli"))
+)
+```
+
+For patient01 the second episode is 27 days after the last antibiotic dose with the same organism, so it is **relapsing**. For patient02 the gap is 90 days, so it is **repeat**.
+
+
+## The compiled classifier
+
+Classification is the one part of `peridial` written in C++, with [Rcpp](https://www.rcpp.org/). `classify_episode_types()` does three things:
+
+1. **In R:** validates every row as a `pd_infection`, and reduces each episode's organisms to one comparable string (lower case, sorted).
+2. **In C++:** `classify_episode_types_cpp()` walks the episodes once, in patient and date order, and carries the previous valid episode's last-dose date and organism string forward to classify the next. A new patient starts with no previous episode.
+3. **In R:** puts the result back in the input order.
+
+`classify_episode_types_cpp()` is an internal function that takes this prepared input, not something to call directly. Use `classify_episode_types()`.
+
+### Where it is used
+
+`pd_unit()` classifies each patient's episodes with `classify_episode_types()`, using the C++ loop, every time it builds a unit. There is no switch to turn it off in `pd_unit()`. So the `episode_type` of every episode in `unit$infections` came from the compiled code.
+
+### The pure-R version
+
+Set `use_cpp = FALSE` to run the same rule in R, one `get_episode_type()` call per episode. It needs no compiled code and gives the same answer, which is also checked by the package's tests:
+
+```{r use-cpp}
+x <- list(
+  patient_id = c("patient01", "patient01", "patient02", "patient02"),
+  infection_date = as.Date(c("2025-04-01", "2025-05-12", "2025-03-31", "2025-07-13")),
+  last_dose_antibiotic = as.Date(c("2025-04-15", "2025-06-01", "2025-04-14", "2025-07-27")),
+  organism_list = list(list("E. coli"), list("E. coli"), list("E. coli"), list("E. coli"))
+)
+
+identical(do.call(classify_episode_types, c(x, use_cpp = TRUE)),
+          do.call(classify_episode_types, c(x, use_cpp = FALSE)))
+```
+
+### Timing it
+
+Only the classification loop is compiled. The validation of each row happens in R in both modes, so how much faster the compiled mode is on your data depends on how much of the time goes on validation. To measure it on a larger, simulated set of episodes (not run here, as timings depend on the machine):
+
+```{r timing, eval = FALSE}
+set.seed(1)
+n_patients <- 2000
+per_patient <- 10
+n <- n_patients * per_patient
+
+first_date <- as.Date("2020-01-01") + sample(0:365, n_patients, replace = TRUE)
+infection_date <- rep(first_date, each = per_patient) +
+  rep((seq_len(per_patient) - 1) * 45, times = n_patients)
+organisms <- sample(c("E. coli", "Klebsiella", "Staphylococcus aureus", "negative"),
+                    n, replace = TRUE)
+
+big <- list(
+  patient_id = rep(sprintf("P%04d", seq_len(n_patients)), each = per_patient),
+  infection_date = infection_date,
+  last_dose_antibiotic = infection_date + 14,
+  organism_list = lapply(organisms, list)
+)
+
+system.time(cpp <- do.call(classify_episode_types, c(big, use_cpp = TRUE)))
+system.time(r <- do.call(classify_episode_types, c(big, use_cpp = FALSE)))
+identical(cpp, r)
+```
+
+
+## Things to know
+
+- **Organisms:** matching ignores case and order. Two episodes are the same organism only if their organism lists are identical, so an episode with *E. coli* and *Klebsiella* and one with *E. coli* alone are different organisms, and the second is recurrent if it is within 4 weeks.
+- **Spelling:** `pd_unit()` standardises organism names against the accepted list before classifying. `classify_episode_types()` used on its own compares the names as given, so `"E. coli"` and `"Escherichia coli"` are different.
+- **Culture-negative:** `"negative"` is a culture-negative episode and cannot be combined with another organism. It pairs with any other episode as a relapse if it falls within 4 weeks.
+- **Invalid rows:** a row that fails `pd_infection` validation (for example a missing `last_dose_antibiotic`) gets `NA` and is **not** used as the previous episode for the next row. `classify_episode_types()` raises a warning listing the first few. `pd_unit()` instead reports them in its list of data problems, and builds no unit until they are fixed.
+- **Across catheters and periods:** the previous episode is the patient's previous episode, whichever catheter it was on, and it may be dated before `t0`. A relapse is therefore recognised across a catheter change and across the start of the reporting period.
+- **Episodes before `t0` must be in the file:** only episodes that are in the infection file can be the previous episode. If a patient who was already on PD at `t0` has an episode in the first 28 days of the period and the file does not hold their earlier episode, it is classified as `NA` and counted, even if it was a relapse, which overstates the rate. `pd_unit()` warns when this may have happened, naming the patients to check. How to prepare the file is under *Include earlier episodes* in `vignette("peridial", package = "peridial")`.
+
+
+## Reference
+
+Li PK-T, Chow KM, Cho Y, et al. ISPD peritonitis guideline recommendations: 2022 update on prevention and treatment. *Peritoneal Dialysis International*. 2022. <https://doi.org/10.1177/08968608221080586>

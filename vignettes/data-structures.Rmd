@@ -19,9 +19,9 @@ knitr::opts_chunk$set(
 
 peRidial represents a PD unit as four nested S3 classes: `pd_unit`, `pd_patient`, `pd_catheter` and `pd_infection`. Each class owns the level below it, so the structure mirrors how the clinical data are recorded: a unit has patients, a patient has catheters, and a catheter has peritonitis episodes.
 
-This vignette explains what each class holds, how the objects are built from the unit's input files, and how the constructors keep them consistent. It builds on `vignette("peridial", package = "peridial")`, which covers installation, the example data, building a `pd_unit` with `pd_unit()`, and the `print()`, `summary()`, `plot()` and `subset()` methods. How the indicators are calculated is covered in `vignette("indicators-classification", package = "peridial")`.
+This vignette explains what each class holds, how the objects are built from the unit's input files, and how the constructors keep them consistent. It builds on `vignette("peridial", package = "peridial")`, which covers installation, the example data, building a `pd_unit` with `pd_unit()`, and the `print()`, `summary()`, `plot()` and `subset()` methods. How the indicators are calculated is covered in the companion `vignette("indicators-classification", package = "peridial")`, which can be read before or after this one.
 
-The examples use the same example unit as the introduction:
+The examples use the same example unit as `vignette("peridial")`:
 
 ```{r setup, warning = FALSE}
 # building this unit warns about SPD0012's first episode, explained in vignette("peridial")
@@ -66,7 +66,7 @@ Every object below the unit carries the `patient_id` of the patient it belongs t
 4. **Patients.** The demographic columns are read from each patient's first A3 row, and the patient is given their catheters and $\tau$. A patient is included only if they were on PD at some point in `[t0, t1]`.
 5. **Unit.** The patients are collected into one `pd_unit`, together with the headline numbers and three flat tibbles, described below.
 
-The object is validated at the end. The data problems found along the way are the ones listed in the introduction vignette.
+The object is validated at the end. The data problems found along the way are the ones listed in `vignette("peridial", package = "peridial")`.
 
 
 ## What each class holds
@@ -108,7 +108,7 @@ One PD catheter and the window it delivered PD.
 | `removal_reason` | why PD on this catheter stopped, `NA` if it has not |
 | `infections` | a list of the `pd_infection` objects that occurred on this catheter |
 | `t0`, `t1` | the reporting period |
-| `total_exposure_days` | days at risk in `[t0, t1]`, censored at the patient's $\tau$; `pd_unit()` fills it in |
+| `total_exposure_days` | days at risk in `[t0, t1]`, censored at the patient's $\tau$; `pd_unit()` fills it in. The `catheters` tibble calls the same quantity `exposure_days_in_period` |
 | `n_peritonitis_episodes`, `peritonitis_flag` | **derived**: the number of countable episodes (inside the PD window and `[t0, t1]`, not relapsing) and whether it is above zero |
 
 ### `pd_patient`
@@ -162,8 +162,7 @@ Both forms are validated against each other, so they cannot drift apart: the pat
 
 The reporting period `t0` and `t1` is stored on the unit, on every patient and on every catheter, and each level is checked against the one above it, so exposure time is always measured against the same window. A `pd_infection` does not carry it.
 
-A catheter's time at risk starts on the later of its `pd_start_date` and `t0`, and ends on the earliest of its `pd_stop_date`, `t1` and the patient's $\tau$, counting both end days. A patient's `transfer_date` is therefore the point past which no catheter may run: a catheter that starts after it, or is still open on it, is rejected when the patient is built.
-
+A catheter's time at risk starts on the later of its `pd_start_date` and `t0`, and ends on the earliest of its `pd_stop_date`, `t1` and the patient's $\tau$, counting both end days. `vignette("indicators-classification", package = "peridial")` writes this as a formula and sums it into the unit's patient-years. A patient's `transfer_date` is therefore the point past which no catheter may run: a catheter that starts after it, or is still open on it, is rejected when the patient is built.
 
 
 ## Constructors and validation
@@ -235,6 +234,5 @@ These checks apply to objects that already exist. Problems in the input files ar
 ## Things to know
 
 - Printing an object gives a summary, and `str(x, max.level = 1)` shows what it is made of.
-- An `NA` in `outcome` means the episode resolved, not that the value is missing.
-- The function `subset()` return a new tibble and never change the unit.
+- `subset()` returns a new tibble and never changes the object it was called on; it is covered in `vignette("peridial", package = "peridial")`.
 - To get one `pd_patient` out of a unit, search its patient list, as above with `Filter()`.
