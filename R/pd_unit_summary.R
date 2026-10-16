@@ -89,7 +89,7 @@ summarise_mean_age <- function(x) {
     return(NA_real_)
   }
   ages <- as.numeric(difftime(x$t0, x$patients$date_of_birth, units = "days")) / 365.25
-  if (all(is.na(ages))) NA_real_ else stats::mean(ages, na.rm = TRUE)
+  if (all(is.na(ages))) NA_real_ else mean(ages, na.rm = TRUE)
 }
 
 
@@ -252,13 +252,49 @@ summarise_infections <- function(x) {
 
 
 
-
-
 #' Label a benchmark verdict: MET, NOT MET, or No Data when there is nothing to judge
 #' @noRd
 verdict_label <- function(met) {
   if (is.na(met)) "No Data" else if (met) "MET" else "NOT MET"
 }
+
+
+# Layout helpers
+
+summary_width <- 56L
+summary_label_width <- 32L
+
+# heavy rule under the title plain "="
+summary_rule <- function(width = summary_width) {
+  char <- if (isTRUE(l10n_info()[["UTF-8"]])) "\u2550" else "="
+  strrep(char, width)
+}
+
+# section heading
+summary_heading <- function(title) {
+  cat("\n ", toupper(title), "\n", sep = "")
+}
+
+# one aligned "label   value" row, indented under its heading
+summary_row <- function(label, value, label_width = summary_label_width) {
+  cat("   ", format(label, width = label_width), value, "\n", sep = "")
+}
+
+# rows from a named list/vector (episode types, cohort outcomes), a placeholder line when empty
+summary_rows <- function(x, empty) {
+  if (length(x) == 0) {
+    cat("   ", empty, "\n", sep = "")
+  } else {
+    for (nm in names(x)) summary_row(nm, x[[nm]])
+  }
+}
+
+# benchmark text and verdict, e.g. "<= 0.40        [ MET ]".
+summary_benchmark <- function(op, value, verdict, value_width = 14L) {
+  sprintf("%s [ %s ]", format(paste(op, value), width = value_width), verdict)
+}
+
+
 
 
 
@@ -323,76 +359,63 @@ summary.pd_unit <- function(object, ...) {
     if (is.na(pct)) sprintf("%d (NA)", n) else sprintf("%d (%.1f%%)", n, pct * 100)
   }
 
-  cat("<summary.pd_unit>", if (is.na(x$unit_id)) "(Unnamed unit)" else x$unit_id, "\n")
-  cat("  Reporting period : ", format(x$t0), " to ", format(x$t1), "\n\n", sep = "")
+  unit_label <- if (is.na(x$unit_id)) "(Unnamed unit)" else x$unit_id
 
-  cat("  Peritonitis rate : ",
-      if (is.na(rate$rate)) "NA" else sprintf("%.3f", rate$rate),
-      " episodes/patient-year\n", sep = "")
-  cat("    numerator (countable episodes)      : ", rate$rate_num, "\n", sep = "")
-  cat("    denominator (patient-years at risk) : ", sprintf("%.2f", rate$rate_den), "\n", sep = "")
-  cat("    ISPD benchmark <= ", sprintf("%.2f", rate$rate_benchmark),
-      "  [ ", verdict_label(rate$rate_met), " ]\n\n", sep = "")
+  cat("<summary.pd_unit>  ", unit_label, "\n", sep = "")
+  cat("Reporting period   ", format(x$t0), " to ", format(x$t1), "\n", sep = "")
+  cat(summary_rule(), "\n", sep = "")
 
-  cat("  Peritonitis-free (PF) : ",
-      if (is.na(pf$pf)) "NA" else sprintf("%.1f%%", pf$pf * 100), "\n", sep = "")
-  cat("    numerator (patients with zero countable episodes)   : ", pf$pf_num, "\n", sep = "")
-  cat("    denominator (total patients, N)                     : ", pf$pf_den, "\n", sep = "")
-  cat("    ISPD benchmark >  ", sprintf("%.0f%%", pf$pf_benchmark * 100),
-      "  [ ", verdict_label(pf$pf_met), " ]\n\n", sep = "")
+  summary_heading("Peritonitis rate")
+  summary_row("Rate", paste0(
+    if (is.na(rate$rate)) "NA" else sprintf("%.3f", rate$rate),
+    " episodes/patient-year"))
+  summary_row("Countable episodes", rate$rate_num)
+  summary_row("Patient-years at risk", sprintf("%.2f", rate$rate_den))
+  summary_row("ISPD benchmark",
+              summary_benchmark("<=", sprintf("%.2f", rate$rate_benchmark),
+                                verdict_label(rate$rate_met)))
 
-  cat("  Peritonitis episodes by type:\n")
-  if (length(episode_types) == 0) {
-    cat("    (no episodes recorded)\n")
-  } else {
-    for (nm in names(episode_types)) {
-      cat("    ", nm, " : ", episode_types[[nm]], "\n", sep = "")
-    }
-  }
+  summary_heading("Peritonitis-free (PF)")
+  summary_row("PF", if (is.na(pf$pf)) "NA" else sprintf("%.1f%%", pf$pf * 100))
+  summary_row("Patients, zero countable eps", paste(pf$pf_num, "of", pf$pf_den))
+  summary_row("ISPD benchmark",
+              summary_benchmark(">", sprintf("%.0f%%", pf$pf_benchmark * 100),
+                                verdict_label(pf$pf_met)))
+
+  summary_heading("Episodes by type")
+  summary_rows(episode_types, "(no episodes recorded)")
+
+  summary_heading("Cohort outcomes")
+  summary_rows(outcomes, "(no patients recorded)")
+
+  summary_heading("Demographics")
+  summary_row("Mean age",
+              if (is.na(mean_age_years)) "unknown" else sprintf("%.0f (at t1)", mean_age_years))
+  summary_row("Gender",         fmt_demo(demographics$gender))
+  summary_row("Ethnicity",      fmt_demo(demographics$ethnicity))
+  summary_row("Kidney disease", fmt_demo(demographics$primary_kidney_disease))
+  summary_row("Diabetes",       fmt_demo(demographics$diabetes_status))
+  summary_row("Smoking status", fmt_demo(demographics$smoking_status))
+  summary_row("Dialysis type",  fmt_demo(demographics$dialysis_type))
+
+  summary_heading("Catheters")
+  summary_row("Total",                          catheters$n_catheters)
+  summary_row("Procedure type",                 fmt_demo(catheters$procedure_type))
+  summary_row("Time to PD start (mean)",        fmt_mean_days(catheters$time_to_pd_start_days))
+  summary_row("Time to 1st peritonitis (mean)", fmt_mean_days(catheters$time_to_first_peritonitis_days))
+
+  summary_heading("Infections")
+  summary_row("Organisms cultured",           fmt_demo(infections$organisms))
+  summary_row("PE outcome",                   fmt_demo(infections$pe_outcomes))
+  summary_row("Culture-negative peritonitis",
+              fmt_n_pct(infections$culture_negative_n, infections$culture_negative_pct))
+  summary_row("Peritonitis catheter removal",
+              fmt_n_pct(infections$peritonitis_removal_n, infections$peritonitis_removal_pct))
+
+  summary_heading("Cohort")
+  summary_row("Patients", paste0(x$n_patients, " (", cohort[["incident"]], " incident, ",
+                                 cohort[["prevalent"]], " prevalent)"))
   cat("\n")
-
-  cat("  Cohort outcomes:\n")
-  if (length(outcomes) == 0) {
-    cat("    (no patients recorded)\n")
-  } else {
-    for (nm in names(outcomes)) {
-      cat("    ", nm, " : ", outcomes[[nm]], "\n", sep = "")
-    }
-  }
-  cat("\n")
-
-  cat("  Patient demographics:\n")
-  cat("    Mean age      : ",
-      if (is.na(mean_age_years)) "unknown" else sprintf("%.0f (at t1)", mean_age_years),
-      "\n", sep = "")
-  cat("    Gender          : ", fmt_demo(demographics$gender), "\n", sep = "")
-  cat("    Ethnicity       : ", fmt_demo(demographics$ethnicity), "\n", sep = "")
-  cat("    Kidney disease  : ", fmt_demo(demographics$primary_kidney_disease), "\n", sep = "")
-  cat("    Diabetes        : ", fmt_demo(demographics$diabetes_status), "\n", sep = "")
-  cat("    Smoking status  : ", fmt_demo(demographics$smoking_status), "\n", sep = "")
-  cat("    Dialysis type   : ", fmt_demo(demographics$dialysis_type), "\n", sep = "")
-  cat("\n")
-
-  cat("  Catheters:\n")
-  cat("    Total                                    : ", catheters$n_catheters, "\n", sep = "")
-  cat("    Procedure type                           : ", fmt_demo(catheters$procedure_type), "\n", sep = "")
-  cat("    Time to PD start from insertion (mean)   : ",
-      fmt_mean_days(catheters$time_to_pd_start_days), "\n", sep = "")
-  cat("    Time to first peritonitis episode (mean) : ",
-      fmt_mean_days(catheters$time_to_first_peritonitis_days), "\n", sep = "")
-  cat("\n")
-
-  cat("  Infections:\n")
-  cat("    Organisms cultured                   : ", fmt_demo(infections$organisms), "\n", sep = "")
-  cat("    PE outcome                           : ", fmt_demo(infections$pe_outcomes), "\n", sep = "")
-  cat("    Culture-negative peritonitis         : ",
-      fmt_n_pct(infections$culture_negative_n, infections$culture_negative_pct), "\n", sep = "")
-  cat("    Peritonitis-related catheter removal : ",
-      fmt_n_pct(infections$peritonitis_removal_n, infections$peritonitis_removal_pct), "\n", sep = "")
-  cat("\n")
-
-  cat("  Cohort : ", x$n_patients, " patients (",
-      cohort[["incident"]], " incident, ", cohort[["prevalent"]], " prevalent)\n", sep = "")
 
   invisible(list(
     rate = rate$rate, rate_num = rate$rate_num, rate_den = rate$rate_den,

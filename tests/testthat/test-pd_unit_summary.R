@@ -123,8 +123,8 @@ test_that("summarise_catheters() still reports the catheter count and procedure 
 
 test_that("summary.pd_unit() labels the two timing lines as means and drops the old quartile lines", {
   txt <- capture.output(summary(make_subset_unit()))
-  expect_true(any(grepl("Time to PD start from insertion (mean)", txt, fixed = TRUE)))
-  expect_true(any(grepl("Time to first peritonitis episode (mean)", txt, fixed = TRUE)))
+  expect_true(any(grepl("Time to PD start (mean)", txt, fixed = TRUE)))
+  expect_true(any(grepl("Time to 1st peritonitis (mean)", txt, fixed = TRUE)))
   expect_false(any(grepl("Insertion to PD start|PD start to infection|Q1/median/Q3", txt)))
 })
 
@@ -132,9 +132,9 @@ test_that("summary.pd_unit() prints the mean days, without a patient count", {
   # CCC0003 is the only incident patient: inserted 2025-02-01, PD start 2025-02-15,
   # first episode 2025-04-01
   txt <- capture.output(res <- summary(make_subset_unit()))
-  expect_match(grep("Time to PD start from insertion (mean)", txt, value = TRUE, fixed = TRUE),
+  expect_match(grep("Time to PD start (mean)", txt, value = TRUE, fixed = TRUE),
                "14\\.0 days$")
-  expect_match(grep("Time to first peritonitis episode (mean)", txt, value = TRUE, fixed = TRUE),
+  expect_match(grep("Time to 1st peritonitis (mean)", txt, value = TRUE, fixed = TRUE),
                "45\\.0 days$")
   expect_false(any(grepl("n = ", txt, fixed = TRUE)))
   expect_equal(res$catheters$time_to_pd_start_days[["mean"]], 14)
@@ -146,8 +146,8 @@ test_that("summary.pd_unit() prints NA when there are no incident patients", {
   unit <- make_subset_unit()
   unit$patients$new_patient_flag <- FALSE
   txt <- capture.output(summary(unit))
-  expect_match(grep("Time to PD start from insertion (mean)", txt, value = TRUE, fixed = TRUE), ": NA$")
-  expect_match(grep("Time to first peritonitis episode (mean)", txt, value = TRUE, fixed = TRUE), ": NA$")
+  expect_match(grep("Time to PD start (mean)", txt, value = TRUE, fixed = TRUE), "  NA$")
+  expect_match(grep("Time to 1st peritonitis (mean)", txt, value = TRUE, fixed = TRUE), "  NA$")
 })
 
 test_that("summary.pd_unit() timing works on the unit built from the bundled files", {
