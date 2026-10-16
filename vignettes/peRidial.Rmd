@@ -68,8 +68,8 @@ t0 <- as.Date("2025-01-01")
 t1 <- as.Date("2025-12-31")
 
 unit <- pd_unit(
-  unit_data_path = system.file("extdata", "a3_2025.xlsx", package = "peridial"),
-  infection_data_path = system.file("extdata", "pe_2025.xlsx", package = "peridial"),
+  unit_data = system.file("extdata", "a3_2025.xlsx", package = "peridial"),
+  infection_data = system.file("extdata", "pe_2025.xlsx", package = "peridial"),
   t0 = t0, t1 = t1, unit_id = "Wellington PD Unit"
 )
 
@@ -92,9 +92,10 @@ To use your own data:
    table below.
 3. Rename them to match, and recode values where needed (for example, coded
    values to plain ones such as `"Female"`).
-4. Save the filtered and cleaned tables as `.xlsx` files, then point
-   `pd_unit()` at them. `pd_unit()` reads files, so cleaned data held in R
-   must be written out first.
+4. Pass the cleaned tables to `pd_unit()`. `unit_data` and
+   `infection_data` each accept a data frame already in R, or the path
+   to an `.xlsx` or `.csv` file, so cleaned data held in R does not need to
+   be written out first.
 
 Your files must use the same column names as the example files. Differences in capitalisation, spacing and punctuation are ignored, so `Patient ID`, `patient_id` and `PatientID` are all accepted. A different name is not: `Infection Date` will not be recognised as `Date of Infection`.
 
@@ -107,7 +108,8 @@ A missing required column stops the build with an error that lists what was foun
 
 Values should follow these formats:
 
-- Dates can be Excel date cells or text in `YYYY-MM-DD` format.
+- Dates can be Excel date cells, `Date` columns, or text in `YYYY-MM-DD` or day-first format (`31/01/2025`, `31-01-2025`). An ambiguous date such as `03/04/2025` is read as 3 April, so a file with month-first dates must be converted first. A date that cannot be read is set to `NA` with a warning.
+- A `.csv` file is read as it is: column names are standardised as for Excel files, and blank cells and `NA` are missing values.
 - Yes/no columns accept `Yes`/`No`, `Y`/`N`, `TRUE`/`FALSE` or `1`/`0`.
 - Several organisms for one episode go in one cell, separated by commas.
 - A permanent move to haemodialysis is recorded as `Any PD to HD` in Dialysis Modality Change.
@@ -134,12 +136,9 @@ pe <- data.frame(
   check.names = FALSE
 )
 
-writexl::write_xlsx(a3, "a3_clean.xlsx")
-writexl::write_xlsx(pe, "pe_clean.xlsx")
-
 unit <- pd_unit(
-  unit_data_path = "a3_clean.xlsx",
-  infection_data_path = "pe_clean.xlsx",
+  unit_data = a3,
+  infection_data = pe,
   t0 = as.Date("2025-01-01"),
   t1 = as.Date("2025-12-31"),
   unit_id = "Your PD Unit"
