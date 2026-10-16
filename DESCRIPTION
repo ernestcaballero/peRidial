@@ -16,6 +16,7 @@ Imports:
     dplyr,
     readxl (>= 1.5.0),
     stats,
+    utils,
     tibble,
     Rcpp,
     rlang
