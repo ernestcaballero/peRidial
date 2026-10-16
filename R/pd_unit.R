@@ -476,29 +476,34 @@ pd_unit <- function(unit_data,
       }
     }
 
+    # sa catheter "still active" is only true when nothing else gave a tau
+    assumed <- if (is.na(tau)) {
+      "they are being treated as if still active on PD."
+    } else {
+      paste0("they are being censored on ", format(tau), " (", taus[[pid]]$reason,
+             ") instead.")
+    }
+
     # a 'transplant' modality change with no date is a gap: the date can only come from transplant_date
     if (isTRUE(taus[[pid]]$transplant_gap)) {
       log$add("Patient ", pid, " has a 'transplant' modality change recorded ",
               "but no transplant_date supplied (and no catheter ",
-              "removal_reason mentioning transplant); this patient's true ",
-              "censoring date is unknown and they are being treated as if ",
-              "still active on PD.",
+              "removal_reason mentioning transplant); the transplant date is ",
+              "unknown, so ", assumed,
               level = "warning")
     }
 
     # for 'Any PD to HD': the modality change was recorded the row is missing date_modality_change
     if (isTRUE(taus[[pid]]$hd_transfer_gap)) {
       log$add("Patient ", pid, " has an 'Any PD to HD' modality change ",
-              "recorded but no date_modality_change supplied for it; this ",
-              "patient's true censoring date is unknown and they are being ",
-              "treated as if still active on PD.",
+              "recorded but no date_modality_change supplied for it; the date ",
+              "of the transfer is unknown, so ", assumed,
               level = "warning")
     }
   }
 
-  # Build the object graph, now that tau has clipped the catheter windows:
-  # episodes are matched to the catheter active on their date, catheters own
-  # their episodes, and patients own their catheters
+
+  # episodes are matched to the catheter active on their date, catheters own their episodes, and patients own their catheters
   infections_by_catheter <- build_infections_by_catheter(raw_pe_episodes,
                                                          raw_catheters, log)
   built <- build_patient_list(pids, taus, raw_catheters, raw_patients,
@@ -506,24 +511,22 @@ pd_unit <- function(unit_data,
   patient_list <- built$patient_list
   transfer_details <- built$transfer_details
 
-  # Flatten the object graph into the unit's three tibbles
+  # flatten the object graph into the unit's three tibbles
   patients_tbl <- patients_to_tibble(patient_list, t0, t1, transfer_details)
   catheters_tbl <- catheters_to_tibble(patient_list, t0, t1)
   infections_tbl <- infections_to_tibble(patient_list, t0, t1)
 
-  # Unit-level numbers, cohort size: everyone on PD at any point in [t0, t1].
+  # unit-level numbers, cohort size: everyone on PD at any point in [t0, t1].
   n_patients <- length(patient_list)
 
-  # Incident ("new") patients: earliest PD start inside [t0, t1]. A patient with
-  # no usable start dates has flag NA and is not counted.
+  # incident patients: earliest PD start inside [t0, t1]
   n_new <- sum(vapply(patient_list, function(p) isTRUE(p$new_patient_flag),
                       logical(1)))
 
   # PY: total patient-years at risk, censored to [t0, t1] and each patient's tau
   tpyar <- total_patient_years(patient_list, t0, t1)
 
-  # a gap in the source data is an error: the source files need correcting.
-  # An assumption the build made (level "warning") does not stop it; it is raised as an R warning.
+  # a gap in the source data is an erro; the source files need correcting.
   report_issues(log)
   for (msg in log$get("warning")) {
     warning(msg, call. = FALSE)

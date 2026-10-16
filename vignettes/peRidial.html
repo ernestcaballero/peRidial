@@ -482,9 +482,9 @@ data frame already in R, or the path to an <code>.xlsx</code> or
 <code>.csv</code> file, so cleaned data held in R does not need to be
 written out first.</li>
 </ol>
-<p>Your files must use the column names in the table below, but not
-character for character. Capitalisation, spacing and punctuation are
-ignored, so <code>Patient ID</code>, <code>patient_id</code> and
+<p>Your files must use the column names in the table below.
+Capitalisation, spacing and punctuation are ignored, so
+<code>Patient ID</code>, <code>patient_id</code> and
 <code>PatientID</code> are all read as the same column. Beyond that,
 <code>pd_unit()</code> matches on keywords, so a name that differs but
 still carries the expected words is picked up. For
@@ -529,11 +529,11 @@ Last Dialysis Date</td>
 </tbody>
 </table>
 <p>A missing required column stops the build with an error that lists
-what was found. A missing optional column is filled with <code>NA</code>
-without a warning, so check the spelling of optional columns carefully.
-A misnamed <code>Date of Death</code> or <code>PD Stop Date</code>, for
-example, means patients are not censored and patient-years are
-overstated.</p>
+what was found. Check the spelling of optional columns carefully as a
+missing optional column is filled with <code>NA</code> without a
+warning. An incorrect <code>Date of Death</code> or
+<code>PD Stop Date</code> name column, for example, means patients are
+not censored and patient-years are overstated.</p>
 <p>Values should follow these formats:</p>
 <ul>
 <li><code>Patient ID</code> must be in NHI format: three letters then
@@ -541,9 +541,7 @@ four digits (<code>ABC1234</code>), case-insensitive. A row whose ID is
 a different shape is reported and the build stops.</li>
 <li>Dates can be Excel date cells, <code>Date</code> columns, or text in
 <code>YYYY-MM-DD</code> or day-first format (<code>31/01/2025</code>,
-<code>31-01-2025</code>). An ambiguous date such as
-<code>03/04/2025</code> is read as 3 April, so a file with month-first
-dates must be converted first. A date that cannot be read is set to
+<code>31-01-2025</code>). A date that cannot be read is set to
 <code>NA</code> with a warning.</li>
 <li>A <code>.csv</code> file is read as it is: column names are
 standardised as for Excel files, and blank cells and <code>NA</code> are
@@ -556,25 +554,25 @@ commas.</li>
 <li>A permanent move to haemodialysis is recorded as
 <code>Any PD to HD</code> in Dialysis Modality Change.</li>
 </ul>
-<p>The sketch below shows steps 1 to 4 end to end. The column names on
+<p>The outline below shows steps 1 to 4 end to end. The column names on
 the right-hand side of each assignment, and the recoding, are
 placeholders to replace with your own.</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>raw_a3 <span class="ot">&lt;-</span> readxl<span class="sc">::</span><span class="fu">read_excel</span>(<span class="st">&quot;my_unit_export.xlsx&quot;</span>)</span>
 <span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>raw_pe <span class="ot">&lt;-</span> readxl<span class="sc">::</span><span class="fu">read_excel</span>(<span class="st">&quot;my_peritonitis_export.xlsx&quot;</span>)</span>
 <span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a></span>
 <span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>a3 <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  <span class="st">&quot;Patient ID&quot;</span>     <span class="ot">=</span> raw_a3<span class="sc">$</span>MRN,</span>
-<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>  <span class="st">&quot;Date of Birth&quot;</span>  <span class="ot">=</span> raw_a3<span class="sc">$</span>DOB,</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  <span class="st">&quot;Patient ID&quot;</span> <span class="ot">=</span> raw_a3<span class="sc">$</span>MRN,</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>  <span class="st">&quot;Date of Birth&quot;</span> <span class="ot">=</span> raw_a3<span class="sc">$</span>DOB,</span>
 <span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>  <span class="st">&quot;Insertion Date&quot;</span> <span class="ot">=</span> raw_a3<span class="sc">$</span>CatheterInsertDate,</span>
-<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>  <span class="st">&quot;PD Start Date&quot;</span>  <span class="ot">=</span> raw_a3<span class="sc">$</span>PDStart,</span>
-<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>  <span class="st">&quot;Gender&quot;</span>         <span class="ot">=</span> <span class="fu">ifelse</span>(raw_a3<span class="sc">$</span>Sex <span class="sc">==</span> <span class="dv">1</span>, <span class="st">&quot;Male&quot;</span>, <span class="st">&quot;Female&quot;</span>),  <span class="co"># recode</span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>  <span class="st">&quot;PD Start Date&quot;</span> <span class="ot">=</span> raw_a3<span class="sc">$</span>PDStart,</span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>  <span class="st">&quot;Gender&quot;</span> <span class="ot">=</span> <span class="fu">ifelse</span>(raw_a3<span class="sc">$</span>Sex <span class="sc">==</span> <span class="dv">1</span>, <span class="st">&quot;Male&quot;</span>, <span class="st">&quot;Female&quot;</span>),  <span class="co"># recode</span></span>
 <span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a>  <span class="at">check.names =</span> <span class="cn">FALSE</span></span>
 <span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a>)</span>
 <span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a></span>
 <span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a>pe <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a>  <span class="st">&quot;Patient ID&quot;</span>        <span class="ot">=</span> raw_pe<span class="sc">$</span>MRN,</span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a>  <span class="st">&quot;Patient ID&quot;</span>  <span class="ot">=</span> raw_pe<span class="sc">$</span>MRN,</span>
 <span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a>  <span class="st">&quot;Date of Infection&quot;</span> <span class="ot">=</span> raw_pe<span class="sc">$</span>InfectionDate,</span>
-<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a>  <span class="st">&quot;Organism&quot;</span>          <span class="ot">=</span> raw_pe<span class="sc">$</span>Organism,</span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a>  <span class="st">&quot;Organism&quot;</span> <span class="ot">=</span> raw_pe<span class="sc">$</span>Organism,</span>
 <span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a>  <span class="at">check.names =</span> <span class="cn">FALSE</span></span>
 <span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a>)</span>
 <span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a></span>
@@ -740,7 +738,7 @@ directly rather than read off the screen:</p>
 <span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a><span class="co">#&gt;             4             3             2            19</span></span></code></pre></div>
 <p>How the two indicators are defined, and which episodes count towards
 them, is covered in
-<code>vignette(&quot;ispd-indicators-classification&quot;, package = &quot;peridial&quot;)</code>.</p>
+<code>vignette(&quot;indicators-classification&quot;, package = &quot;peridial&quot;)</code>.</p>
 <p><code>summary()</code> on a single patient is the same idea one level
 down: their status, age, demographics, each catheter’s window and
 outcome, their total time at risk, and their countable episodes by
@@ -790,8 +788,8 @@ cohort panels can be added underneath, each off by default:</p>
 </div>
 <div id="subset" class="section level3">
 <h3><code>subset()</code></h3>
-<p><code>subset()</code> asks questions of the data rather than the
-indicators. It joins the unit’s <code>patients</code>,
+<p><code>subset()</code> asks questions about the data of interest by
+using filters and conditions. It joins the unit’s <code>patients</code>,
 <code>catheters</code> and <code>infections</code> tibbles into one flat
 table, one row per episode carrying its catheter’s and its patient’s
 columns, and returns the rows that meet a condition as a plain
@@ -820,10 +818,10 @@ several rows, so row counts are not patient counts:</p>
 <span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a><span class="co">#&gt; [1] 28</span></span>
 <span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a>dplyr<span class="sc">::</span><span class="fu">n_distinct</span>(<span class="fu">subset</span>(unit)<span class="sc">$</span>patient_id)</span>
 <span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a><span class="co">#&gt; [1] 60</span></span></code></pre></div>
-<p>The indicators are not recalculated and the unit is not modified: the
-result is a tibble to inspect, not a smaller <code>pd_unit</code>. The
-same method is defined for a patient and for a catheter, over whatever
-sits below them:</p>
+<p>Using <code>subset</code>, the indicators are not recalculated and
+the unit is not modified: the result is a tibble to inspect, not a
+smaller <code>pd_unit</code>. The same method is defined for a patient
+and for a catheter, over whatever sits below them:</p>
 <div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="fu">subset</span>(pat, <span class="at">select =</span> <span class="fu">c</span>(catheter_id, pd_start_date, pd_stop_date, removal_reason))</span>
 <span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a><span class="co">#&gt; # A tibble: 2 × 4</span></span>
 <span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a><span class="co">#&gt;   catheter_id pd_start_date pd_stop_date removal_reason            </span></span>

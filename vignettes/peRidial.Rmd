@@ -17,7 +17,7 @@ knitr::opts_chunk$set(
 
 ## Overview
 
-peRidial is a standardised R framework for ingesting, validating, and summarising clinical peritoneal dialysis (PD) unit data. Four nested S3 classes represent the PD unit, the cohort of patients in the unit, their catheters, and each catheter's peritonitis episodes (if any), supporting reproducible calculation of the International Society for Peritoneal Dialysis (ISPD)-recommended peritonitis rate and peritonitis-free percentage indicators from longitudinal catheter and infection records.
+peRidial is a standardised R framework for ingesting, validating, and summarising clinical peritoneal dialysis (PD) unit data. Four nested S3 classes represent the PD unit, the cohort of patients in the unit, their catheters, and each catheter's peritonitis episodes (if any), supporting reproducible calculation of the International Society for Peritoneal Dialysis (ISPD)-recommended PD unit's peritonitis rate and peritonitis-free percentage indicators from longitudinal catheter and infection records.
 
 This vignette walks through installation and setup, the example data, building a `pd_unit` from PD unit input files, and the `print()`, `summary()`, `plot()` and `subset()` methods for inspecting what was built.
 
@@ -56,8 +56,6 @@ The example uses two synthetic Excel files that ship with the package, covering 
 - `a3_2025.xlsx` is the unit survey called `Form A3` file. Each row is one PD catheter. `Patient ID` identifies the patient and it repeats when a patient has more than one catheter in the period. This input also includes the patient's demographic details, PD start and stop dates, dialysis modality, and any change of dialysis modality like transplant, permanent transfer to HD or stopped PD. The example file has 62 catheters across 60 patients: 58 patients with a single catheter, and two whose catheter was removed and replaced during the reporting year.
 - `pe_2025.xlsx` is the peritonitis episode `Form PE` file. Each row is one peritonitis episode: the date of infection, the organism(s) cultured, the date of the last antibiotic dose, and whether the episode led to hospitalisation, catheter removal or a transfer to haemodialysis. The example file has 28 episodes across 17 patients.
 
-Of the 60 patients, 20 are incident (their first PD start falls inside 2025) and 40 are prevalent. Patients leave PD by death (3), transplant (3) and permanent transfer to HD (6), while 48 are still on PD at the end of the period. The episodes include relapsing, recurrent and repeat peritonitis as well as first-ever episodes, so the episode-type breakdown reported by `summary()` is populated; see `vignette("ispd-indicators-classification", package = "peridial")` for how each category is derived.
-
 No real patient data is included. The synthetic dataset was modelled on published
 field definitions: patient- and episode-level data items from the Australia and New
 Zealand Dialysis and Transplant Registry (ANZDATA) Data Dictionary and its survey
@@ -88,7 +86,9 @@ unit <- pd_unit(
 unit
 ```
 
-Gaps in the source data found while building (for example an episode that cannot be matched to an active catheter, or an organism that is not on the accepted list) are collected and raised together as a single error, and no unit is built. Correct them in the source files and run `pd_unit()` again until it builds. An assumption the build can carry on with, such as a patient whose censoring date is unknown, does not stop it: it is reported as an R warning.
+Gaps in the source data found while building (for example an episode that cannot be matched to an active catheter, an organism that is not on the accepted list, or a permanent move to haemodialysis recorded without a reason) are collected and raised together as a single error, and **no** unit is built. Correct them in the source files and run `pd_unit()` again until it builds.
+
+An assumption the build can carry on with does not stop it and is reported as an R warning instead. The cases are a transplant or a permanent move to haemodialysis that is recorded without a date, and a column name that could match more than one expected column. For a missing date, the warning says what the build did in its place: the patient is treated as still on PD, or, if another event or a closed catheter already ended their PD, censored on that date. Warnings are only shown once there are no errors, so a build that fails reports the errors first and the warnings appear when it succeeds.
 
 ### Using your own data
 
@@ -110,43 +110,43 @@ To use your own data:
    to an `.xlsx` or `.csv` file, so cleaned data held in R does not need to
    be written out first.
 
-Your files must use the column names in the table below, but not character for character. Capitalisation, spacing and punctuation are ignored, so `Patient ID`, `patient_id` and `PatientID` are all read as the same column. Beyond that, `pd_unit()` matches on keywords, so a name that differs but still carries the expected words is picked up. For example,`Infection Date` is read as `Date of Infection`, `DOB` as `Date of Birth`, and `Sex` as `Gender`. A column already named exactly as the target always keeps that role and is never reassigned. Where no such column exists and two or more columns could both match one target, the leftmost one in the file is used, the build carries on, and a warning names the candidates and the column chosen.
+Your files must use the column names in the table below. Capitalisation, spacing and punctuation are ignored, so `Patient ID`, `patient_id` and `PatientID` are all read as the same column. Beyond that, `pd_unit()` matches on keywords, so a name that differs but still carries the expected words is picked up. For example,`Infection Date` is read as `Date of Infection`, `DOB` as `Date of Birth`, and `Sex` as `Gender`. A column already named exactly as the target always keeps that role and is never reassigned. Where no such column exists and two or more columns could both match one target, the leftmost one in the file is used, the build carries on, and a warning names the candidates and the column chosen.
 
 | File | Required columns | Optional columns |
 |---|---|---|
 | Unit (A3) | Patient ID, Insertion Date, PD Start Date, Date of Birth | Gender, Ethnicity, Primary Kidney Disease, Height, Weight, Cigarette Smoking Status, Diabetes Type, Procedure Type, PD Stop Date, Removal Reason, Dialysis Type, Dialysis Modality Change, Modality Change Reason, Date Modality Change, Date of Death, Cause of Death, Transplant Date |
 | Peritonitis (PE) | Patient ID, Date of Infection, Organism, Last Dose Antibiotic | Overnight Hospitalisation, Days Hospitalised, Catheter Removed, Catheter Removed Date, Interim HD, Permanent HD, First Dialysis Date, Last Dialysis Date |
 
-A missing required column stops the build with an error that lists what was found. A missing optional column is filled with `NA` without a warning, so check the spelling of optional columns carefully. A misnamed `Date of Death` or `PD Stop Date`, for example, means patients are not censored and patient-years are overstated.
+A missing required column stops the build with an error that lists what was found. Check the spelling of optional columns carefully as a missing optional column is filled with `NA` without a warning. An incorrect `Date of Death` or `PD Stop Date` name column, for example, means patients are not censored and patient-years are overstated.
 
 Values should follow these formats:
 
 - `Patient ID` must be in NHI format: three letters then four digits (`ABC1234`), case-insensitive. A row whose ID is a different shape is reported and the build stops.
-- Dates can be Excel date cells, `Date` columns, or text in `YYYY-MM-DD` or day-first format (`31/01/2025`, `31-01-2025`). An ambiguous date such as `03/04/2025` is read as 3 April, so a file with month-first dates must be converted first. A date that cannot be read is set to `NA` with a warning.
+- Dates can be Excel date cells, `Date` columns, or text in `YYYY-MM-DD` or day-first format (`31/01/2025`, `31-01-2025`). A date that cannot be read is set to `NA` with a warning.
 - A `.csv` file is read as it is: column names are standardised as for Excel files, and blank cells and `NA` are missing values.
 - Yes/no columns accept `Yes`/`No`, `Y`/`N`, `TRUE`/`FALSE` or `1`/`0`.
 - Several organisms for one episode go in one cell, separated by commas.
 - A permanent move to haemodialysis is recorded as `Any PD to HD` in Dialysis Modality Change.
 
-The sketch below shows steps 1 to 4 end to end. The column names on the right-hand side of each assignment, and the recoding, are placeholders to replace with your own.
+The outline below shows steps 1 to 4 end to end. The column names on the right-hand side of each assignment, and the recoding, are placeholders to replace with your own.
 
 ```{r, eval = FALSE}
 raw_a3 <- readxl::read_excel("my_unit_export.xlsx")
 raw_pe <- readxl::read_excel("my_peritonitis_export.xlsx")
 
 a3 <- data.frame(
-  "Patient ID"     = raw_a3$MRN,
-  "Date of Birth"  = raw_a3$DOB,
+  "Patient ID" = raw_a3$MRN,
+  "Date of Birth" = raw_a3$DOB,
   "Insertion Date" = raw_a3$CatheterInsertDate,
-  "PD Start Date"  = raw_a3$PDStart,
-  "Gender"         = ifelse(raw_a3$Sex == 1, "Male", "Female"),  # recode
+  "PD Start Date" = raw_a3$PDStart,
+  "Gender" = ifelse(raw_a3$Sex == 1, "Male", "Female"),  # recode
   check.names = FALSE
 )
 
 pe <- data.frame(
-  "Patient ID"        = raw_pe$MRN,
+  "Patient ID"  = raw_pe$MRN,
   "Date of Infection" = raw_pe$InfectionDate,
-  "Organism"          = raw_pe$Organism,
+  "Organism" = raw_pe$Organism,
   check.names = FALSE
 )
 
@@ -221,7 +221,7 @@ s$episode_types
 ```
 
 How the two indicators are defined, and which episodes count towards them, is covered
-in `vignette("ispd-indicators-classification", package = "peridial")`.
+in `vignette("indicators-classification", package = "peridial")`.
 
 `summary()` on a single patient is the same idea one level down: their status, age,
 demographics, each catheter's window and outcome, their total time at risk, and their
@@ -265,9 +265,9 @@ plot(unit, type = "yearly", benchmark = 0.50,
 
 ### `subset()`
 
-`subset()` asks questions of the data rather than the indicators. It joins the unit's
-`patients`, `catheters` and `infections` tibbles into one flat table, one row per
-episode carrying its catheter's and its patient's columns, and returns the rows that
+`subset()` asks questions about the data of interest by using filters and conditions. 
+It joins the unit's `patients`, `catheters` and `infections` tibbles into one flat table, 
+one row per episode carrying its catheter's and its patient's columns, and returns the rows that
 meet a condition as a plain tibble:
 
 ```{r}
@@ -290,7 +290,7 @@ nrow(subset(unit, !is.na(infection_date)))
 dplyr::n_distinct(subset(unit)$patient_id)
 ```
 
-The indicators are not recalculated and the unit is not modified: the result is a
+Using `subset`, the indicators are not recalculated and the unit is not modified: the result is a
 tibble to inspect, not a smaller `pd_unit`. The same method is defined for a patient
 and for a catheter, over whatever sits below them:
 
