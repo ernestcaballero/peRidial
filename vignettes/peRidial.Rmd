@@ -21,6 +21,11 @@ peRidial is a standardised R framework for ingesting, validating, and summarisin
 
 This vignette walks through installation and setup, the example data, and building a `pd_unit` from PD unit input files.
 
+For details on individual pieces, see the other vignettes:
+
+- `vignette("data-structures", package = "peridial")`
+- `vignette("ispd-indicators-classification", package = "peridial")`
+
 ## Installation and setup
 
 ```r
