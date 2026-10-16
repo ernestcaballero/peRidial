@@ -123,8 +123,8 @@ library(peridial)
 t0 <- as.Date("2025-01-01"); t1 <- as.Date("2025-12-31")
 
 unit <- pd_unit(
-  unit_data_path      = system.file("extdata", "a3_2025.xlsx", package = "peridial"),
-  infection_data_path = system.file("extdata", "pe_2025.xlsx", package = "peridial"),
+  unit_data      = system.file("extdata", "a3_2025.xlsx", package = "peridial"),
+  infection_data = system.file("extdata", "pe_2025.xlsx", package = "peridial"),
   t0 = t0, t1 = t1, unit_id = "Wellington PD Unit"
 )
 ```
