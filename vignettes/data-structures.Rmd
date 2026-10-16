@@ -14,6 +14,158 @@ knitr::opts_chunk$set(
 )
 ```
 
+
 ```{r setup}
 library(peridial)
+```
+
+## Overview
+
+peRidial represents a PD unit as four nested S3 classes. Each class owns the
+level below it, so the structure mirrors how the clinical data are recorded:
+a unit has patients, a patient has catheters, and a catheter has peritonitis
+episodes.
+
+This vignette explains what each class holds, how they fit together, and how
+to look inside them. For building a `pd_unit` from files, see
+`vignette("peridial")`.
+
+## The hierarchy
+
+```
+pd_unit        one PD unit and one reporting period (t0 to t1)
+└── pd_patient     one patient
+    └── pd_catheter    one PD catheter
+        └── pd_infection   one peritonitis episode
+```
+
+| Class | One object is... | Holds |
+|---|---|---|
+| `pd_unit` | a unit over a reporting period | its patients, plus unit-level figures such as `n_patients`, `n_new` and `tpyar` |
+| `pd_patient` | one patient | demographics and their catheters |
+| `pd_catheter` | one PD catheter | insertion and PD start dates, procedure type, and the episodes that occurred on it |
+| `pd_infection` | one peritonitis episode | infection date, organism(s), last antibiotic dose, and the episode type |
+
+The reporting period `t0` and `t1` is passed down the hierarchy, so
+exposure time is always measured against the same window.
+
+## Building the objects from the bottom up
+
+The constructors follow the hierarchy: episodes first, then the catheter that
+owns them, then the patient.
+
+```{r}
+t0 <- as.Date("2025-01-01")
+t1 <- as.Date("2025-12-31")
+
+ep1 <- pd_infection(
+  patient_id = "ABC1234",
+  infection_date = as.Date("2025-03-10"),
+  organism_list = list("Staphylococcus aureus"),
+  last_dose_antibiotic = as.Date("2025-03-31")
+)
+
+ep2 <- pd_infection(
+  patient_id = "ABC1234",
+  infection_date = as.Date("2025-04-15"),
+  organism_list = list("Staphylococcus aureus"),
+  last_dose_antibiotic = as.Date("2025-05-06"),
+  prior_episode = ep1
+)
+
+catheter <- pd_catheter(
+  patient_id = "ABC1234",
+  catheter_id = "ABC1234_01",
+  insertion_date = as.Date("2024-11-02"),
+  procedure_type = "Laparoscopic",
+  pd_start_date = as.Date("2024-11-20"),
+  infections = list(ep1, ep2),
+  t0 = t0, t1 = t1
+)
+
+patient <- pd_patient(
+  patient_id = "ABC1234",
+  catheters = list(catheter),
+  t0 = t0, t1 = t1,
+  gender = "Female",
+  date_of_birth = as.Date("1961-06-14")
+)
+```
+
+Each object links to its parent through `patient_id`, and episodes also link
+to their catheter through `catheter_id`. Passing `infections = list(ep1, ep2)`
+to `pd_catheter()` is what attaches the episodes to the catheter.
+
+## Looking inside an object
+
+Printing gives a summary, and `str()` shows what the object is made of:
+
+```{r}
+patient
+```
+
+```{r}
+str(patient, max.level = 1)
+```
+
+Fields are read with `$`, as with `ep2$episode_type` in the introduction.
+
+## Constructors and validation
+
+<!-- TODO: confirm this matches your design for all four classes. I only know
+     it for pd_infection (new_pd_infection() + validate_pd_infection()) and
+     new_pd_patient() / pd_patient(). -->
+
+Each class has two layers:
+
+- A low-level constructor, such as `new_pd_infection()`, that assembles the
+  object without checking it.
+- A user-facing function, such as `pd_infection()`, that builds the object and
+  then runs `validate_pd_infection()`.
+
+Use the user-facing functions in your own code. They guarantee that an object
+which exists is valid.
+
+```{r, eval = FALSE}
+# TODO: replace with a real example that fails validation, and show the
+# actual error message from your package.
+```
+
+## Working with a whole unit as a table
+
+A `pd_unit` built from the example files can be flattened into one table with
+`subset()`. It works like base `subset()` and returns a plain tibble. It never
+modifies the unit.
+
+```{r}
+unit <- pd_unit(
+  unit_data_path = system.file("extdata", "a3_2025.xlsx", package = "peridial"),
+  infection_data_path = system.file("extdata", "pe_2025.xlsx", package = "peridial"),
+  t0 = t0, t1 = t1, unit_id = "Wellington PD Unit"
+)
+```
+
+The table has one row per episode. Patient, catheter and episode columns sit
+side by side, so one condition can use columns from any level. A catheter with
+no episodes still gets a row, with `NA` in the episode columns.
+
+```{r}
+subset(
+  unit,
+  gender == "Female" & !is.na(infection_date),
+  select = c(patient_id, catheter_id, infection_date)
+)
+```
+
+A few things to know:
+
+- `subset()` also works on a single `pd_patient` or `pd_catheter`. A
+  `pd_catheter` only knows its `patient_id`, so patient columns such as
+  `gender` are not available there.
+- Stored values such as `n_episodes` and `patient_years_at_risk` describe the
+  whole unit. They do not change when rows are filtered.
+- To get a single `pd_patient` object out of a unit, search its patient list:
+
+```{r, eval = FALSE}
+Find(function(p) p$patient_id == "ABC1234", unit$patient_list)
 ```
