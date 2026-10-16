@@ -122,13 +122,7 @@ plot.pd_unit <- function(x, y,
   labelled <- rate_df[!is.na(rate_df$rate), ]
 
   # whole-period headline rate from reuse summarise_rate()
-  overall <- summarise_rate(x)
-  overall_label <- if (is.na(overall$rate)) {
-    "Overall rate: NA"
-  } else {
-    sprintf("Overall rate: %.3f episode/patient-yr [%s]",
-            overall$rate, if (overall$rate_met) "MET" else "NOT MET")
-  }
+  overall_label <- overall_rate_label(summarise_rate(x))
 
   p <- ggplot2::ggplot(rate_df, ggplot2::aes(x = .data$label, y = .data$rate)) +
     ggplot2::geom_col(fill = "#2C7FB8", na.rm = TRUE) +
@@ -155,22 +149,35 @@ plot.pd_unit <- function(x, y,
 }
 
 
+#' Peritonitis rate and its benchmark verdict, as one line of text for plot
+#'
+#' @param overall Output of `summarise_rate()`.
+#' @noRd
+overall_rate_label <- function(overall) {
+  if (is.na(overall$rate)) {
+    "Overall rate: NA"
+  } else {
+    sprintf("Overall rate: %.3f episode/patient-yr [%s]",
+            overall$rate, if (overall$rate_met) "MET" else "NOT MET")
+  }
+}
+
+
+#' Peritonitis-free percentage and its benchmark verdict for plot
+#'
+#' @param pf Output of `summarise_pf()`.
+#' @noRd
+overall_pf_label <- function(pf) {
+  if (is.na(pf$pf)) {
+    "Overall peritonitis-free: NA"
+  } else {
+    sprintf("Overall peritonitis-free: %.1f%% [%s]",
+            pf$pf * 100, if (pf$pf_met) "MET" else "NOT MET")
+  }
+}
+
+
 #' Cumulative (year-to-date) peritonitis-free percentage, by calendar month
-#'
-#' For each calendar month spanned by `[x$t0, x$t1]`, computes the
-#' percentage of the unit's whole-period cohort (`x$patients$patient_id`)
-#' who have *not yet* had a countable peritonitis episode (`infections$counts_toward_rate`)
-#' by the end of that month. A patient who has had an episode can't become
-#' peritonitis-free again within the same reporting period, so this is
-#' necessarily non-increasing month to month, and its final value equals
-#' the same whole-period PF `summarise_pf()`/`summary.pd_unit()` report.
-#'
-#' @param x A `pd_unit` object.
-#'
-#' @return A tibble: `period` (Date, first of each month), `label`
-#'   (character month label), `period_end` (Date, the bin's end, clipped to
-#'   `x$t1`), and `cum_pf_pct` (numeric, 0-100; `NA` when the cohort is
-#'   empty, i.e. `x$n_patients == 0`).
 #' @noRd
 #'
 cumulative_pf_by_month <- function(x) {
@@ -207,27 +214,15 @@ cumulative_pf_by_month <- function(x) {
 }
 
 
+
 #' Draw the combined year-to-date rate and PF% panels for a pd_unit object
 #'
-#' Two stacked panels, each on its own correctly-scaled axis.
 #' The top panel is the cumulative (year-to-date) peritonitis rate, built
 #' by accumulating each month's episodes and patient-years from
-#' `peritonitis_rate_by_period()` (`cumsum(n_episodes) / cumsum(patient_years)`)
-#' -- the same episodes-per-patient-year units as the ISPD rate benchmark,
-#' so the two stay directly comparable on one axis, and its last point
-#' equals the whole-period rate by construction; the bottom panel is the
-#' cumulative PF%. Both panels reuse `summarise_rate()`/`summarise_pf()` --
-#' the same internal helpers `summary.pd_unit()` calls -- for their
-#' reference benchmarks and final-point labels. Requires the patchwork
-#' package.
-#'
-#' @param x A `pd_unit` object.
-#' @param benchmark Numeric. The ISPD peritonitis-rate benchmark to draw as
-#'   a reference line on the rate panel.
-#' @param extras List of `ggplot` panels (from `build_extra_panels()`) laid out
-#'   in a two-column grid underneath the two cumulative panels. Empty by default.
-#'
-#' @return A `patchwork` object, invisibly plotted as a side effect.
+#' `peritonitis_rate_by_period()` (`cumsum(n_episodes) / cumsum(patient_years)`),
+#' and its last point equals the whole-period rate by construction;
+#' the bottom panel is the cumulative PF%. Both panels reuse `summarise_rate()`/`summarise_pf()`.
+#' Requires the patchwork package.
 #' @noRd
 #'
 plot_cumulative_rate <- function(x, benchmark, extras = list()) {
@@ -311,6 +306,7 @@ plot_cumulative_rate <- function(x, benchmark, extras = list()) {
                                 expand = ggplot2::expansion(mult = c(0, 0.15))) +
     ggplot2::labs(
       title = "Cumulative (Year-to-Date) Peritonitis-Free %",
+      subtitle = overall_pf_label(summarise_pf(x)),
       x = "Month", y = "Peritonitis-free (%)"
     ) +
     ggplot2::theme_minimal() +
@@ -330,7 +326,7 @@ plot_cumulative_rate <- function(x, benchmark, extras = list()) {
     patchwork::plot_annotation(
       title = paste("Year-to-Date Indicator:", unit_label),
       subtitle = paste0(format(x$t0), " to ", format(x$t1), "\n",
-                        "  (dashed lines: ISPD benchmark)")
+                        overall_rate_label(overall))
     )
 
   print(combined)
@@ -344,7 +340,6 @@ plot_cumulative_rate <- function(x, benchmark, extras = list()) {
 
 #' Build the optional cohort panels requested by the show_* arguments
 #' @noRd
-#'
 build_extra_panels <- function(x, show_ip, show_pkd, show_modality,
                                show_stop.reason) {
   panels <- list()
@@ -385,18 +380,6 @@ patient_column <- function(x, name) {
 
 
 #' Count a categorical vector for a bar chart
-#'
-#' Missing or blank values become "Unknown", which is always present (with a
-#' count of 0 if need be). Without `levels` the observed categories are sorted
-#' from most to least common. With `levels` those categories come first, in the
-#' order given and kept even at 0, then any other observed categories, most
-#' common first. "Unknown" is last in that case.
-#'
-#' @param values Character vector, one element per patient (or catheter).
-#' @param denom Number the percentages are taken of.
-#' @param levels Optional character vector of categories to always show.
-#'
-#' @return A tibble with `category`, `n` and `pct` (percentage of `denom`).
 #' @noRd
 tabulate_categories <- function(values, denom = length(values), levels = NULL) {
   values <- trimws(as.character(values))
@@ -425,16 +408,8 @@ tabulate_categories <- function(values, denom = length(values), levels = NULL) {
 }
 
 
-#' A simple bar chart of a `tabulate_categories()` tibble
-#'
-#' @param tab Output of `tabulate_categories()`, already in plotting order.
-#' @param title,subtitle Plot title and subtitle.
-#' @param value `"pct"` (bars are % of the cohort, labelled like `12.5%`) or
-#'   `"n"` (bars are counts).
-#' @param horizontal If `TRUE`, draw horizontal bars with the first row on top.
-#' @param fill Bar colour.
-#'
-#' @return A `ggplot` object.
+
+#' Bar chart of a `tabulate_categories()` tibble
 #' @noRd
 bar_panel <- function(tab, title, subtitle = NULL, value = c("pct", "n"),
                       horizontal = FALSE, fill = "#2C7FB8") {
@@ -558,17 +533,6 @@ panel_modality <- function(x) {
 
 
 #' Reason for each PD catheter stopped within the reporting period
-#'
-#' Counts catheters (not patients) whose `pd_stop_date` is within `[t0, t1]`.
-#' The reason is the standardised `removal_reason`. Where that is a permanent
-#' transfer to HD, it is replaced by the patient's modality-change reason
-#' (`transfer_detail`), but only when that patient's censoring event really was
-#' the transfer to HD, since `transfer_detail` holds a cause of death for a
-#' death. A blank reason comes back as `NA` (shown as "Unknown").
-#'
-#' @param x A `pd_unit` object.
-#'
-#' @return A character vector, one element per stopped catheter.
 #' @noRd
 catheter_stop_reasons <- function(x) {
   cath <- x$catheters
