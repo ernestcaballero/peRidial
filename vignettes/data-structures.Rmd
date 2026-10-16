@@ -15,157 +15,225 @@ knitr::opts_chunk$set(
 ```
 
 
-```{r setup}
-library(peridial)
-```
-
 ## Overview
 
-peRidial represents a PD unit as four nested S3 classes. Each class owns the
-level below it, so the structure mirrors how the clinical data are recorded:
-a unit has patients, a patient has catheters, and a catheter has peritonitis
-episodes.
+peRidial represents a PD unit as four nested S3 classes: `pd_unit`, `pd_patient`, `pd_catheter` and `pd_infection`. Each class owns the level below it, so the structure mirrors how the clinical data are recorded: a unit has patients, a patient has catheters, and a catheter has peritonitis episodes.
 
-This vignette explains what each class holds, how they fit together, and how
-to look inside them. For building a `pd_unit` from files, see
-`vignette("peridial")`.
+This vignette explains what each class holds, how the objects are built from the unit's input files, and how the constructors keep them consistent. It builds on `vignette("peridial", package = "peridial")`, which covers installation, the example data, building a `pd_unit` with `pd_unit()`, and the `print()`, `summary()`, `plot()` and `subset()` methods. How the indicators are calculated is covered in `vignette("indicators-classification", package = "peridial")`.
 
-## The hierarchy
+The examples use the same example unit as the introduction:
 
-```
-pd_unit        one PD unit and one reporting period (t0 to t1)
-└── pd_patient     one patient
-    └── pd_catheter    one PD catheter
-        └── pd_infection   one peritonitis episode
-```
+```{r setup}
+library(peridial)
 
-| Class | One object is... | Holds |
-|---|---|---|
-| `pd_unit` | a unit over a reporting period | its patients, plus unit-level figures such as `n_patients`, `n_new` and `tpyar` |
-| `pd_patient` | one patient | demographics and their catheters |
-| `pd_catheter` | one PD catheter | insertion and PD start dates, procedure type, and the episodes that occurred on it |
-| `pd_infection` | one peritonitis episode | infection date, organism(s), last antibiotic dose, and the episode type |
-
-The reporting period `t0` and `t1` is passed down the hierarchy, so
-exposure time is always measured against the same window.
-
-## Building the objects from the bottom up
-
-The constructors follow the hierarchy: episodes first, then the catheter that
-owns them, then the patient.
-
-```{r}
 t0 <- as.Date("2025-01-01")
 t1 <- as.Date("2025-12-31")
 
-ep1 <- pd_infection(
-  patient_id = "ABC1234",
-  infection_date = as.Date("2025-03-10"),
-  organism_list = list("Staphylococcus aureus"),
-  last_dose_antibiotic = as.Date("2025-03-31")
-)
-
-ep2 <- pd_infection(
-  patient_id = "ABC1234",
-  infection_date = as.Date("2025-04-15"),
-  organism_list = list("Staphylococcus aureus"),
-  last_dose_antibiotic = as.Date("2025-05-06"),
-  prior_episode = ep1
-)
-
-catheter <- pd_catheter(
-  patient_id = "ABC1234",
-  catheter_id = "ABC1234_01",
-  insertion_date = as.Date("2024-11-02"),
-  procedure_type = "Laparoscopic",
-  pd_start_date = as.Date("2024-11-20"),
-  infections = list(ep1, ep2),
-  t0 = t0, t1 = t1
-)
-
-patient <- pd_patient(
-  patient_id = "ABC1234",
-  catheters = list(catheter),
-  t0 = t0, t1 = t1,
-  gender = "Female",
-  date_of_birth = as.Date("1961-06-14")
-)
-```
-
-Each object links to its parent through `patient_id`, and episodes also link
-to their catheter through `catheter_id`. Passing `infections = list(ep1, ep2)`
-to `pd_catheter()` is what attaches the episodes to the catheter.
-
-## Looking inside an object
-
-Printing gives a summary, and `str()` shows what the object is made of:
-
-```{r}
-patient
-```
-
-```{r}
-str(patient, max.level = 1)
-```
-
-Fields are read with `$`, as with `ep2$episode_type` in the introduction.
-
-## Constructors and validation
-
-<!-- TODO: confirm this matches your design for all four classes. I only know
-     it for pd_infection (new_pd_infection() + validate_pd_infection()) and
-     new_pd_patient() / pd_patient(). -->
-
-Each class has two layers:
-
-- A low-level constructor, such as `new_pd_infection()`, that assembles the
-  object without checking it.
-- A user-facing function, such as `pd_infection()`, that builds the object and
-  then runs `validate_pd_infection()`.
-
-Use the user-facing functions in your own code. They guarantee that an object
-which exists is valid.
-
-```{r, eval = FALSE}
-# TODO: replace with a real example that fails validation, and show the
-# actual error message from your package.
-```
-
-## Working with a whole unit as a table
-
-A `pd_unit` built from the example files can be flattened into one table with
-`subset()`. It works like base `subset()` and returns a plain tibble. It never
-modifies the unit.
-
-```{r}
 unit <- pd_unit(
-  unit_data_path = system.file("extdata", "a3_2025.xlsx", package = "peridial"),
-  infection_data_path = system.file("extdata", "pe_2025.xlsx", package = "peridial"),
+  unit_data = system.file("extdata", "a3_2025.xlsx", package = "peridial"),
+  infection_data = system.file("extdata", "pe_2025.xlsx", package = "peridial"),
   t0 = t0, t1 = t1, unit_id = "Wellington PD Unit"
 )
 ```
 
-The table has one row per episode. Patient, catheter and episode columns sit
-side by side, so one condition can use columns from any level. A catheter with
-no episodes still gets a row, with `NA` in the episode columns.
+
+## The hierarchy
+
+```
+pd_unit          one PD unit and one reporting period (t0 to t1)
+└── pd_patient       one patient on PD during the period
+    └── pd_catheter      one PD catheter
+        └── pd_infection     one peritonitis episode
+```
+
+| Class | One object is... | Built from |
+|---|---|---|
+| `pd_unit` | a unit over a reporting period | the whole unit (A3) and peritonitis (PE) data |
+| `pd_patient` | one patient | the patient's demographic columns on their A3 rows |
+| `pd_catheter` | one PD catheter | one A3 row |
+| `pd_infection` | one peritonitis episode | one PE row |
+
+Every object below the unit carries the `patient_id` of the patient it belongs to. A catheter is linked to its episodes by containment: the episodes sit in the catheter's `infections` list.
+
+### Object creation
+
+`pd_unit()` turns the two input files into this hierarchy in a fixed order:
+
+1. **Catheters.** Each A3 row becomes one catheter. Its `catheter_id` is generated as the `patient_id` followed by a two-digit sequence in order of insertion date (`SPD0059_01`, `SPD0059_02`), because the input files do not hold a catheter identifier.
+2. **Censoring point.** For each patient, the date they permanently stopped being at risk of PD peritonitis, called $\tau$, is taken from the earliest of death, transplant, a permanent transfer to haemodialysis, or the stop date of their last catheter (the last one only when `censor_on_last_stop = TRUE`).
+3. **Episodes.** Each PE row becomes a `pd_infection`, and is placed in the catheter that was active on the infection date. An episode that matches no active catheter is reported as a gap in the source data. Each episode is compared with the same patient's previous episode to derive its `episode_type`.
+4. **Patients.** The demographic columns are read from each patient's first A3 row, and the patient is given their catheters and $\tau$. A patient is included only if they were on PD at some point in `[t0, t1]`.
+5. **Unit.** The patients are collected into one `pd_unit`, together with the headline numbers and three flat tibbles, described below.
+
+The object is validated at the end. The data problems found along the way are the ones listed in the introduction vignette.
+
+
+## What each class holds
+
+Walking down from one patient shows the same fields as `names()`:
 
 ```{r}
-subset(
-  unit,
-  gender == "Female" & !is.na(infection_date),
-  select = c(patient_id, catheter_id, infection_date)
+spd0003 <- Filter(function(p) p$patient_id == "SPD0003", unit$patient_list)[[1]]
+
+names(spd0003)
+names(spd0003$catheters[[1]])
+names(spd0003$catheters[[1]]$infections[[1]])
+```
+
+Fields are read with `$`. Some fields are supplied when the object is built, and others are **derived** from what the object contains. The tables below mark which is which.
+
+### `pd_infection`
+
+One peritonitis episode. It does not carry `t0` or `t1`; whether it counts in the period is decided by the catheter that owns it.
+
+| Field | Holds |
+|---|---|
+| `patient_id` | the patient's NHI |
+| `infection_date` | date the episode was diagnosed |
+| `organism_list` | a list of the cultured organism(s); `"negative"` is a culture-negative episode and cannot be combined with another organism |
+| `last_dose_antibiotic` | date of the last antibiotic dose for the episode |
+| `outcome`, `outcome_date` | `"catheter removed"`, `"permanent transfer to HD"`, `"temporary transfer to HD"` or `"hospitalisation"` with its date. `NA` means the episode resolved |
+| `episode_type` | **derived**: `"relapsing"`, `"recurrent"`, `"repeat"` or `NA`, from the previous episode (see `get_episode_type()`) |
+
+### `pd_catheter`
+
+One PD catheter and the window it delivered PD.
+
+| Field | Holds |
+|---|---|
+| `patient_id`, `catheter_id` | the owner, and this catheter's identifier (for example `SPD0003_01`) |
+| `insertion_date`, `procedure_type` | when and how it was inserted |
+| `pd_start_date`, `pd_stop_date` | the PD window; `pd_stop_date` is `NA` while the catheter is still in use |
+| `removal_reason` | why PD on this catheter stopped, `NA` if it has not |
+| `infections` | a list of the `pd_infection` objects that occurred on this catheter |
+| `t0`, `t1` | the reporting period |
+| `total_exposure_days` | days at risk in `[t0, t1]`, censored at the patient's $\tau$; `pd_unit()` fills it in |
+| `n_peritonitis_episodes`, `peritonitis_flag` | **derived**: the number of countable episodes (inside the PD window and `[t0, t1]`, not relapsing) and whether it is above zero |
+
+### `pd_patient`
+
+One person and the catheters they used.
+
+| Field | Holds |
+|---|---|
+| `patient_id` | the patient's NHI |
+| `catheters` | a list of the patient's `pd_catheter` objects; their PD windows may not overlap |
+| `t0`, `t1` | the reporting period |
+| `gender`, `ethnicity`, `date_of_birth`, `primary_kidney_disease`, `diabetes_status`, `smoking_status`, `dialysis_type` | demographic and clinical details, `NA` where not recorded |
+| `transfer_reason`, `transfer_date` | the patient's censoring point $\tau$: `"death"`, `"transplant"` or `"permanent transfer to HD"` with its date, or `NA` if they are still on PD |
+| `new_patient_flag` | **derived**: `TRUE` for an incident patient (first PD start inside `[t0, t1]`), `FALSE` for a prevalent one |
+| `n_catheters`, `n_episodes` | **derived**: the number of catheters, and the countable episodes across all of them |
+
+### `pd_unit`
+
+The unit, its reporting period and its patients (in two forms: a list and a tibble).
+
+| Field | Holds |
+|---|---|
+| `unit_id` | the name of the unit |
+| `t0`, `t1` | the reporting period |
+| `n_patients`, `n_new` | the cohort size, and how many of them are incident patients |
+| `tpyar` | total patient-years at risk, the denominator of the peritonitis rate |
+| `rate_benchmark`, `pf_benchmark` | the ISPD benchmarks the unit is judged against (0.40 episodes per patient-year and 0.80) |
+| `patient_list` | the nested `pd_patient` objects |
+| `patients`, `catheters`, `infections` | three flat tibbles made from `patient_list` |
+
+```{r}
+names(unit)
+```
+
+### Two views of the same data
+
+`patient_list` is the object graph and the three tibbles are a table view of it, one row per patient, per catheter and per episode:
+
+```{r}
+lapply(unit[c("patients", "catheters", "infections")], names)
+```
+
+The tibbles are what `subset()` joins together, and they hold what the objects do not. `catheter_id` is a column of `infections`, so an episode can be traced to its catheter. `infections` also has `counts_toward_rate`, which is `TRUE` for an episode that is inside its catheter's PD window and the reporting period and is not relapsing. `catheters` has `exposure_days_in_period` and `patients` has `patient_years_at_risk`.
+
+The stored counts describe the level they sit on: `n_episodes` and `patient_years_at_risk` are per patient, and `n_peritonitis_episodes` and `exposure_days_in_period` are per catheter. Only `n_patients`, `n_new` and `tpyar` describe the whole unit. None of them change when `subset()` filters rows.
+
+Both forms are validated against each other, so they cannot drift apart: the patient identifiers must agree, every catheter must belong to a patient in the unit, and every episode to a catheter in it.
+
+
+## The reporting period and censoring
+
+The reporting period `t0` and `t1` is stored on the unit, on every patient and on every catheter, and each level is checked against the one above it, so exposure time is always measured against the same window. A `pd_infection` does not carry it.
+
+A catheter's time at risk starts on the later of its `pd_start_date` and `t0`, and ends on the earliest of its `pd_stop_date`, `t1` and the patient's $\tau$, counting both end days. A patient's `transfer_date` is therefore the point past which no catheter may run: a catheter that starts after it, or is still open on it, is rejected when the patient is built.
+
+
+
+## Constructors and validation
+
+Each class has a low-level constructor that assembles the object without checking it, and a function that builds it and then validates it. The `validate_*()` functions are internal and are called by the building functions.
+
+| Class | Unchecked constructor | Builds and validates |
+|---|---|---|
+| `pd_infection` | `new_pd_infection()` | `pd_infection()` |
+| `pd_catheter` | `new_pd_catheter()` | `pd_catheter()` |
+| `pd_patient` | `new_pd_patient()` | `pd_patient()` |
+| `pd_unit` | `new_pd_unit()` | `pd_unit()` |
+
+Use the validating functions in your own code. They guarantee that an object that exists is valid. A few differ from the plain pattern:
+
+- `pd_infection()` has no `episode_type` argument. It derives the type from `prior_episode`.
+- `pd_catheter()` and `pd_patient()` derive their counts and flags when you leave them out. If you supply them, validation checks they agree with the contents.
+- `pd_unit()` is a different kind of function: it reads the raw A3 and PE data and builds the whole unit. `new_pd_unit()` is the low-level constructor, and takes the counts and tibbles as given.
+
+When a check fails, the error says which field is wrong. Here the last antibiotic dose, which every episode needs, is missing:
+
+```{r}
+tryCatch(
+  pd_infection(
+    patient_id = "ABC1234",
+    infection_date = as.Date("2025-03-10"),
+    organism_list = list("Staphylococcus aureus")
+  ),
+  error = function(e) conditionMessage(e)
 )
 ```
 
-A few things to know:
+The check also runs across levels. An episode dated before the catheter's PD started cannot belong to it:
 
-- `subset()` also works on a single `pd_patient` or `pd_catheter`. A
-  `pd_catheter` only knows its `patient_id`, so patient columns such as
-  `gender` are not available there.
-- Stored values such as `n_episodes` and `patient_years_at_risk` describe the
-  whole unit. They do not change when rows are filtered.
-- To get a single `pd_patient` object out of a unit, search its patient list:
+```{r}
+too_early <- pd_infection(
+  patient_id = "ABC1234",
+  infection_date = as.Date("2024-10-01"),
+  organism_list = list("Escherichia coli"),
+  last_dose_antibiotic = as.Date("2024-10-15")
+)
 
-```{r, eval = FALSE}
-Find(function(p) p$patient_id == "ABC1234", unit$patient_list)
+tryCatch(
+  pd_catheter(
+    patient_id = "ABC1234",
+    catheter_id = "ABC1234_01",
+    insertion_date = as.Date("2024-11-02"),
+    pd_start_date = as.Date("2024-11-20"),
+    infections = list(too_early),
+    t0 = t0, t1 = t1
+  ),
+  error = function(e) conditionMessage(e)
+)
 ```
+
+Between them, the checks enforce that:
+
+- every object has a `patient_id`, and a catheter's and an episode's `patient_id` match their owner's;
+- dates are in order: a catheter is inserted before PD starts, and PD starts before it stops;
+- an episode falls inside its catheter's PD window;
+- a patient's catheters do not overlap, and their identifiers are unique within the patient and across the unit;
+- no catheter runs past the patient's $\tau$;
+- the reporting period is the same at every level;
+- stored counts and flags agree with the objects they summarise, and a unit's tibbles agree with its `patient_list`.
+
+These checks apply to objects that already exist. Problems in the input files are collected and reported together when `pd_unit()` runs, as described in `vignette("peridial", package = "peridial")`.
+
+
+## Things to know
+
+- Printing an object gives a summary, and `str(x, max.level = 1)` shows what it is made of.
+- An `NA` in `outcome` means the episode resolved, not that the value is missing.
+- The function `subset()` return a new tibble and never change the unit.
+- To get one `pd_patient` out of a unit, search its patient list, as above with `Filter()`.

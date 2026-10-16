@@ -110,7 +110,7 @@ To use your own data:
    to an `.xlsx` or `.csv` file, so cleaned data held in R does not need to
    be written out first.
 
-Your files must use the column names in the table below. Capitalisation, spacing and punctuation are ignored, so `Patient ID`, `patient_id` and `PatientID` are all read as the same column. Beyond that, `pd_unit()` matches on keywords, so a name that differs but still carries the expected words is picked up. For example,`Infection Date` is read as `Date of Infection`, `DOB` as `Date of Birth`, and `Sex` as `Gender`. A column already named exactly as the target always keeps that role and is never reassigned. Where no such column exists and two or more columns could both match one target, the leftmost one in the file is used, the build carries on, and a warning names the candidates and the column chosen.
+Your files must use the column names in the table below. Capitalisation, spacing and punctuation are ignored, so `Patient ID`, `patient_id` and `PatientID` are all read as the same column. Beyond that, `pd_unit()` matches on keywords, so a name that differs but still carries the expected words is picked up. For example,`Infection Date` is read as `Date of Infection`, `DOB` as `Date of Birth`, and `Sex` as `Gender`. A column already named exactly as the target always keeps that role and is never reassigned. Where no such column exists and two or more columns could both match one target, the leftmost one in the file is used, the build carries on, and a warning names the candidates and the column that is chosen.
 
 | File | Required columns | Optional columns |
 |---|---|---|
@@ -128,7 +128,7 @@ Values should follow these formats:
 - Several organisms for one episode go in one cell, separated by commas.
 - A permanent move to haemodialysis is recorded as `Any PD to HD` in Dialysis Modality Change.
 
-The outline below shows steps 1 to 4 end to end. The column names on the right-hand side of each assignment, and the recoding, are placeholders to replace with your own.
+The outline below shows steps 1 to 4. The column names on the right-hand side of each assignment, and the recoding, are placeholders to replace with your own.
 
 ```{r, eval = FALSE}
 raw_a3 <- readxl::read_excel("my_unit_export.xlsx")
@@ -193,7 +193,8 @@ own window and why it was removed:
 pat$catheters[[2]]
 ```
 
-A `pd_infection` prints its organisms, its episode type and its outcome:
+A `pd_infection` prints its organisms, its episode type and its outcome. An `NA` 
+in outcome means resolved peritonitis case, not missing:
 
 ```{r}
 spd0003 <- Filter(function(p) p$patient_id == "SPD0003", unit$patient_list)[[1]]
@@ -211,8 +212,7 @@ episodes by type, how patients left PD, demographics, catheters and organisms.
 s <- summary(unit)
 ```
 
-It also returns those components invisibly, so they can be used directly rather than
-read off the screen:
+It also returns those components invisibly, so they can be used directly:
 
 ```{r}
 s$rate
