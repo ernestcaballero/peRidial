@@ -243,6 +243,6 @@ print.pd_infection <- function(x, ...) {
   cat(sprintf("  %-21s: %s\n", "Organism/s", paste(unlist(x$organism_list), collapse = ", ")))
   cat(sprintf("  %-21s: %s\n", "Episode type", if (is.na(x$episode_type)) NA_character_ else x$episode_type))
   cat(sprintf("  %-21s: %s\n", "Last dose antibiotic", format(x$last_dose_antibiotic)))
-  cat(sprintf("  %-21s: %s\n", "Outcome", if (is.na(x$outcome)) "resolved" else x$outcome))
+  cat(sprintf("  %-21s: %s\n", "Outcome", if (is.na(x$outcome)) "NA" else x$outcome))
   invisible(x)
 }

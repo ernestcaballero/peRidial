@@ -390,8 +390,7 @@ print.pd_catheter <- function(x, ...) {
   cat("  Peritonitis        : ", x$n_peritonitis_episodes,
       "\n", sep = "")
 
-  # describes one infection as "date (episode_type, outcome: outcome)",
-  # dropping episode_type/outcome when they're NA
+  # describes one infection as "date (episode_type, outcome: outcome)", drop episode_type/outcome when they're NA
   describe_episode <- function(inf) {
     details <- character(0)
     if (!is.na(inf$episode_type)) details <- c(details, inf$episode_type)
@@ -403,7 +402,7 @@ print.pd_catheter <- function(x, ...) {
     }
   }
 
-  # countable episodes: reuses count_episodes(); exactly the episodes counted in n_peritonitis_episodes
+  # countable episodes
   countable <- vapply(x$infections, function(inf) {
     count_episodes(list(inf), x$t0, x$t1, x$pd_start_date, x$pd_stop_date) > 0
   }, logical(1))
