@@ -2,7 +2,7 @@
 title: "peRidial: Peritonitis Indicators for Peritoneal Dialysis Units"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Introduction to peRidial}
+  %\VignetteIndexEntry{peRidial: Peritonitis Indicators for Peritoneal Dialysis Units}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -17,9 +17,9 @@ knitr::opts_chunk$set(
 
 ## Overview
 
-peRidial is a standardised R framework for ingesting, validating, and summarising clinical peritoneal dialysis (PD) unit data. Four nested S3 classes represent the PD unit, the cohort of patients in the unit, their catheters, and each catheters peritonitis episodes (if any), supporting reproducible calculation of the International Society for Peritoneal Dialysis (ISPD)-recommended peritonitis rate and peritonitis-free percentage indicators from longitudinal catheter and infection records.
+peRidial is a standardised R framework for ingesting, validating, and summarising clinical peritoneal dialysis (PD) unit data. Four nested S3 classes represent the PD unit, the cohort of patients in the unit, their catheters, and each catheter's peritonitis episodes (if any), supporting reproducible calculation of the International Society for Peritoneal Dialysis (ISPD)-recommended peritonitis rate and peritonitis-free percentage indicators from longitudinal catheter and infection records.
 
-This vignette walks through installation and setup, the example data, and building a `pd_unit` from PD unit input files.
+This vignette walks through installation and setup, the example data, building a `pd_unit` from PD unit input files, and the `print()`, `summary()`, `plot()` and `subset()` methods for inspecting what was built.
 
 For details on individual pieces, see the other vignettes:
 
@@ -53,19 +53,20 @@ library(peridial)
 
 The example uses two synthetic Excel files that ship with the package, covering the 2025 reporting year for a fictional unit:
 
-- `a3_2025.xlsx` is the unit survey called `Form A3` file. Each row is one PD catheter. `Patient ID` identifies the patient rather than the row, so it repeats when a patient has more than one catheter in the period, and `catheter_id` is derived from the patient ID and the order of insertion dates. This input also includes the patient's demographic details, PD start and stop dates, dialysis modality, and any change of dialysis modality like transplant, permanent transfer to HD or stopped PD. The example file has 62 catheters across 60 patients: 58 patients with a single catheter, and two whose catheter was removed and replaced during the reporting year.
+- `a3_2025.xlsx` is the unit survey called `Form A3` file. Each row is one PD catheter. `Patient ID` identifies the patient and it repeats when a patient has more than one catheter in the period. This input also includes the patient's demographic details, PD start and stop dates, dialysis modality, and any change of dialysis modality like transplant, permanent transfer to HD or stopped PD. The example file has 62 catheters across 60 patients: 58 patients with a single catheter, and two whose catheter was removed and replaced during the reporting year.
 - `pe_2025.xlsx` is the peritonitis episode `Form PE` file. Each row is one peritonitis episode: the date of infection, the organism(s) cultured, the date of the last antibiotic dose, and whether the episode led to hospitalisation, catheter removal or a transfer to haemodialysis. The example file has 28 episodes across 17 patients.
 
-The data is shaped to exercise the package's main paths. Of the 60 patients, 20 are incident (their first PD start falls inside 2025) and 40 are prevalent. Patients leave PD by death (3), transplant (3) and permanent transfer to HD (6), while 48 are still on PD at the end of the period. The episodes include relapsing, recurrent and repeat peritonitis as well as first-ever episodes, so the episode-type breakdown reported by `summary()` is populated; see `vignette("ispd-indicators-classification", package = "peridial")` for how each category is derived.
+Of the 60 patients, 20 are incident (their first PD start falls inside 2025) and 40 are prevalent. Patients leave PD by death (3), transplant (3) and permanent transfer to HD (6), while 48 are still on PD at the end of the period. The episodes include relapsing, recurrent and repeat peritonitis as well as first-ever episodes, so the episode-type breakdown reported by `summary()` is populated; see `vignette("ispd-indicators-classification", package = "peridial")` for how each category is derived.
 
-No real patient data is included. The synthetic dataset was curated from
-metadata items in the ANZDATA Data Dictionary and the survey Form A3, together with
-local PD unit data. Catheter-level fields, such as insertion date, procedure type and removal reason, 
-follow typical local PD unit records. The package author selected the column names needed to achieve
-the aims of this package, so they do not match the ANZDATA export or any real
-dataset. Values are stored as plain, decoded values (for example `"Female"` for Gender column)
-rather than registry codes. To prepare your own data, see *Using your own data*
-below.
+No real patient data is included. The synthetic dataset was modelled on published
+field definitions: patient- and episode-level data items from the Australia and New
+Zealand Dialysis and Transplant Registry (ANZDATA) Data Dictionary and its survey
+`Form A3`, and other catheter-level fields such as procedure type and removal
+reason from the New Zealand Peritoneal Dialysis Registry (NZPDR), which records them
+where `Form A3` does not. The column names are the package author's own, chosen to suit
+the package, so they match neither an ANZDATA nor an NZPDR export. Values are decoded
+rather than coded: `Gender` holds `"Female"`, not a registry code. To prepare your own
+data, see *Using your own data* below.
 
 
 ## Building a `pd_unit`
@@ -92,8 +93,9 @@ Gaps in the source data found while building (for example an episode that cannot
 ### Using your own data
 
 > **Important:** the column names in the synthetic dataset were chosen by the
-> package author and do not match ANZDATA exports or a unit's own system. Raw
-> files will not load as they are.
+> package author, so an ANZDATA or NZPDR export will not match them exactly.
+> Some differing names are recognised automatically (see below), but a raw
+> export will usually need renaming before it loads.
 
 To use your own data:
 
@@ -108,7 +110,7 @@ To use your own data:
    to an `.xlsx` or `.csv` file, so cleaned data held in R does not need to
    be written out first.
 
-Your files must use the same column names as the example files. Differences in capitalisation, spacing and punctuation are ignored, so `Patient ID`, `patient_id` and `PatientID` are all accepted. A different name is not: `Infection Date` will not be recognised as `Date of Infection`.
+Your files must use the column names in the table below, but not character for character. Capitalisation, spacing and punctuation are ignored, so `Patient ID`, `patient_id` and `PatientID` are all read as the same column. Beyond that, `pd_unit()` matches on keywords, so a name that differs but still carries the expected words is picked up. For example,`Infection Date` is read as `Date of Infection`, `DOB` as `Date of Birth`, and `Sex` as `Gender`. A column already named exactly as the target always keeps that role and is never reassigned. Where no such column exists and two or more columns could both match one target, the leftmost one in the file is used, the build carries on, and a warning names the candidates and the column chosen.
 
 | File | Required columns | Optional columns |
 |---|---|---|
@@ -119,6 +121,7 @@ A missing required column stops the build with an error that lists what was foun
 
 Values should follow these formats:
 
+- `Patient ID` must be in NHI format: three letters then four digits (`ABC1234`), case-insensitive. A row whose ID is a different shape is reported and the build stops.
 - Dates can be Excel date cells, `Date` columns, or text in `YYYY-MM-DD` or day-first format (`31/01/2025`, `31-01-2025`). An ambiguous date such as `03/04/2025` is read as 3 April, so a file with month-first dates must be converted first. A date that cannot be read is set to `NA` with a warning.
 - A `.csv` file is read as it is: column names are standardised as for Excel files, and blank cells and `NA` are missing values.
 - Yes/no columns accept `Yes`/`No`, `Y`/`N`, `TRUE`/`FALSE` or `1`/`0`.
@@ -157,3 +160,140 @@ unit <- pd_unit(
 ```
 
 
+## Inspecting a unit
+
+Four S3 methods do the work of looking at what was built. `print()` is defined for
+every class, `summary()` for a unit and a patient, `plot()` for a unit, and `subset()`
+for a unit, a patient or a catheter.
+
+| Method | `pd_unit` | `pd_patient` | `pd_catheter` | `pd_infection` |
+|---|:--:|:--:|:--:|:--:|
+| `print()` | yes | yes | yes | yes |
+| `summary()` | yes | yes | -- | -- |
+| `plot()` | yes | -- | -- | -- |
+| `subset()` | yes | yes | yes | -- |
+
+### `print()`
+
+`print()` gives a short, fixed set of fields for one object; printing `unit` above
+used it. Because the same method is defined at each level, an object can be printed
+wherever it sits in the hierarchy. The nested objects are reachable through the
+unit's `patient_list`:
+
+```{r}
+pat <- Filter(function(p) p$patient_id == "SPD0059", unit$patient_list)[[1]]
+pat
+```
+
+This patient's first catheter was removed and replaced during the year, so they have
+two, and they left PD before the period ended. Printing the second catheter shows its
+own window and why it was removed:
+
+```{r}
+pat$catheters[[2]]
+```
+
+A `pd_infection` prints its organisms, its episode type and its outcome:
+
+```{r}
+spd0003 <- Filter(function(p) p$patient_id == "SPD0003", unit$patient_list)[[1]]
+spd0003$catheters[[1]]$infections[[2]]
+```
+
+### `summary()`
+
+`summary()` on a unit prints the indicator report: the peritonitis rate and the
+peritonitis-free percentage with their numerators and denominators, each judged
+against the benchmark carried on the object (`[ MET ]` or `[ NOT MET ]`), then
+episodes by type, how patients left PD, demographics, catheters and organisms.
+
+```{r}
+s <- summary(unit)
+```
+
+It also returns those components invisibly, so they can be used directly rather than
+read off the screen:
+
+```{r}
+s$rate
+s$rate_met
+s$episode_types
+```
+
+How the two indicators are defined, and which episodes count towards them, is covered
+in `vignette("ispd-indicators-classification", package = "peridial")`.
+
+`summary()` on a single patient is the same idea one level down: their status, age,
+demographics, each catheter's window and outcome, their total time at risk, and their
+countable episodes by type.
+
+```{r}
+summary(spd0003)
+```
+
+### `plot()`
+
+`plot()` draws the unit's indicators. `type = "monthly"` and `type = "quarterly"` bin
+the reporting period into calendar months or quarters and plot the rate in each, with
+the benchmark as a reference line:
+
+```{r, fig.width = 7, fig.height = 4.5, eval = requireNamespace("ggplot2", quietly = TRUE)}
+plot(unit, type = "monthly")
+```
+
+`type = "yearly"` instead plots the cumulative, year-to-date rate and peritonitis-free
+percentage as two panels, so both indicators can be read against their benchmarks over
+the same period:
+
+```{r, fig.width = 7, fig.height = 6, eval = requireNamespace("ggplot2", quietly = TRUE) && requireNamespace("patchwork", quietly = TRUE)}
+plot(unit, type = "yearly")
+```
+
+`plot()` needs ggplot2, and `type = "yearly"` also needs patchwork; both are suggested
+packages rather than hard dependencies. The reference line defaults to the unit's own
+`rate_benchmark` and can be overridden for one plot with `benchmark`. With
+`type = "yearly"`, four optional cohort panels can be added underneath, each off by
+default:
+
+```{r, eval = FALSE}
+plot(unit, type = "yearly", benchmark = 0.50,
+     show_ip = TRUE,            # incident vs prevalent
+     show_pkd = TRUE,           # primary kidney disease
+     show_modality = TRUE,      # CAPD / APD / hybrid
+     show_stop.reason = TRUE)   # why catheters were stopped
+```
+
+### `subset()`
+
+`subset()` asks questions of the data rather than the indicators. It joins the unit's
+`patients`, `catheters` and `infections` tibbles into one flat table, one row per
+episode carrying its catheter's and its patient's columns, and returns the rows that
+meet a condition as a plain tibble:
+
+```{r}
+subset(unit, episode_type == "recurrent",
+       select = c(patient_id, catheter_id, infection_date, organisms, episode_type))
+```
+
+`subset` and `select` are written as in base `subset()`: a logical condition on any
+column of the flat table, and column names, ranges (`patient_id:gender`) or negation
+(`-t0`). `NA` counts as `FALSE`, so a condition on an episode column keeps only the
+rows that have an episode.
+
+A patient with no episodes still has a row, with the episode columns `NA`, and a
+patient with several catheters or episodes has several rows, so row counts are not
+patient counts:
+
+```{r}
+nrow(subset(unit))
+nrow(subset(unit, !is.na(infection_date)))
+dplyr::n_distinct(subset(unit)$patient_id)
+```
+
+The indicators are not recalculated and the unit is not modified: the result is a
+tibble to inspect, not a smaller `pd_unit`. The same method is defined for a patient
+and for a catheter, over whatever sits below them:
+
+```{r}
+subset(pat, select = c(catheter_id, pd_start_date, pd_stop_date, removal_reason))
+```
