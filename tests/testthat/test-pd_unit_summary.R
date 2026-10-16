@@ -158,7 +158,7 @@ test_that("summary.pd_unit() timing works on the unit built from the bundled fil
   capture.output(s <- summary(unit))
   tc <- s$catheters
   expect_equal(tc$time_to_pd_start_days[["n"]], unit$n_new)
-  expect_equal(tc$time_to_pd_start_days[["mean"]], 15.3, tolerance = 0.01)
+  expect_equal(tc$time_to_pd_start_days[["mean"]], 14.65, tolerance = 0.01)
   expect_lte(tc$time_to_first_peritonitis_days[["n"]], unit$n_new)
   expect_gt(tc$time_to_first_peritonitis_days[["mean"]], 0)
 })

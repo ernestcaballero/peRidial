@@ -53,8 +53,10 @@ library(peridial)
 
 The example uses two synthetic Excel files that ship with the package, covering the 2025 reporting year for a fictional unit:
 
-- `a3_2025.xlsx` is the unit survey called `Form A3` file. Each row is one PD catheter with patient ID as the unique identifier. This input also includes the patient's demographic details, PD start and stop dates, dialysis modality, and any change of dialysis modality like transplant, permanent transfer to PD or stopped PD. The example file has 60 patients with one catheter each.
-- `pe_2025.xlsx` is the peritonitis episode `Form PE` file. Each row is one peritonitis episode: the date of infection, the organism(s) cultured, the date of the last antibiotic dose, and whether the episode led to hospitalisation, catheter removal or a transfer to haemodialysis. The example file has 18 episodes.
+- `a3_2025.xlsx` is the unit survey called `Form A3` file. Each row is one PD catheter. `Patient ID` identifies the patient rather than the row, so it repeats when a patient has more than one catheter in the period, and `catheter_id` is derived from the patient ID and the order of insertion dates. This input also includes the patient's demographic details, PD start and stop dates, dialysis modality, and any change of dialysis modality like transplant, permanent transfer to HD or stopped PD. The example file has 62 catheters across 60 patients: 58 patients with a single catheter, and two whose catheter was removed and replaced during the reporting year.
+- `pe_2025.xlsx` is the peritonitis episode `Form PE` file. Each row is one peritonitis episode: the date of infection, the organism(s) cultured, the date of the last antibiotic dose, and whether the episode led to hospitalisation, catheter removal or a transfer to haemodialysis. The example file has 28 episodes across 17 patients.
+
+The data is shaped to exercise the package's main paths. Of the 60 patients, 20 are incident (their first PD start falls inside 2025) and 40 are prevalent. Patients leave PD by death (3), transplant (3) and permanent transfer to HD (6), while 48 are still on PD at the end of the period. The episodes include relapsing, recurrent and repeat peritonitis as well as first-ever episodes, so the episode-type breakdown reported by `summary()` is populated; see `vignette("ispd-indicators-classification", package = "peridial")` for how each category is derived.
 
 No real patient data is included. The synthetic dataset was curated from
 metadata items in the ANZDATA Data Dictionary and the survey Form A3, together with
@@ -111,7 +113,7 @@ Your files must use the same column names as the example files. Differences in c
 | File | Required columns | Optional columns |
 |---|---|---|
 | Unit (A3) | Patient ID, Insertion Date, PD Start Date, Date of Birth | Gender, Ethnicity, Primary Kidney Disease, Height, Weight, Cigarette Smoking Status, Diabetes Type, Procedure Type, PD Stop Date, Removal Reason, Dialysis Type, Dialysis Modality Change, Modality Change Reason, Date Modality Change, Date of Death, Cause of Death, Transplant Date |
-| Peritonitis (PE) | Patient ID, Date of Infection, Organism | Last Dose Antibiotic, Overnight Hospitalisation, Days Hospitalised, Catheter Removed, Catheter Removed Date, Interim HD, Permanent HD, First Dialysis Date, Last Dialysis Date |
+| Peritonitis (PE) | Patient ID, Date of Infection, Organism, Last Dose Antibiotic | Overnight Hospitalisation, Days Hospitalised, Catheter Removed, Catheter Removed Date, Interim HD, Permanent HD, First Dialysis Date, Last Dialysis Date |
 
 A missing required column stops the build with an error that lists what was found. A missing optional column is filled with `NA` without a warning, so check the spelling of optional columns carefully. A misnamed `Date of Death` or `PD Stop Date`, for example, means patients are not censored and patient-years are overstated.
 

@@ -326,11 +326,11 @@ test_that("pd_unit() builds a valid unit from the bundled example files", {
   expect_s3_class(unit, "pd_unit")
   expect_identical(unit$unit_id, "Wellington PD Unit")
   expect_identical(unit$n_patients, 60L)
-  expect_identical(unit$n_new, 10L)
-  expect_equal(unit$tpyar, 51.90, tolerance = 0.01)
+  expect_identical(unit$n_new, 20L)
+  expect_equal(unit$tpyar, 48.00, tolerance = 0.01)
   expect_identical(nrow(unit$patients), 60L)
-  expect_identical(nrow(unit$catheters), 60L)
-  expect_identical(nrow(unit$infections), 18L)
+  expect_identical(nrow(unit$catheters), 62L)
+  expect_identical(nrow(unit$infections), 28L)
   expect_identical(summarise_infections(unit)$culture_negative_n, 3L)
   expect_no_error(validate_pd_unit(unit))
 })
@@ -341,6 +341,27 @@ test_that("pd_unit() attaches every episode to a catheter of the same patient", 
   unit <- pd_unit(a3, pe, t0 = T0, t1 = T1)
   owner <- unit$catheters$patient_id[match(unit$infections$catheter_id, unit$catheters$catheter_id)]
   expect_identical(owner, unit$infections$patient_id)
+})
+
+test_that("pd_unit() numbers a patient's catheters in insertion order, with no overlapping windows", {
+  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
+  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
+  unit <- pd_unit(a3, pe, t0 = T0, t1 = T1)
+
+  cath <- unit$catheters[order(unit$catheters$patient_id, unit$catheters$insertion_date), ]
+  by_patient <- split(cath, cath$patient_id)
+  # guard: the example data must still contain a replaced catheter, or the rest passes trivially
+  expect_true(any(vapply(by_patient, nrow, integer(1)) > 1))
+
+  # catheter_id runs _01, _02, ... in insertion order within each patient
+  expect_true(all(vapply(by_patient, function(p) {
+    identical(p$catheter_id, paste0(p$patient_id[1], "_", sprintf("%02d", seq_len(nrow(p)))))
+  }, logical(1))))
+
+  # a replacement catheter starts strictly after the one before it stopped
+  expect_true(all(vapply(by_patient, function(p) {
+    nrow(p) == 1 || all(p$pd_start_date[-1] > p$pd_stop_date[-nrow(p)])
+  }, logical(1))))
 })
 
 test_that("pd_unit() catches a mistyped PE patient_id in the bundled files", {
@@ -401,8 +422,8 @@ test_that("pd_unit() chains episodes so a repeat episode is classified", {
   df[["Last Dose Antibiotic"]][i] <- as.POSIXct("2025-02-24", tz = "UTC")
   unit <- pd_unit(a3, save_xlsx(df), t0 = T0, t1 = T1)
   inf <- unit$infections[unit$infections$patient_id == "SPD0012", ]
-  expect_identical(inf$episode_type, c(NA, "relapsing"))
-  expect_identical(inf$counts_toward_rate, c(TRUE, FALSE))
+  expect_identical(inf$episode_type, c(NA, "relapsing", NA))
+  expect_identical(inf$counts_toward_rate, c(TRUE, FALSE, TRUE))
 })
 
 test_that("pd_unit() standardises organism spellings", {
@@ -413,7 +434,7 @@ test_that("pd_unit() standardises organism spellings", {
   df[["Organism"]][df[["Patient ID"]] == "SPD0007"] <- "Escherichia coli, Klebsiella pneumoniae"
   unit <- pd_unit(a3, save_xlsx(df), t0 = T0, t1 = T1)
   organisms <- function(id) unit$infections$organisms[unit$infections$patient_id == id]
-  expect_identical(organisms("SPD0003"), "S. aureus")
+  expect_identical(organisms("SPD0003"), c("S. aureus", "S. aureus"))
   expect_identical(organisms("SPD0007"), "E. coli, Klebsiella")
 })
 
@@ -453,7 +474,7 @@ test_that("pd_unit() accepts one data frame and one file path", {
   pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial", mustWork = TRUE)
   unit <- pd_unit(readxl::read_excel(a3), pe, t0 = T0, t1 = T1)
   expect_identical(unit$n_patients, 60L)
-  expect_identical(nrow(unit$infections), 18L)
+  expect_identical(nrow(unit$infections), 28L)
 })
 
 test_that("pd_unit() displays an error when the input is neither a path nor a data frame", {

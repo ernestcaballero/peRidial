@@ -343,15 +343,13 @@ pd_unit <- function(unit_data,
                    "permanent_hd", "first_dialysis_date", "last_dialysis_date")
   raw_pe_file <- ensure_cols(raw_pe_file, pe_optional)
 
-  # remember each row's position in the source so messages point at the right row even
-  # after earlier checks have dropped rows: in a file the header is row 1, but a data
-  # frame has no header row, so its first row is row 1
+  # ensure to note each row's original position in the source, for error messaging purposes
   a3_header_rows <- if (is.data.frame(unit_data)) 0L else 1L
   pe_header_rows <- if (is.data.frame(infection_data)) 0L else 1L
   raw_a3$.sheet_row <- seq_len(nrow(raw_a3)) + a3_header_rows
   raw_pe_file$.sheet_row <- seq_len(nrow(raw_pe_file)) + pe_header_rows
 
-  # a blank required cell is logged and its row dropped here
+  # a blank required cell is logged and its row dropped
   raw_a3 <- check_required_cells(raw_a3, a3_required_cells, "unit (A3)", log)
   raw_pe_file <- check_required_cells(raw_pe_file, pe_required_cells, "infection (PE)", log)
 
@@ -366,8 +364,7 @@ pd_unit <- function(unit_data,
   # organisms are matched against the ANZDATA PE form's list and given standard names
   raw_pe_file <- check_organisms(raw_pe_file, "infection (PE)", log)
 
-  # removal reasons (catheter removal, and the reason for a modality change) are checked
-  # against the accepted list in value_maps.R
+  # removal reasons (catheter removal, and the reason for a modality change) are checked against the list in value_maps.R
   raw_a3$removal_reason <- standardise_removal_reason(raw_a3$removal_reason)
   raw_a3$modality_change_reason <- standardise_removal_reason(raw_a3$modality_change_reason)
 

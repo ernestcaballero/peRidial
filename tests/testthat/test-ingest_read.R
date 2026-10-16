@@ -274,7 +274,7 @@ test_that("read_input() reads an Excel file", {
   path <- system.file("extdata", "a3_2025.xlsx", package = "peridial", mustWork = TRUE)
   out <- read_input(path)
   expect_s3_class(out, "tbl_df")
-  expect_equal(nrow(out), 60)
+  expect_equal(nrow(out), 62)
 })
 
 test_that("read_input() reads a CSV: names untouched, blank and NA cells become NA", {

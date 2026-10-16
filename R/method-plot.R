@@ -144,7 +144,8 @@ plot.pd_unit <- function(x, y,
       title = paste(period_word, "Peritonitis Rate:", unit_label),
       subtitle = paste0(format(x$t0), " to ", format(x$t1), "\n",
                         overall_label),
-      x = x_label, y = "Peritonitis rate (episodes / patient-year)"
+      x = x_label,
+      y = "Peritonitis rate (episodes / patient-year)"
     ) +
     ggplot2::theme_minimal() +
     ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
@@ -232,7 +233,7 @@ cumulative_pf_by_month <- function(x) {
 plot_cumulative_rate <- function(x, benchmark, extras = list()) {
   if (!requireNamespace("patchwork", quietly = TRUE)) {
     stop("Package \"patchwork\" is required for plot.pd_unit(type = \"yearly\"). ",
-         "Install it with install.packages(\"patchwork\").", call. = FALSE)
+         "Install it with install.packages(\"patchwork\").")
   }
 
   unit_label <- if (is.na(x$unit_id)) "Unnamed unit" else x$unit_id
@@ -315,7 +316,7 @@ plot_cumulative_rate <- function(x, benchmark, extras = list()) {
     ggplot2::theme_minimal() +
     ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
 
-  # -- combine: two panels, two independent axes, never one dual-axis chart
+  # combine: two panels, two independent axes
   top <- patchwork::wrap_plots(p_rate, p_pf, ncol = 1)
   if (length(extras) > 0) {
     # optional cohort panels sit in a two-column grid under the cumulative pair
@@ -328,7 +329,7 @@ plot_cumulative_rate <- function(x, benchmark, extras = list()) {
   combined <- body +
     patchwork::plot_annotation(
       title = paste("Year-to-Date Indicator:", unit_label),
-      subtitle = paste0(format(x$t0), " to ", format(x$t1),
+      subtitle = paste0(format(x$t0), " to ", format(x$t1), "\n",
                         "  (dashed lines: ISPD benchmark)")
     )
 
