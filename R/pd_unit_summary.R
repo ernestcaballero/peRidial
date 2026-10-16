@@ -84,12 +84,12 @@ summarise_cohort <- function(x) {
 
 #' Median patient age at \code{t0}
 #' @noRd
-summarise_median_age <- function(x) {
+summarise_mean_age <- function(x) {
   if (!has_col(x$patients, "date_of_birth")) {
     return(NA_real_)
   }
   ages <- as.numeric(difftime(x$t0, x$patients$date_of_birth, units = "days")) / 365.25
-  if (all(is.na(ages))) NA_real_ else stats::median(ages, na.rm = TRUE)
+  if (all(is.na(ages))) NA_real_ else stats::mean(ages, na.rm = TRUE)
 }
 
 
@@ -283,7 +283,7 @@ verdict_label <- function(met) {
 #'   \code{death}, \code{transplant}, \code{permanent transfer to HD},
 #'   \code{pd stopped}, or \code{still active}), \code{cohort} (a named
 #'   integer vector of \code{incident}/\code{prevalent} counts),
-#'   \code{median_age_years} (this cohort's median patient age at \code{t0}),
+#'   \code{median_age_years} (this cohort's median patient age at \code{t1}),
 #'   \code{demographics} (a list of tables: \code{gender}, \code{ethnicity},
 #'   \code{primary_kidney_disease}, \code{diabetes_status},
 #'   \code{smoking_status}, \code{dialysis_type}), \code{catheters} (a list
@@ -304,7 +304,7 @@ summary.pd_unit <- function(object, ...) {
   episode_types <- summarise_episode_types(x)
   outcomes <- summarise_outcomes(x)
   cohort <- summarise_cohort(x)
-  median_age_years <- summarise_median_age(x)
+  mean_age_years <- summarise_mean_age(x)
   demographics <- summarise_demographics(x)
   catheters <- summarise_catheters(x)
   infections <- summarise_infections(x)
@@ -362,8 +362,8 @@ summary.pd_unit <- function(object, ...) {
   cat("\n")
 
   cat("  Patient demographics:\n")
-  cat("    Median age      : ",
-      if (is.na(median_age_years)) "unknown" else sprintf("%.0f (at t0)", median_age_years),
+  cat("    Mean age      : ",
+      if (is.na(mean_age_years)) "unknown" else sprintf("%.0f (at t1)", mean_age_years),
       "\n", sep = "")
   cat("    Gender          : ", fmt_demo(demographics$gender), "\n", sep = "")
   cat("    Ethnicity       : ", fmt_demo(demographics$ethnicity), "\n", sep = "")
@@ -402,7 +402,7 @@ summary.pd_unit <- function(object, ...) {
     episode_types = episode_types,
     outcomes = outcomes,
     cohort = cohort,
-    median_age_years = median_age_years,
+    mean_age_years = mean_age_years,
     demographics = demographics,
     catheters = catheters,
     infections = infections
