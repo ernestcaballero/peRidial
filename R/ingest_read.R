@@ -107,20 +107,60 @@ ensure_cols <- function(df, cols, type = NA) {
 
 
 
-#' Coerce a raw column to Date, whatever format readxl delivered it in
+#' Read one raw input (A3 or PE) into a tibble: a data frame already in R, a CSV file or an Excel file
+#'
+#' A data frame is used as it is (the caller's copy is never changed). A path ending in
+#' .csv is read with read.csv(), values left as the file has them (names untouched,
+#' blank cells and "NA" become NA, a leading byte-order mark is dropped). Any other path
+#' goes to readxl, which sniffs .xlsx / .xls from the file itself.
 #' @noRd
-as_date_safe <- function(x, col_name = "date", format = "%Y-%m-%d") {
+read_input <- function(x, arg = "input") {
+  if (is.data.frame(x)) {                              # already in R: keep as is
+    return(tibble::as_tibble(x, .name_repair = "minimal"))
+  }
+  if (!is.character(x) || length(x) != 1 || is.na(x) || !nzchar(x)) {
+    stop("`", arg, "` must be a single file path (.xlsx or .csv) or a data frame.",
+         call. = FALSE)
+  }
+  if (!file.exists(x)) {
+    stop("`", arg, "`: file not found: ", x, call. = FALSE)
+  }
+  if (grepl("\\.csv$", x, ignore.case = TRUE)) {       # CSV
+    out <- utils::read.csv(x, stringsAsFactors = FALSE, check.names = FALSE,
+                           na.strings = c("", "NA"), strip.white = TRUE,
+                           fileEncoding = "UTF-8-BOM")
+    return(tibble::as_tibble(out, .name_repair = "minimal"))
+  }
+  readxl::read_excel(x)                                # Excel
+}
+
+
+
+
+#' Coerce a raw column to Date, whatever it arrives as
+#' @noRd
+as_date_safe <- function(x, col_name = "date") {
   if (inherits(x, "Date")) {                         # already a Date
     return(x)
   }
-  if (inherits(x, "POSIXt")) {                       # Excel date/time: convert in UTC, or the
-    return(as.Date(x, tz = "UTC"))                   # calendar day can shift by one
+  if (inherits(x, "POSIXt")) {                       # use the value's own zone
+    return(as.Date(x, tz = c(attr(x, "tzone"), "")[1]))
   }
   if (is.numeric(x)) {                               # bare Excel serial number
     return(as.Date(x, origin = "1899-12-30"))        # day-zero
   }
-  out <- as.Date(trimws(as.character(x)), format = format)   # text dates, YYYY-MM-DD by default
-  unparsed <- is.na(out) & !is_blank_cell(x)           # had a value but it didn't parse
+
+  parse <- function(v, fmt) {                # reject "25" being read as year 0025
+    d <- as.Date(v, format = fmt)
+    d[!is.na(d) & d < as.Date("1000-01-01")] <- as.Date(NA)
+    d
+  }
+  txt <- gsub("[/.]", "-", trimws(as.character(x)))  # text (or factor / all-NA logical); one separator
+  out <- parse(txt, "%Y-%m-%d")                      # year first
+  retry <- is.na(out) & !is_blank_cell(txt)
+  out[retry] <- parse(txt[retry], "%d-%m-%Y")        # then day first
+
+  unparsed <- is.na(out) & !is_blank_cell(txt)       # had a value but it didn't parse
   if (any(unparsed)) {
     warning("Could not parse ", sum(unparsed), " value(s) in `", col_name,
             "` as a date (e.g. \"", as.character(x)[unparsed][1], "\"); set to NA.")
