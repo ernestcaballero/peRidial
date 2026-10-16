@@ -25,7 +25,7 @@ flatten_pd_tables <- function(patients = NULL, catheters = NULL, infections = NU
     absent <- setdiff(by, names(parent))
     if (length(absent) > 0) {
       stop("Cannot join `", what, "`: the table above it has no ",
-           paste(absent, collapse = ", "), " column.", call. = FALSE)
+           paste(absent, collapse = ", "), " column.")
     }
     dplyr::left_join(parent, child, by = by, suffix = suffix)
   }
@@ -67,21 +67,19 @@ subset_table <- function(df, q_subset, q_select) {
       rlang::eval_tidy(q_subset, data = df),
       error = function(e) {
         stop("Could not evaluate the `subset` condition `",
-             rlang::quo_text(q_subset), "`: ", conditionMessage(e),
-             call. = FALSE)
+             rlang::quo_text(q_subset), "`: ", conditionMessage(e))
       }
     )
     if (!is.logical(r)) {
       stop("The `subset` condition `", rlang::quo_text(q_subset),
-           "` must be logical, not ", class(r)[1], ".", call. = FALSE)
+           "` must be logical, not ", class(r)[1], ".")
     }
     if (length(r) == 1L) {
       r <- rep(r, n)
     }
     if (length(r) != n) {
       stop("The `subset` condition `", rlang::quo_text(q_subset),
-           "` returned ", length(r), " value(s) for ", n, " row(s).",
-           call. = FALSE)
+           "` returned ", length(r), " value(s) for ", n, " row(s).")
     }
     r & !is.na(r)
   }
@@ -95,8 +93,7 @@ subset_table <- function(df, q_subset, q_select) {
       rlang::eval_tidy(q_select, data = positions),
       error = function(e) {
         stop("Could not evaluate the `select` argument `",
-             rlang::quo_text(q_select), "`: ", conditionMessage(e),
-             call. = FALSE)
+             rlang::quo_text(q_select), "`: ", conditionMessage(e))
       }
     )
   }
@@ -152,7 +149,7 @@ subset_table <- function(df, q_subset, q_select) {
 subset.pd_unit <- function(x, subset, select, ...) {
   if (...length() > 0L) {
     stop("Unused argument(s) passed to subset(). A pd_unit takes only a ",
-         "condition and `select`.", call. = FALSE)
+         "condition and `select`.")
   }
 
   flat <- flatten_pd_tables(x$patients, x$catheters, x$infections)

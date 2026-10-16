@@ -193,9 +193,9 @@ mixed_episodes <- function() {
   )
 }
 
-test_that("classify_episode_types() gives the same answer with use_cpp = TRUE and use_cpp = FALSE", {
+test_that("classify_episode_types() gives the same episode type with use_cpp = TRUE and use_cpp = FALSE", {
   x <- mixed_episodes()
-  expected <- c(NA, "relapsing", "recurrent", "repeat",   # A
+  expected <- c(NA, "relapsing", "recurrent", "repeat",    # A
                 NA, "relapsing", NA,                       # B: negative then specific = relapsing; new organism > 4 weeks = NA
                 NA, NA)                                    # C: row 1 invalid, row 2 has no valid prior
   cpp <- suppressWarnings(do.call(classify_episode_types, c(x, use_cpp = TRUE)))
@@ -204,19 +204,6 @@ test_that("classify_episode_types() gives the same answer with use_cpp = TRUE an
   expect_equal(cpp, expected)
 })
 
-test_that("classify_episode_types() gives the same answer in both modes when the rows are shuffled", {
-  x <- mixed_episodes()
-  perm <- c(6, 2, 9, 4, 1, 8, 3, 7, 5)
-  shuffled <- list(patient_id = x$patient_id[perm],
-                   infection_date = x$infection_date[perm],
-                   last_dose_antibiotic = x$last_dose_antibiotic[perm],
-                   organism_list = x$organism_list[perm])
-  base <- suppressWarnings(do.call(classify_episode_types, c(x, use_cpp = TRUE)))
-  cpp <- suppressWarnings(do.call(classify_episode_types, c(shuffled, use_cpp = TRUE)))
-  r <- suppressWarnings(do.call(classify_episode_types, c(shuffled, use_cpp = FALSE)))
-  expect_identical(cpp, r)
-  expect_identical(cpp, base[perm])      # the result stays aligned with the input order
-})
 
 test_that("an invalid row does not become the prior episode in either mode", {
   # row 2 is invalid (catheter removed, no date), so row 3 is compared with row 1

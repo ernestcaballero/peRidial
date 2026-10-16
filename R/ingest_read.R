@@ -87,8 +87,7 @@ require_cols <- function(df, cols, what, log = NULL, kind = c("file", "table")) 
     stop(msg,
          "\nColumns found",
          if (kind == "file") " after name standardisation",
-         ": ", paste(names(df), collapse = ", "),    # show what was found
-         call. = FALSE)
+         ": ", paste(names(df), collapse = ", "))    # show what was found
   }
   invisible(TRUE)
 }
@@ -119,11 +118,10 @@ read_input <- function(x, arg = "input") {
     return(tibble::as_tibble(x, .name_repair = "minimal"))
   }
   if (!is.character(x) || length(x) != 1 || is.na(x) || !nzchar(x)) {
-    stop("`", arg, "` must be a single file path (.xlsx or .csv) or a data frame.",
-         call. = FALSE)
+    stop("`", arg, "` must be a single file path (.xlsx or .csv) or a data frame.")
   }
   if (!file.exists(x)) {
-    stop("`", arg, "`: file not found: ", x, call. = FALSE)
+    stop("`", arg, "`: file not found: ", x)
   }
   if (grepl("\\.csv$", x, ignore.case = TRUE)) {       # CSV
     out <- utils::read.csv(x, stringsAsFactors = FALSE, check.names = FALSE,

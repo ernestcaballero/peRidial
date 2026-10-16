@@ -314,6 +314,8 @@ test_that("subset.pd_catheter() rejects bad conditions and stray arguments", {
 })
 
 
+# count_episodes(): the upper bound is the earliest of pd_stop_date, t1 and tau
+
 test_that("count_episodes stops at t1 when the catheter's pd_stop_date is after the reporting period", {
   infections <- list(
     make_infection(infection_date = as.Date("2025-12-20")),  # inside [pd_start_date, t1] = counted

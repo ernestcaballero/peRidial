@@ -1,6 +1,4 @@
-# Tests for R/pd_unit_summary.R: the timing measures in summary.pd_unit()'s catheter block.
-# summarise_catheters() only reads x$patients / x$catheters / x$infections, so
-# the edge cases below use a plain list of tibbles rather than a full pd_unit.
+# Tests for R/pd_unit_summary.R
 
 d <- function(x) as.Date(x)
 
@@ -119,7 +117,7 @@ test_that("summarise_catheters() still reports the catheter count and procedure 
 })
 
 
-# summary.pd_unit() output ---------------------------------------------------------
+# summary.pd_unit() output
 
 test_that("summary.pd_unit() labels the two timing lines as means and drops the old quartile lines", {
   txt <- capture.output(summary(make_subset_unit()))
@@ -164,7 +162,7 @@ test_that("summary.pd_unit() timing works on the unit built from the bundled fil
 })
 
 
-# benchmark verdicts
+# benchmark
 
 test_that("rate_met and pf_met are NA, not FALSE, when there is nothing to judge", {
   empty <- list(infections = tibble::tibble(), patients = tibble::tibble(),
@@ -222,13 +220,13 @@ test_that("summary.pd_unit() does not warn for a one-year reporting period", {
 test_that("summary.pd_unit() warns that the PF percentage is not comparable for a shorter period", {
   unit <- make_subset_unit()
   unit$t1 <- d("2025-06-30")
-  expect_warning(capture.output(summary(unit)), "181 days, not one year")
+  expect_warning(capture.output(summary(unit)), "181 days, not exactly one year")
 })
 
 test_that("summary.pd_unit() warns for a period longer than a year", {
   unit <- make_subset_unit()
   unit$t1 <- d("2026-06-30")
-  expect_warning(capture.output(summary(unit)), "not one year")
+  expect_warning(capture.output(summary(unit)), "546 days, not exactly one year")
 })
 
 test_that("the PF warning does not stop summary() calculating or returning the indicators", {
