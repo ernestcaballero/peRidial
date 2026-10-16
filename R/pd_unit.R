@@ -260,15 +260,11 @@ validate_pd_unit <- function(x) {
 #' derived from it, plus the headline numbers the ISPD indicators need:
 #' \code{n_new}, \code{n_patients} and \code{tpyar}.
 #'
-#' @param unit_data_path Character. Path to the raw unit (A3) Excel file
-#'   containing both patient and catheter data. Every \code{patient_id} must be a
-#'   valid NHI number (three letters then four digits, e.g. \code{ABC1234}); case
-#'   is ignored and the upper-case form is used.
-#' @param infection_data_path Character. Path to the raw infection/peritonitis
-#'   episode (PE) Excel file. Every patient in it must also appear in the A3 file,
-#'   and every organism must be one of the accepted organisms (the most common on
-#'   the ANZDATA peritonitis form); names are standardised, e.g. \code{"Staphylococcus
-#'   aureus"} becomes \code{"S. aureus"}.
+#' @param unit_data The raw unit (A3) data, containing both patient and
+#'   catheter data: either a path to an Excel (\code{.xlsx}) or CSV (\code{.csv})
+#'   file, or a data frame already in R.
+#' @param infection_data The raw infection/peritonitis episode (PE) data: an Excel
+#'   or CSV file path, or a data frame.
 #' @param t0 Date. Start of the reporting period.
 #' @param t1 Date. End of the reporting period.
 #' @param unit_id Character. Identifier for the unit, e.g.
@@ -293,17 +289,17 @@ validate_pd_unit <- function(x) {
 #'
 #' @examples
 #' unit <- pd_unit(
-#'   unit_data_path = system.file("extdata", "a3_2025.xlsx",
+#'   unit_data = system.file("extdata", "a3_2025.xlsx",
+#'                           package = "peridial", mustWork = TRUE),
+#'   infection_data = system.file("extdata", "pe_2025.xlsx",
 #'                                package = "peridial", mustWork = TRUE),
-#'   infection_data_path = system.file("extdata", "pe_2025.xlsx",
-#'                                     package = "peridial", mustWork = TRUE),
 #'   t0 = as.Date("2025-01-01"),
 #'   t1 = as.Date("2025-12-31"),
 #'   unit_id = "Wellington PD Unit"
 #' )
 #' unit
-pd_unit <- function(unit_data_path,
-                    infection_data_path,
+pd_unit <- function(unit_data,
+                    infection_data,
                     t0,
                     t1,
                     unit_id = NA_character_,
@@ -320,8 +316,8 @@ pd_unit <- function(unit_data_path,
   log <- new_issue_log()
 
   # Read file and standardise
-  raw_a3 <- standardise_names(readxl::read_excel(unit_data_path))
-  raw_pe_file <- standardise_names(readxl::read_excel(infection_data_path))
+  raw_a3 <- standardise_names(read_input(unit_data, "unit_data"))
+  raw_pe_file <- standardise_names(read_input(infection_data, "infection_data"))
 
   # map differently-named columns onto the expected names by keyword; logged
   raw_a3 <- map_columns(raw_a3, a3_spec, "unit (A3)", log)
@@ -347,10 +343,13 @@ pd_unit <- function(unit_data_path,
                    "permanent_hd", "first_dialysis_date", "last_dialysis_date")
   raw_pe_file <- ensure_cols(raw_pe_file, pe_optional)
 
-  # remember each row's position in the source sheet (header = row 1) so messages
-  # point at the right row even after earlier checks have dropped rows
-  raw_a3$.sheet_row <- seq_len(nrow(raw_a3)) + 1L
-  raw_pe_file$.sheet_row <- seq_len(nrow(raw_pe_file)) + 1L
+  # remember each row's position in the source so messages point at the right row even
+  # after earlier checks have dropped rows: in a file the header is row 1, but a data
+  # frame has no header row, so its first row is row 1
+  a3_header_rows <- if (is.data.frame(unit_data)) 0L else 1L
+  pe_header_rows <- if (is.data.frame(infection_data)) 0L else 1L
+  raw_a3$.sheet_row <- seq_len(nrow(raw_a3)) + a3_header_rows
+  raw_pe_file$.sheet_row <- seq_len(nrow(raw_pe_file)) + pe_header_rows
 
   # a blank required cell is logged and its row dropped here
   raw_a3 <- check_required_cells(raw_a3, a3_required_cells, "unit (A3)", log)

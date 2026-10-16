@@ -314,9 +314,9 @@ save_xlsx <- function(df) {
 
 test_that("pd_unit() builds a valid unit from the bundled example files", {
   unit <- expect_no_warning(pd_unit(
-    unit_data_path = system.file("extdata", "a3_2025.xlsx",
+    unit_data = system.file("extdata", "a3_2025.xlsx",
                                  package = "peridial", mustWork = TRUE),
-    infection_data_path = system.file("extdata", "pe_2025.xlsx",
+    infection_data = system.file("extdata", "pe_2025.xlsx",
                                       package = "peridial", mustWork = TRUE),
     t0 = as.Date("2025-01-01"),
     t1 = as.Date("2025-12-31"),
@@ -425,4 +425,40 @@ test_that("pd_unit() errors on an organism that is not in the accepted list, nam
   df[["Organism"]][i] <- "Staph auerus"
   err <- expect_error(pd_unit(a3, save_xlsx(df), t0 = T0, t1 = T1), "1 data-quality issue")
   expect_match(conditionMessage(err), "infection \\(PE\\) file, row 5: organism `Staph auerus` not found in accepted list, check and correct in source file")
+})
+
+
+
+
+# pd_unit(): data frame and CSV input
+
+# helpers for testing: write a data frame as a CSV, with its dates as ISO text
+save_csv <- function(df) {
+  df[] <- lapply(df, function(col) if (inherits(col, "POSIXt")) as.Date(col, tz = "UTC") else col)
+  path <- tempfile(fileext = ".csv")
+  utils::write.csv(df, path, row.names = FALSE, na = "")
+  path
+}
+
+test_that("pd_unit() accepts data frames and builds the same unit as from the Excel files", {
+  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial", mustWork = TRUE)
+  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial", mustWork = TRUE)
+  from_xlsx <- pd_unit(a3, pe, t0 = T0, t1 = T1)
+  from_df <- pd_unit(readxl::read_excel(a3), readxl::read_excel(pe), t0 = T0, t1 = T1)
+  expect_equal(from_df, from_xlsx)
+})
+
+test_that("pd_unit() accepts one data frame and one file path", {
+  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial", mustWork = TRUE)
+  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial", mustWork = TRUE)
+  unit <- pd_unit(readxl::read_excel(a3), pe, t0 = T0, t1 = T1)
+  expect_identical(unit$n_patients, 60L)
+  expect_identical(nrow(unit$infections), 18L)
+})
+
+test_that("pd_unit() displays an error when the input is neither a path nor a data frame", {
+  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial", mustWork = TRUE)
+  expect_error(pd_unit(42, pe, t0 = T0, t1 = T1), "`unit_data` must be")
+  expect_error(pd_unit(file.path(tempdir(), "missing.csv"), pe, t0 = T0, t1 = T1),
+               "`unit_data`: file not found")
 })

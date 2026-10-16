@@ -5,8 +5,8 @@
 \title{Build a pd_unit object from raw data files}
 \usage{
 pd_unit(
-  unit_data_path,
-  infection_data_path,
+  unit_data,
+  infection_data,
   t0,
   t1,
   unit_id = NA_character_,
@@ -16,16 +16,12 @@ pd_unit(
 )
 }
 \arguments{
-\item{unit_data_path}{Character. Path to the raw unit (A3) Excel file
-containing both patient and catheter data. Every \code{patient_id} must be a
-valid NHI number (three letters then four digits, e.g. \code{ABC1234}); case
-is ignored and the upper-case form is used.}
+\item{unit_data}{The raw unit (A3) data, containing both patient and
+catheter data: either a path to an Excel (\code{.xlsx}) or CSV (\code{.csv})
+file, or a data frame already in R.}
 
-\item{infection_data_path}{Character. Path to the raw infection/peritonitis
-episode (PE) Excel file. Every patient in it must also appear in the A3 file,
-and every organism must be one of the accepted organisms (the most common on
-the ANZDATA peritonitis form); names are standardised, e.g. \code{"Staphylococcus
-aureus"} becomes \code{"S. aureus"}.}
+\item{infection_data}{The raw infection/peritonitis episode (PE) data: an Excel
+or CSV file path, or a data frame.}
 
 \item{t0}{Date. Start of the reporting period.}
 
@@ -68,10 +64,10 @@ derived from it, plus the headline numbers the ISPD indicators need:
 }
 \examples{
 unit <- pd_unit(
-  unit_data_path = system.file("extdata", "a3_2025.xlsx",
+  unit_data = system.file("extdata", "a3_2025.xlsx",
+                          package = "peridial", mustWork = TRUE),
+  infection_data = system.file("extdata", "pe_2025.xlsx",
                                package = "peridial", mustWork = TRUE),
-  infection_data_path = system.file("extdata", "pe_2025.xlsx",
-                                    package = "peridial", mustWork = TRUE),
   t0 = as.Date("2025-01-01"),
   t1 = as.Date("2025-12-31"),
   unit_id = "Wellington PD Unit"
