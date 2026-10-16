@@ -113,6 +113,34 @@ test_that("infections_to_tibble() does not count an episode outside the reportin
   expect_false(tbl$counts_toward_rate)
 })
 
+test_that("infections_to_tibble() does not count an episode after t1 on a catheter that stops after t1", {
+  inf_in <- make_infection(infection_date = as.Date("2025-12-20"))
+  inf_late <- make_infection(infection_date = as.Date("2026-01-20"))   # before pd_stop_date, after t1
+  cath <- make_catheter(pd_stop_date = as.Date("2026-02-15"), infections = list(inf_in, inf_late))
+  tbl <- infections_to_tibble(list(make_patient(catheters = list(cath))), T0, T1)
+  expect_identical(nrow(tbl), 2L)
+  expect_identical(tbl$counts_toward_rate, c(TRUE, FALSE))
+})
+
+test_that("infections_to_tibble() does not count an episode after the patient's tau", {
+  inf_in <- make_infection(infection_date = as.Date("2025-11-15"))
+  inf_late <- make_infection(infection_date = as.Date("2025-12-15"))
+  cath <- make_catheter(infections = list(inf_in, inf_late))   # still open
+  p <- make_patient(catheters = list(cath), transfer_reason = "death",
+                    transfer_date = as.Date("2025-11-30"))
+  tbl <- infections_to_tibble(list(p), T0, T1)
+  expect_identical(tbl$counts_toward_rate, c(TRUE, FALSE))
+})
+
+test_that("the rate numerator and the patient-years end at the same date", {
+  inf_late <- make_infection(infection_date = as.Date("2026-01-20"))
+  cath <- make_catheter(pd_stop_date = as.Date("2026-02-15"), infections = list(inf_late))
+  p <- make_patient(catheters = list(cath))
+  tbl <- infections_to_tibble(list(p), T0, T1)
+  expect_equal(sum(tbl$counts_toward_rate), 0)
+  expect_equal(total_patient_years(list(p), T0, T1), 365 / 365.25)   # exposure stops at t1
+})
+
 
 # the three tibbles agree with each other
 

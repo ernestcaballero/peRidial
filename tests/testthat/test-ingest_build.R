@@ -291,3 +291,95 @@ test_that("patient_dob_value() returns a Date NA for NA, a missing column or a m
   expect_identical(patient_dob_value(data.frame(x = 1)), as.Date(NA))
   expect_identical(patient_dob_value(data.frame(date_of_birth = as.Date(character(0)))), as.Date(NA))
 })
+
+
+# the classifier behind build_patient_infections() / pd_unit()
+
+test_that("build_patient_infections() gives the same episode types with use_cpp = TRUE and FALSE", {
+  df <- raw_pe(date_of_infection = d(c("2025-01-01", "2025-01-20", "2025-02-20", "2025-06-01")),
+               organism = c("E. coli", "E. coli", "Klebsiella", "Klebsiella"),
+               last_dose_antibiotic = d(c("2025-01-15", "2025-02-03", "2025-03-05", "2025-06-15")))
+  cpp <- build_patient_infections(df, new_issue_log(), use_cpp = TRUE)
+  r <- build_patient_infections(df, new_issue_log(), use_cpp = FALSE)
+  types <- function(x) vapply(x, function(i) as.character(i$episode_type), character(1))
+  expect_identical(types(cpp), types(r))
+  expect_identical(types(cpp), c(NA_character_, "relapsing", "recurrent", "repeat"))
+})
+
+test_that("build_patient_infections() classifies with the C++ loop by default", {
+  skip_if_not_installed("testthat", "3.2.0")
+  called <- FALSE
+  testthat::local_mocked_bindings(
+    classify_episode_types_cpp = function(patient_id, infection_date, last_dose_antibiotic,
+                                          organism_key, valid) {
+      called <<- TRUE
+      rep(NA_character_, length(patient_id))
+    })
+  build_patient_infections(raw_pe(), new_issue_log())
+  expect_true(called)
+})
+
+test_that("build_patient_infections() does not call the C++ loop when use_cpp = FALSE", {
+  skip_if_not_installed("testthat", "3.2.0")
+  called <- FALSE
+  testthat::local_mocked_bindings(
+    classify_episode_types_cpp = function(patient_id, infection_date, last_dose_antibiotic,
+                                          organism_key, valid) {
+      called <<- TRUE
+      rep(NA_character_, length(patient_id))
+    })
+  build_patient_infections(raw_pe(), new_issue_log(), use_cpp = FALSE)
+  expect_false(called)
+})
+
+test_that("build_patient_infections() does not warn about rows it logs itself", {
+  df <- raw_pe(date_of_infection = d(c("2025-03-01", "2025-08-01")),
+               organism = c("E. coli", "Klebsiella"))
+  df$outcome_date[1] <- d("2025-03-05")   # invalid: outcome_date with no outcome
+  log <- new_issue_log()
+  expect_no_warning(out <- build_patient_infections(df, log))
+  expect_length(out, 1)
+  expect_length(log$get(), 1)
+})
+
+test_that("build_infections_by_catheter() classifies episodes with the C++ loop", {
+  skip_if_not_installed("testthat", "3.2.0")
+  called <- FALSE
+  testthat::local_mocked_bindings(
+    classify_episode_types_cpp = function(patient_id, infection_date, last_dose_antibiotic,
+                                          organism_key, valid) {
+      called <<- TRUE
+      rep(NA_character_, length(patient_id))
+    })
+  build_infections_by_catheter(raw_pe(), raw_cath(), new_issue_log())
+  expect_true(called)
+})
+
+test_that("pd_unit() classifies the bundled episodes with the C++ loop", {
+  skip_if_not_installed("testthat", "3.2.0")
+  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
+  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
+  skip_if_not(nzchar(a3) && nzchar(pe))
+  called <- FALSE
+  testthat::local_mocked_bindings(
+    classify_episode_types_cpp = function(patient_id, infection_date, last_dose_antibiotic,
+                                          organism_key, valid) {
+      called <<- TRUE
+      rep(NA_character_, length(patient_id))
+    })
+  suppressWarnings(pd_unit(a3, pe, t0 = T0, t1 = T1))
+  expect_true(called)
+})
+
+test_that("pd_unit() episode types are the same as the pure-R classifier gives", {
+  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
+  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
+  skip_if_not(nzchar(a3) && nzchar(pe))
+  unit <- suppressWarnings(pd_unit(a3, pe, t0 = T0, t1 = T1))
+  inf <- unit$infections
+  skip_if(nrow(inf) == 0)
+  orgs <- lapply(strsplit(inf$organisms, ",\\s*"), as.list)
+  r <- classify_episode_types(inf$patient_id, inf$infection_date, inf$last_dose_antibiotic,
+                              orgs, use_cpp = FALSE)
+  expect_identical(inf$episode_type, r)
+})

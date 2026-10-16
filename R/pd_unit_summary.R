@@ -74,6 +74,22 @@ summarise_outcomes <- function(x) {
 }
 
 
+#' Length of the reporting period in days
+#' @noRd
+period_length_days <- function(t0, t1) {
+  as.numeric(t1 - t0) + 1        # need to add 1 (inclusive)
+}
+
+
+
+#' Check if reporting period one year long (365 or 366 days) for PF-plot warning
+#' @noRd
+period_is_one_year <- function(t0, t1) {
+  isTRUE(period_length_days(t0, t1) %in% c(365, 366))
+}
+
+
+
 #' Incident / prevalent
 #' @noRd
 summarise_cohort <- function(x) {
@@ -337,6 +353,12 @@ summary.pd_unit <- function(object, ...) {
 
   rate <- summarise_rate(x)
   pf <- summarise_pf(x)
+  if (!is.na(pf$pf) && !is.na(x$t0) && !is.na(x$t1) && !period_is_one_year(x$t0, x$t1)) {
+    warning("The reporting period is ", period_length_days(x$t0, x$t1),
+            " days, not exactly one year. The peritonitis-free % is judged against the ",
+            "ISPD target of more than 80% per year, so it is not comparable with that ",
+            "target for this period.")
+  }
   episode_types <- summarise_episode_types(x)
   outcomes <- summarise_outcomes(x)
   cohort <- summarise_cohort(x)

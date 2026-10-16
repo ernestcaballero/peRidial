@@ -225,7 +225,7 @@ test_that("validate_pd_catheter() passes with a valid nested infection
 
 # count_episodes()
 
-test_that("count_episodes uses pd_stop_date as the upper bound instead of t1 when supplied", {
+test_that("count_episodes uses pd_stop_date as the upper bound when it is earlier than t1", {
   infections <- list(
     make_infection(infection_date = as.Date("2025-09-15")),  # before pd_start_date = excluded
     make_infection(infection_date = as.Date("2025-10-15")),  # inside [pd_start_date, pd_stop_date] = counted
@@ -311,4 +311,50 @@ test_that("subset.pd_catheter() rejects bad conditions and stray arguments", {
   expect_error(subset(cath, n_organisms), "must be logical")
   expect_error(subset(cath, no_such_column == 1), "Could not evaluate the `subset`")
   expect_error(subset(cath, infections = TRUE), "Unused argument")
+})
+
+
+test_that("count_episodes stops at t1 when the catheter's pd_stop_date is after the reporting period", {
+  infections <- list(
+    make_infection(infection_date = as.Date("2025-12-20")),  # inside [pd_start_date, t1] = counted
+    make_infection(infection_date = as.Date("2026-01-20"))   # before pd_stop_date but after t1 = excluded
+  )
+  n <- count_episodes(infections, t0 = T0, t1 = T1, pd_start_date = as.Date("2025-10-02"),
+                      pd_stop_date = as.Date("2026-02-15"))
+  expect_identical(n, 1L)
+})
+
+test_that("count_episodes counts an episode on t1 itself", {
+  infections <- list(make_infection(infection_date = T1))
+  n <- count_episodes(infections, t0 = T0, t1 = T1, pd_start_date = as.Date("2025-10-02"),
+                      pd_stop_date = as.Date("2026-02-15"))
+  expect_identical(n, 1L)
+})
+
+test_that("count_episodes stops at tau when tau is earlier than t1 and pd_stop_date", {
+  infections <- list(
+    make_infection(infection_date = as.Date("2025-11-15")),  # before tau = counted
+    make_infection(infection_date = as.Date("2025-12-15"))   # after tau = excluded
+  )
+  tau <- as.Date("2025-11-30")
+  # an open catheter, and one whose own stop date is later than tau
+  expect_identical(count_episodes(infections, T0, T1, as.Date("2025-10-02"), as.Date(NA), tau = tau), 1L)
+  expect_identical(count_episodes(infections, T0, T1, as.Date("2025-10-02"), as.Date("2026-02-15"), tau = tau), 1L)
+})
+
+test_that("count_episodes ignores a tau that is later than t1 or pd_stop_date, and an NA tau", {
+  infections <- list(
+    make_infection(infection_date = as.Date("2025-11-15")),
+    make_infection(infection_date = as.Date("2026-01-15"))   # after t1 = excluded whatever tau is
+  )
+  expect_identical(count_episodes(infections, T0, T1, as.Date("2025-10-02"), as.Date(NA),
+                                  tau = as.Date("2026-03-01")), 1L)
+  expect_identical(count_episodes(infections, T0, T1, as.Date("2025-10-02"), as.Date(NA),
+                                  tau = as.Date(NA)), 1L)
+})
+
+test_that("count_episodes leaves the upper side unfiltered when stop date, t1 and tau are all NA", {
+  infections <- list(make_infection(infection_date = as.Date("2030-01-01")))
+  expect_identical(count_episodes(infections, t0 = as.Date(NA), t1 = as.Date(NA),
+                                  pd_start_date = as.Date(NA), pd_stop_date = as.Date(NA)), 1L)
 })

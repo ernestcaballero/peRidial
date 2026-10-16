@@ -9,7 +9,8 @@ count_episodes(
   t0 = as.Date(NA),
   t1 = as.Date(NA),
   pd_start_date = as.Date(NA),
-  pd_stop_date = as.Date(NA)
+  pd_stop_date = as.Date(NA),
+  tau = as.Date(NA)
 )
 }
 \arguments{
@@ -24,6 +25,10 @@ count_episodes(
 
 \item{pd_stop_date}{Date. This catheter's own PD stop date, or \code{NA}
 if it is still active.}
+
+\item{tau}{Date. The date the patient permanently left PD (death,
+transplant or permanent transfer to HD), or \code{NA} (the default) if they
+did not, or if it is not known. Episodes after \code{tau} are not counted.}
 }
 \value{
 A single non-negative integer count.
@@ -45,12 +50,16 @@ The active window is \code{[lower, upper]}, where:
 \itemize{
 \item \code{lower} is \code{pd_start_date}, raised to \code{t0} if the
 catheter's PD therapy started before the reporting period began.
-\item \code{upper} is \code{pd_stop_date} if the catheter has one. If
-the catheter is still active (\code{pd_stop_date} is \code{NA}), the
-reporting period's end (\code{t1}) is used instead.
+\item \code{upper} is the earliest of \code{pd_stop_date},
+\code{t1} and \code{tau}, using whichever of them are supplied. An
+episode after the end of the reporting period, or after the patient
+permanently left PD, is therefore never counted, even if the catheter's
+own \code{pd_stop_date} is later. This is the same upper bound that
+\code{catheter_exposure_days()} uses for the denominator, so the
+numerator and the patient-years cover the same time.
 }
 
-Any of \code{t0}/\code{t1}/\code{pd_start_date}/\code{pd_stop_date} can be
-\code{NA}; a missing bound is simply left unfiltered on that side. If all
-four are \code{NA} this only filters out relapses.
+Any of \code{t0}/\code{t1}/\code{pd_start_date}/\code{pd_stop_date}/\code{tau}
+can be \code{NA}; a missing bound is simply left unfiltered on that side. If all
+five are \code{NA} this only filters out relapses.
 }

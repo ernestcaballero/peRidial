@@ -122,12 +122,15 @@ infections_to_tibble <- function(patient_list, t0, t1) {
   rows <- list()
   # patient -> catheter -> episode, one tibble row per episode
   for (p in patient_list) {
+    tau <- p$transfer_date                    # the patient's censoring date, NA if none
+    if (is.null(tau)) tau <- as.Date(NA)
     for (cath in p$catheters) {
       for (inf in cath$infections) {
-        # an episode counts towards the rate if it is inside this catheter's active window within [t0, t1] and is not a relapse
+        # an episode counts towards the rate if it is inside this catheter's active window within [t0, t1] (and before tau) and is not a relapse
         counts <- count_episodes(list(inf), t0, t1,
-                                           cath$pd_start_date,
-                                           cath$pd_stop_date) > 0
+                                 cath$pd_start_date,
+                                 cath$pd_stop_date,
+                                 tau = tau) > 0
         rows[[length(rows) + 1]] <- tibble::tibble(
           patient_id = inf$patient_id,
           catheter_id = cath$catheter_id,

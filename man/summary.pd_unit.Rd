@@ -41,3 +41,11 @@ a breakdown of episodes by type, the cohort's outcomes and
 incident/prevalent split, patient demographics, a catheter summary,
 and peritonitis episodes summary.
 }
+\details{
+The ISPD target for the peritonitis-free percentage is more than 80\% of
+patients per year, so a warning is raised when the percentage is reported for
+a reporting period that is not one year long (365 or 366 days). It is still
+calculated and compared with the target, but a shorter or longer period is not
+comparable with it. The peritonitis rate is per patient-year, so it is not
+affected.
+}

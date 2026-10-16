@@ -497,7 +497,7 @@ summary.pd_patient <- function(object, ...) {
     }
     countable <- vapply(cath$infections, function(inf) {
       count_episodes(list(inf), x$t0, x$t1,    # each infection is re-checked with count_episodes() to match with n_episodes
-                    cath$pd_start_date, cath$pd_stop_date) > 0
+                    cath$pd_start_date, cath$pd_stop_date, tau = tau) > 0
     }, logical(1))
     cath$infections[countable]
   }

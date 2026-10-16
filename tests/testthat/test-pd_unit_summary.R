@@ -197,3 +197,50 @@ test_that("summary.pd_unit() still prints MET / NOT MET when there is data", {
   txt <- capture.output(summary(make_subset_unit()))
   expect_true(any(grepl("\\[ (MET|NOT MET) \\]", txt)))
 })
+
+
+# peritonitis-free percentage and the length of the reporting period
+
+test_that("period_is_one_year() counts both endpoints and accepts 365 or 366 days", {
+  expect_true(period_is_one_year(d("2025-01-01"), d("2025-12-31")))   # 365 days
+  expect_true(period_is_one_year(d("2024-01-01"), d("2024-12-31")))   # 366 days, leap year
+  expect_true(period_is_one_year(d("2024-07-01"), d("2025-06-30")))   # financial year, 365
+  expect_true(period_is_one_year(d("2023-07-01"), d("2024-06-30")))   # financial year with 29 February, 366
+  expect_false(period_is_one_year(d("2025-01-01"), d("2025-06-30")))
+  expect_false(period_is_one_year(d("2025-01-01"), d("2026-06-30")))
+  expect_false(period_is_one_year(as.Date(NA), d("2025-12-31")))
+})
+
+test_that("summary.pd_unit() does not warn for a one-year reporting period", {
+  unit <- make_subset_unit()
+  expect_no_warning(capture.output(summary(unit)))
+  unit$t0 <- d("2024-01-01")
+  unit$t1 <- d("2024-12-31")
+  expect_no_warning(capture.output(summary(unit)))
+})
+
+test_that("summary.pd_unit() warns that the PF percentage is not comparable for a shorter period", {
+  unit <- make_subset_unit()
+  unit$t1 <- d("2025-06-30")
+  expect_warning(capture.output(summary(unit)), "181 days, not one year")
+})
+
+test_that("summary.pd_unit() warns for a period longer than a year", {
+  unit <- make_subset_unit()
+  unit$t1 <- d("2026-06-30")
+  expect_warning(capture.output(summary(unit)), "not one year")
+})
+
+test_that("the PF warning does not stop summary() calculating or returning the indicators", {
+  unit <- make_subset_unit()
+  unit$t1 <- d("2025-06-30")
+  res <- suppressWarnings(capture.output(s <- summary(unit)))
+  expect_false(is.na(s$pf))
+  expect_equal(s$pf_den, unit$n_patients)
+})
+
+test_that("summary.pd_unit() does not raise the PF warning when there is no PF to report", {
+  empty <- new_pd_unit(unit_id = "Empty", t0 = d("2025-01-01"), t1 = d("2025-06-30"),
+                       n_new = 0L, n_patients = 0L, tpyar = 0)
+  expect_no_warning(capture.output(summary(empty)))
+})

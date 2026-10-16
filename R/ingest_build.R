@@ -65,35 +65,55 @@ match_active_catheter_id <- function(pid, infection_date, raw_catheters, log) {
 
 
 
-#' Build one patient's pd_infection objects, chained to each prior episode
+#' Build one patient's pd_infection objects, each with its episode type classified
 #'
-#' \code{get_episode_type()} classifies each episode against the patient's
-#' prior episode (timing of last antibiotic and what organism), so the episodes
-#' are built in order and each is handed the one before it. An episode that
-#' fails validation is logged and skipped.
+#' The patient's episodes are classified in one call to
+#' \code{classify_episode_types()}, which compares each episode with the
+#' patient's preceding valid episode (timing of the last antibiotic dose and
+#' organism) using the compiled C++ loop unless \code{use_cpp = FALSE}. Each
+#' episode is then built and validated. An episode that fails validation is
+#' logged and skipped; as in \code{classify_episode_types()}, it is not used as
+#' the prior episode for the next one.
 #'
 #' @param df Data frame of one patient's PE rows, ordered by
 #'   \code{date_of_infection}, with \code{organism_list}, \code{outcome} and
 #'   \code{outcome_date} already derived.
 #' @param log Issue log from \code{new_issue_log()}.
+#' @param use_cpp Logical. Passed to \code{classify_episode_types()}.
+#'   \code{TRUE} by default, which is what \code{pd_unit()} uses.
 #'
 #' @return A list of \code{pd_infection} objects.
 #' @noRd
 #'
-build_patient_infections <- function(df, log) {
+build_patient_infections <- function(df, log, use_cpp = TRUE) {
+  if (nrow(df) == 0) {
+    return(list())
+  }
+
+  # Rows that fail validation come back NA and are logged one by one below, so the
+  # classifier's own warning about them is silenced here to avoid reporting twice.
+  types <- suppressWarnings(classify_episode_types(
+    patient_id = df$patient_id,
+    infection_date = df$date_of_infection,
+    last_dose_antibiotic = df$last_dose_antibiotic,
+    organism_list = df$organism_list,
+    outcome = df$outcome,
+    outcome_date = df$outcome_date,
+    use_cpp = use_cpp
+  ))
+
   infections <- list()
-  prior <- NULL                            # first episode has no prior
   for (i in seq_len(nrow(df))) {
     inf <- tryCatch(
-      pd_infection(
+      validate_pd_infection(new_pd_infection(
         patient_id = df$patient_id[i],
         infection_date = df$date_of_infection[i],
         organism_list = df$organism_list[[i]],  # list column, so [[i]]
+        episode_type = types[i],
         last_dose_antibiotic = df$last_dose_antibiotic[i],
         outcome = df$outcome[i],
-        outcome_date = df$outcome_date[i],
-        prior_episode = prior  # lets the constructor classify episode type
-      ),
+        outcome_date = df$outcome_date[i]
+      )),
       error = function(e) {
         # Validation failure; log and skip
         log$add("Patient ", df$patient_id[i], ", episode on ",
@@ -104,7 +124,6 @@ build_patient_infections <- function(df, log) {
     )
     if (!is.null(inf)) {
       infections[[length(infections) + 1]] <- inf  # append
-      prior <- inf                          # only valid episodes become the next prior
     }
   }
   infections
@@ -134,10 +153,10 @@ build_infections_by_catheter <- function(raw_pe_episodes, raw_catheters, log) {
     raw_pe_episodes <- raw_pe_episodes[!missing_pid, , drop=FALSE]
   }
 
-  # build each patient's episodes separately so prior_episode chaining stays within a patient
+  # build each patient's episodes separately so the prior-episode comparison stays within a patient
   infections_by_patient <- if (nrow(raw_pe_episodes) > 0) {
     lapply(split(raw_pe_episodes, raw_pe_episodes$patient_id),
-           build_patient_infections, log = log)
+           build_patient_infections, log = log, use_cpp = TRUE)
   } else {
     list()
   }
