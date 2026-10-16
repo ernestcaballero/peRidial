@@ -65,6 +65,59 @@ match_active_catheter_id <- function(pid, infection_date, raw_catheters, log) {
 
 
 
+#' Give warning when an episode just after t0 could be a relapse of an episode from previous reporting period
+#' @noRd
+check_prior_episode_coverage <- function(raw_pe_episodes, raw_catheters, t0, log,
+                                         window = 28L, max_listed = 10L) {
+  none <- character(0)
+
+  pe <- raw_pe_episodes[!is.na(raw_pe_episodes$patient_id) &
+                          !is.na(raw_pe_episodes$date_of_infection), , drop = FALSE]
+  if (nrow(pe) == 0) {
+    return(invisible(none))
+  }
+
+  # the file reaches back further than the window before t0, so earlier episodes are covered
+  if (any(pe$date_of_infection < t0 - window)) {
+    return(invisible(none))
+  }
+
+  # prevalent patients: PD started before t0
+  started <- raw_catheters[!is.na(raw_catheters$pd_start_date), , drop = FALSE]
+  prevalent <- unique(started$patient_id[started$pd_start_date < t0])
+
+  # each patient's first episode in the file
+  pe <- pe[order(pe$patient_id, pe$date_of_infection), , drop = FALSE]
+  first_episode <- pe[!duplicated(pe$patient_id), , drop = FALSE]
+
+  # no earlier episode in the file (on or after t0), and close enough to t0 to be a relapse of one
+  flagged <- first_episode[first_episode$patient_id %in% prevalent &
+                             first_episode$date_of_infection >= t0 &
+                             first_episode$date_of_infection < t0 + window, , drop = FALSE]
+  if (nrow(flagged) == 0) {
+    return(invisible(none))
+  }
+
+  listed <- paste0(flagged$patient_id, " (", format(flagged$date_of_infection), ")")
+  shown <- listed[seq_len(min(length(listed), max_listed))]
+  more <- length(listed) - length(shown)
+
+  log$add(length(listed), " prevalent patient(s) at t0 (", format(t0),
+          ") have their first episode in the infection file within ", window,
+          " days of t0. Check the previous reporting period for: ",
+          paste(shown, collapse = ", "),
+          if (more > 0) paste0(" and ", more, " more"),
+          ". If there was an earlier episode, add its row, with last_dose_antibiotic, to",
+          " infection_data: episodes before t0 are used only to classify later episodes and",
+          " are not counted. If there was none, this warning can be ignored.",
+          level = "warning")
+
+  invisible(flagged$patient_id)
+}
+
+
+
+
 #' Build one patient's pd_infection objects, each with its episode type classified
 #'
 #' The patient's episodes are classified in one call to

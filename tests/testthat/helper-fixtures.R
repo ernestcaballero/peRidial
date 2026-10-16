@@ -180,3 +180,18 @@ get_hline_layer <- function(p) {
   stopifnot(length(hits) >= 1)
   hits[[1]]
 }
+
+
+# pd_unit() on the bundled example files warns that SPD0012, a prevalent patient,
+# has their first episode 17 days after t0 and nothing earlier in the file.
+# One warning is muted for the example.
+pd_unit_quiet <- function(...) {
+  withCallingHandlers(
+    pd_unit(...),
+    warning = function(w) {
+      if (grepl("prevalent patient(s) at t0", conditionMessage(w), fixed = TRUE)) {
+        invokeRestart("muffleWarning")
+      }
+    }
+  )
+}

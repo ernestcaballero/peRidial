@@ -264,7 +264,11 @@ validate_pd_unit <- function(x) {
 #'   catheter data: either a path to an Excel (\code{.xlsx}) or CSV (\code{.csv})
 #'   file, or a data frame already in R.
 #' @param infection_data The raw infection/peritonitis episode (PE) data: an Excel
-#'   or CSV file path, or a data frame.
+#'   or CSV file path, or a data frame. For patients who were already on PD at
+#'   \code{t0}, include their episodes from at least 28 days before \code{t0}.
+#'   These earlier episodes are used only to classify later ones and are not counted.
+#'   If they are left out, a patient's first episode in the period can be
+#'   a relapse that is counted as new, and \code{pd_unit()} gives a warning naming those patients.
 #' @param t0 Date. Start of the reporting period.
 #' @param t1 Date. End of the reporting period.
 #' @param unit_id Character. Identifier for the unit, e.g.
@@ -502,6 +506,9 @@ pd_unit <- function(unit_data,
     }
   }
 
+
+  # a prevalent patient's first episode just after t0 may be a relapse of an episode that is not in the file
+  check_prior_episode_coverage(raw_pe_episodes, raw_catheters, t0, log)
 
   # episodes are matched to the catheter active on their date, catheters own their episodes, and patients own their catheters
   infections_by_catheter <- build_infections_by_catheter(raw_pe_episodes,

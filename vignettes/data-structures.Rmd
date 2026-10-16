@@ -23,7 +23,8 @@ This vignette explains what each class holds, how the objects are built from the
 
 The examples use the same example unit as the introduction:
 
-```{r setup}
+```{r setup, warning = FALSE}
+# building this unit warns about SPD0012's first episode, explained in vignette("peridial")
 library(peridial)
 
 t0 <- as.Date("2025-01-01")

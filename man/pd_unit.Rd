@@ -21,7 +21,11 @@ catheter data: either a path to an Excel (\code{.xlsx}) or CSV (\code{.csv})
 file, or a data frame already in R.}
 
 \item{infection_data}{The raw infection/peritonitis episode (PE) data: an Excel
-or CSV file path, or a data frame.}
+or CSV file path, or a data frame. For patients who were already on PD at
+\code{t0}, include their episodes from at least 28 days before \code{t0}.
+These earlier episodes are used only to classify later ones and are not counted.
+If they are left out, a patient's first episode in the period can be
+a relapse that is counted as new, and \code{pd_unit()} gives a warning naming those patients.}
 
 \item{t0}{Date. Start of the reporting period.}
 

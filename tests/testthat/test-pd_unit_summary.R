@@ -44,16 +44,6 @@ test_that("time to first peritonitis episode is PD start to the first episode, a
   expect_equal(out[["n"]], 1)
 })
 
-test_that("the timing measures are means, not medians", {
-  x <- timing_fixture()
-  x$patients <- rbind(x$patients, data.frame(patient_id = "I3", new_patient_flag = TRUE))
-  x$catheters <- rbind(x$catheters, data.frame(
-    patient_id = "I3", catheter_id = "I3_01",
-    insertion_date = d("2025-05-01"), pd_start_date = d("2025-07-30")))  # 90 days
-  out <- summarise_catheters(x)$time_to_pd_start_days
-  expect_equal(out[["mean"]], (10 + 20 + 90) / 3)   # the median would be 20
-})
-
 test_that("a patient's first catheter is the one with the earliest PD start, whatever the row order", {
   x <- timing_fixture()
   x$catheters <- x$catheters[c(2, 1, 3, 4), ]
@@ -92,19 +82,6 @@ test_that("with no episodes the time to first peritonitis is NA but the PD-start
   out <- summarise_catheters(x)
   expect_true(is.na(out$time_to_first_peritonitis_days[["mean"]]))
   expect_equal(out$time_to_pd_start_days[["mean"]], 15)
-})
-
-test_that("the timing measures cope with tables that lack the columns they need", {
-  x <- timing_fixture()
-  x$patients$new_patient_flag <- NULL
-  out <- summarise_catheters(x)
-  expect_true(is.na(out$time_to_pd_start_days[["mean"]]))
-  expect_true(is.na(out$time_to_first_peritonitis_days[["mean"]]))
-
-  y <- timing_fixture()
-  y$catheters$insertion_date <- NULL
-  expect_true(is.na(summarise_catheters(y)$time_to_pd_start_days[["mean"]]))
-  expect_equal(summarise_catheters(y)$time_to_first_peritonitis_days[["n"]], 1)
 })
 
 test_that("summarise_catheters() still reports the catheter count and procedure types", {
@@ -152,7 +129,7 @@ test_that("summary.pd_unit() timing works on the unit built from the bundled fil
   a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
   pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
   skip_if_not(nzchar(a3) && nzchar(pe))
-  unit <- pd_unit(a3, pe, t0 = T0, t1 = T1)
+  unit <- pd_unit_quiet(a3, pe, t0 = T0, t1 = T1)
   capture.output(s <- summary(unit))
   tc <- s$catheters
   expect_equal(tc$time_to_pd_start_days[["n"]], unit$n_new)

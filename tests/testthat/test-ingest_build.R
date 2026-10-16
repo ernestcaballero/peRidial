@@ -383,3 +383,30 @@ test_that("pd_unit() episode types are the same as the pure-R classifier gives",
                               orgs, use_cpp = FALSE)
   expect_identical(inf$episode_type, r)
 })
+
+
+# check_prior_episode_coverage()
+# (T0 = 2025-01-01, so a 28-day window covers 2025-01-01 to 2025-01-28)
+
+coverage_warnings <- function(raw_cath, raw_pe) {
+  log <- new_issue_log()
+  flagged <- check_prior_episode_coverage(raw_pe, raw_cath, T0, log)
+  list(flagged = flagged, warnings = log$get("warning"), errors = log$get("error"))
+}
+
+test_that("check_prior_episode_coverage() warns about a prevalent patient whose first episode is within 28 days of t0", {
+  caths <- rbind(raw_cath("P1"), raw_cath("P2"), raw_cath("P3"))      # all started PD before t0
+  pe <- raw_pe(patient_id = c("P1", "P2", "P3"),
+               date_of_infection = d(c("2025-01-28", "2025-01-29", "2025-01-01")),   # day 27, day 28, day 0 after t0
+               organism = c("E. coli", "E. coli", "E. coli"))
+  out <- coverage_warnings(caths, pe)
+
+  expect_identical(sort(out$flagged), c("P1", "P3"))       # day 27 and day 0 are inside the window; day 28 is not
+  expect_length(out$warnings, 1L)                          # one warning, listing the patients
+  expect_length(out$errors, 0L)                            # a warning, so it does not stop the build
+  expect_match(out$warnings, "P1 \\(2025-01-28\\)")
+  expect_match(out$warnings, "P3 \\(2025-01-01\\)")
+  expect_false(grepl("P2", out$warnings))
+  expect_match(out$warnings, "within 28 days of t0")
+  expect_match(out$warnings, "add its row, with last_dose_antibiotic, to infection_data")
+})

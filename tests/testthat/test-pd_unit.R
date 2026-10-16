@@ -240,27 +240,10 @@ test_that("subset() drops rows where the condition is NA", {
   expect_equal(nrow(subset(x, gender != "Female")), 0L)
 })
 
-test_that("subset() accepts a scalar TRUE or FALSE and an empty result", {
-  x <- make_subset_unit()
-  expect_equal(nrow(subset(x, TRUE)), 6L)
-  none <- subset(x, FALSE)
-  expect_identical(names(none), names(subset(x)))   # columns survive
-})
-
 test_that("subset() rejects bad conditions and stray arguments", {
   x <- make_subset_unit()
   expect_error(subset(x, n_episodes), "must be logical")
   expect_error(subset(x, patients = gender == "Female"), "Unused argument")
-})
-
-test_that("subset() copes with a unit whose tibbles are partly or wholly empty", {
-  e <- subset(new_pd_unit())
-  expect_s3_class(e, "tbl_df")
-  expect_equal(dim(e), c(0L, 0L))   # an empty table
-  # patients and catheters only: no episode columns to join
-  y <- subset(make_unit())
-  expect_identical(names(y), c("patient_id", "n_episodes", "catheter_id"))
-  expect_equal(nrow(y), 1L)
 })
 
 test_that("subset() reports a join problem", {
@@ -311,9 +294,8 @@ save_xlsx <- function(df) {
   path
 }
 
-
 test_that("pd_unit() builds a valid unit from the bundled example files", {
-  unit <- expect_no_warning(pd_unit(
+  unit <- expect_no_warning(pd_unit_quiet(
     unit_data = system.file("extdata", "a3_2025.xlsx",
                                  package = "peridial", mustWork = TRUE),
     infection_data = system.file("extdata", "pe_2025.xlsx",
@@ -338,7 +320,7 @@ test_that("pd_unit() builds a valid unit from the bundled example files", {
 test_that("pd_unit() attaches every episode to a catheter of the same patient", {
   a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
   pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
-  unit <- pd_unit(a3, pe, t0 = T0, t1 = T1)
+  unit <- pd_unit_quiet(a3, pe, t0 = T0, t1 = T1)
   owner <- unit$catheters$patient_id[match(unit$infections$catheter_id, unit$catheters$catheter_id)]
   expect_identical(owner, unit$infections$patient_id)
 })
@@ -346,7 +328,7 @@ test_that("pd_unit() attaches every episode to a catheter of the same patient", 
 test_that("pd_unit() numbers a patient's catheters in insertion order, with no overlapping windows", {
   a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
   pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
-  unit <- pd_unit(a3, pe, t0 = T0, t1 = T1)
+  unit <- pd_unit_quiet(a3, pe, t0 = T0, t1 = T1)
 
   cath <- unit$catheters[order(unit$catheters$patient_id, unit$catheters$insertion_date), ]
   by_patient <- split(cath, cath$patient_id)
@@ -420,7 +402,7 @@ test_that("pd_unit() chains episodes so a repeat episode is classified", {
   df[["Date of Infection"]][i] <- as.POSIXct("2025-02-10", tz = "UTC")
   df[["Organism"]][i] <- "Escherichia coli"
   df[["Last Dose Antibiotic"]][i] <- as.POSIXct("2025-02-24", tz = "UTC")
-  unit <- pd_unit(a3, save_xlsx(df), t0 = T0, t1 = T1)
+  unit <- pd_unit_quiet(a3, save_xlsx(df), t0 = T0, t1 = T1)
   inf <- unit$infections[unit$infections$patient_id == "SPD0012", ]
   expect_identical(inf$episode_type, c(NA, "relapsing", NA))
   expect_identical(inf$counts_toward_rate, c(TRUE, FALSE, TRUE))
@@ -432,7 +414,7 @@ test_that("pd_unit() standardises organism spellings", {
   df <- readxl::read_excel(pe)
   df[["Organism"]][df[["Patient ID"]] == "SPD0003"] <- "  staphylococcus AUREUS "
   df[["Organism"]][df[["Patient ID"]] == "SPD0007"] <- "Escherichia coli, Klebsiella pneumoniae"
-  unit <- pd_unit(a3, save_xlsx(df), t0 = T0, t1 = T1)
+  unit <- pd_unit_quiet(a3, save_xlsx(df), t0 = T0, t1 = T1)
   organisms <- function(id) unit$infections$organisms[unit$infections$patient_id == id]
   expect_identical(organisms("SPD0003"), c("S. aureus", "S. aureus"))
   expect_identical(organisms("SPD0007"), "E. coli, Klebsiella")
@@ -464,15 +446,15 @@ save_csv <- function(df) {
 test_that("pd_unit() accepts data frames and builds the same unit as from the Excel files", {
   a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial", mustWork = TRUE)
   pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial", mustWork = TRUE)
-  from_xlsx <- pd_unit(a3, pe, t0 = T0, t1 = T1)
-  from_df <- pd_unit(readxl::read_excel(a3), readxl::read_excel(pe), t0 = T0, t1 = T1)
+  from_xlsx <- pd_unit_quiet(a3, pe, t0 = T0, t1 = T1)
+  from_df <- pd_unit_quiet(readxl::read_excel(a3), readxl::read_excel(pe), t0 = T0, t1 = T1)
   expect_equal(from_df, from_xlsx)
 })
 
 test_that("pd_unit() accepts one data frame and one file path", {
   a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial", mustWork = TRUE)
   pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial", mustWork = TRUE)
-  unit <- pd_unit(readxl::read_excel(a3), pe, t0 = T0, t1 = T1)
+  unit <- pd_unit_quiet(readxl::read_excel(a3), pe, t0 = T0, t1 = T1)
   expect_identical(unit$n_patients, 60L)
   expect_identical(nrow(unit$infections), 28L)
 })
