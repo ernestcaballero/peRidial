@@ -144,6 +144,6 @@ on_pd_in_period <- function(cath, t0, t1, tau = as.Date(NA)) {
     stops[is.na(stops) | stops > tau] <- tau        # censoring stops PD
   }
   stops[is.na(stops)] <- t1                         # still active at the end of the period
-  any(!is.na(starts) & starts <= t1 & stops >= t0)  # any catheter window overlaps [t0, t1]
+  any(!is.na(starts) & pmax(starts, t0) <= pmin(stops, t1))  # any catheter has at least one day at risk in [t0, t1]
 }
 
