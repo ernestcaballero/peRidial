@@ -81,7 +81,7 @@ names(spd0003$catheters[[1]])
 names(spd0003$catheters[[1]]$infections[[1]])
 ```
 
-Fields are read with `$`. Some fields are supplied when the object is built, and others are **derived** from what the object contains. The tables below mark which is which.
+Fields are read with `$`. Some fields are supplied when the object is built, and others are **derived** from what the object contains. The tables below show which are supplied and derived fields.
 
 ### `pd_infection`
 
@@ -176,13 +176,7 @@ Each class has a low-level constructor that assembles the object without checkin
 | `pd_patient` | `new_pd_patient()` | `pd_patient()` |
 | `pd_unit` | `new_pd_unit()` | `pd_unit()` |
 
-Use the validating functions in your own code. They guarantee that an object that exists is valid. A few differ from the plain pattern:
-
-- `pd_infection()` has no `episode_type` argument. It derives the type from `prior_episode`.
-- `pd_catheter()` and `pd_patient()` derive their counts and flags when you leave them out. If you supply them, validation checks they agree with the contents.
-- `pd_unit()` is a different kind of function: it reads the raw A3 and PE data and builds the whole unit. `new_pd_unit()` is the low-level constructor, and takes the counts and tibbles as given.
-
-When a check fails, the error says which field is wrong. Here the last antibiotic dose, which every episode needs, is missing:
+When a validation fails, the error says which field is wrong. Here the last antibiotic dose, which every episode needs, is missing:
 
 ```{r}
 tryCatch(
@@ -233,6 +227,7 @@ These checks apply to objects that already exist. Problems in the input files ar
 
 ## Things to know
 
-- Printing an object gives a summary, and `str(x, max.level = 1)` shows what it is made of.
+- Printing an object shows a selected set of its fields; `str(x, max.level = 1)`
+  shows what it is made of. `summary()` applies to unit and patient objects only.
 - `subset()` returns a new tibble and never changes the object it was called on; it is covered in `vignette("peridial", package = "peridial")`.
 - To get one `pd_patient` out of a unit, search its patient list, as above with `Filter()`.
