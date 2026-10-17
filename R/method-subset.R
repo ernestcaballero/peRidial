@@ -110,8 +110,11 @@ subset_table <- function(df, q_subset, q_select) {
 #'
 #' The unit's \code{patients}, \code{catheters} and \code{infections} tibbles
 #' are first joined into one flat table: one row per peritonitis episode,
-#' carrying its catheter's and its patient's columns. A patient with no catheter
-#' episodes still has a row. A patient with several catheters or episodes has several rows.
+#' carrying its catheter's and its patient's columns. A patient with no
+#' episodes still has a row, with the episode columns \code{NA}; a patient with
+#' several catheters or episodes has several rows, so a row count is not a
+#' patient count. \code{NA} counts as \code{FALSE} in \code{subset}, so a
+#' condition on an episode column keeps only the rows that have an episode.
 #'
 #' @param x A \code{pd_unit} object.
 #' @param subset A logical condition on the columns of the flat table (for
@@ -125,16 +128,19 @@ subset_table <- function(df, q_subset, q_select) {
 #'
 #' @return A tibble.
 #' @seealso \code{\link{subset.pd_patient}()} and
-#'   \code{\link{subset.pd_catheter}()} for the same on one patient or catheter.
+#'   \code{\link{subset.pd_catheter}()} for the same on one patient or
+#'   catheter, and \code{vignette("peridial", package = "peridial")} for worked
+#'   queries against the flat table.
 #' @export
 #'
 #' @examples
-#' unit <- pd_unit(
+#' \dontrun{
+#' unit <- suppressWarnings(pd_unit(
 #'   unit_data = system.file("extdata", "a3_2025.xlsx", package = "peridial"),
 #'   infection_data = system.file("extdata", "pe_2025.xlsx", package = "peridial"),
 #'   t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
 #'   unit_id = "Wellington PD Unit"
-#' )
+#' ))
 #'
 #' # every row for female patients
 #' subset(unit, gender == "Female")
@@ -145,6 +151,7 @@ subset_table <- function(df, q_subset, q_select) {
 #'
 #' # rows that have an episode
 #' subset(unit, !is.na(infection_date), select = patient_id:gender)
+#' }
 #'
 subset.pd_unit <- function(x, subset, select, ...) {
   if (...length() > 0L) {
