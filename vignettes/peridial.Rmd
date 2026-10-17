@@ -132,7 +132,9 @@ Values should follow these formats:
 - Dates can be Excel date cells, `Date` columns, or text in `YYYY-MM-DD` or day-first format (`31/01/2025`, `31-01-2025`). A date that cannot be read is set to `NA` with a warning.
 - A `.csv` file is read as it is: column names are standardised as for Excel files, and blank cells and `NA` are missing values.
 - Yes/no columns accept `Yes`/`No`, `Y`/`N`, `TRUE`/`FALSE` or `1`/`0`.
-- Several organisms for one episode go in one cell, separated by commas.
+- Several organisms for one episode go in one cell. A comma, semicolon, `&`, `+`, `/`
+  or the word "and" all separate them, so `Coag - Neg Staph, Staph Epidermidis` and
+  `S. epidermidis; Staph epidermidis` are both read as two organisms.
 - A permanent move to haemodialysis is recorded as `Any PD to HD` in Dialysis Modality Change.
 
 
@@ -168,6 +170,46 @@ unit <- pd_unit(
   unit_id = "Your PD Unit"
 )
 ```
+
+
+### When the build fails
+
+The package also ships a deliberately messy copy of each file, closer to what a real
+registry export looks like: `a3_2025_messy.xlsx` and `pe_2025_messy.xlsx`. Between them
+they carry renamed columns, blank cells in required fields, two malformed patient IDs,
+one self-contradictory catheter record, and organism names written eighteen different
+ways. Building from them fails, and every problem is reported in one go:
+
+```{r}
+tryCatch(
+  pd_unit(
+    unit_data = system.file("extdata", "a3_2025_messy.xlsx", package = "peridial"),
+    infection_data = system.file("extdata", "pe_2025_messy.xlsx", package = "peridial"),
+    t0 = t0, t1 = t1, unit_id = "Messy PD Unit"
+  ),
+  error = function(e) cat(conditionMessage(e))
+)
+```
+
+Three kinds of problem are listed: missing required values, two patient IDs that are not
+three letters followed by four digits, and one catheter that gives a removal reason but no
+stop date. The last is reported twice, as cause and as consequence — it was SPD0053's only
+catheter, so the patient drops out of the counts and patient-years entirely. One bad cell
+can remove a patient from the cohort, which is why the build refuses rather than report a
+rate that is missing someone.
+
+Row numbers are the rows as the spreadsheet shows them, header included, so `row 40` is
+row 40 in Excel. (A data frame has no header row, so there the count starts at its first
+record.) Each row stops at its first problem, so expect to re-run `pd_unit()` a few times.
+
+What is *absent* matters too. No column is reported missing, though the A3 heads its
+identifier column `NHI` and its stop date `Date Stopped PD`; the keyword matcher found
+both. No organism is reported either, despite `e. coli`, `  STAPHYLOCOCCUS AUREUS `, a tab
+before `Enterococcus faecium`, abbreviations like `K pneumoniae`, and two cells holding two
+organisms: every organism on the fifteen rows that got that far matched the accepted
+list. Spelling and spacing are handled; structural problems are not. The column-matching
+warnings described above are not shown here either — a failed build stops at its errors, so
+they surface only once these errors are fixed.
 
 
 ## Inspecting a unit
