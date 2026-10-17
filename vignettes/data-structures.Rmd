@@ -1,8 +1,8 @@
 ---
-title: "Representing Peritoneal Dialysis (PD) Unit Data"
+title: "2. peridial: Representing Peritoneal Dialysis (PD) Unit Data"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Representing Peritoneal Dialysis (PD) Unit Data}
+  %\VignetteIndexEntry{2. peridial: Representing Peritoneal Dialysis (PD) Unit Data}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -17,7 +17,7 @@ knitr::opts_chunk$set(
 
 ## Overview
 
-peRidial represents a PD unit as four nested S3 classes: `pd_unit`, `pd_patient`, `pd_catheter` and `pd_infection`. Each class owns the level below it, so the structure mirrors how the clinical data are recorded: a unit has patients, a patient has catheters, and a catheter has peritonitis episodes.
+peridial represents a PD unit as four nested S3 classes: `pd_unit`, `pd_patient`, `pd_catheter` and `pd_infection`. Each class owns the level below it, so the structure mirrors how the clinical data are recorded: a unit has patients, a patient has catheters, and a catheter has peritonitis episodes.
 
 This vignette explains what each class holds, how the objects are built from the unit's input files, and how the constructors keep them consistent. It builds on `vignette("peridial", package = "peridial")`, which covers installation, the example data, building a `pd_unit` with `pd_unit()`, and the `print()`, `summary()`, `plot()` and `subset()` methods. How the indicators are calculated is covered in the companion `vignette("indicators-classification", package = "peridial")`, which can be read before or after this one.
 

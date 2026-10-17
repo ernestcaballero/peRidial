@@ -1,8 +1,8 @@
 ---
-title: "Calculating ISPD Indicators and Peritonitis Episode Classification"
+title: "3. peridial: Calculating ISPD Indicators and Peritonitis Episode Classification"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Calculating ISPD Indicators and Peritonitis Episode Classification}
+  %\VignetteIndexEntry{3. peridial: Calculating ISPD Indicators and Peritonitis Episode Classification}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

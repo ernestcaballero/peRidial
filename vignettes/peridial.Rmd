@@ -1,8 +1,8 @@
 ---
-title: "peRidial: Peritonitis Indicators for Peritoneal Dialysis Units"
+title: "1. peridial: An Introduction"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{peRidial: Peritonitis Indicators for Peritoneal Dialysis Units}
+  %\VignetteIndexEntry{1. peridial: An Introduction}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -17,7 +17,7 @@ knitr::opts_chunk$set(
 
 ## Overview
 
-peRidial is a standardised R framework for ingesting, validating, and summarising clinical peritoneal dialysis (PD) unit data. Four nested S3 classes represent the PD unit, the cohort of patients in the unit, their catheters, and each catheter's peritonitis episodes (if any), supporting reproducible calculation of the International Society for Peritoneal Dialysis (ISPD)-recommended PD unit's peritonitis rate and peritonitis-free percentage indicators from longitudinal catheter and infection records.
+peridial is a standardised R framework for ingesting, validating, and summarising clinical peritoneal dialysis (PD) unit data. Four nested S3 classes represent the PD unit, the cohort of patients in the unit, their catheters, and each catheter's peritonitis episodes (if any), supporting reproducible calculation of the International Society for Peritoneal Dialysis (ISPD)-recommended PD unit's peritonitis rate and peritonitis-free percentage indicators from longitudinal catheter and infection records.
 
 This is the vignette to start with. It walks through installation and setup, the example data, building a `pd_unit` from PD unit input files, and the `print()`, `summary()`, `plot()` and `subset()` methods for inspecting what was built.
 
