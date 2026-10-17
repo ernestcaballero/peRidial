@@ -193,8 +193,8 @@ tryCatch(
 
 Three kinds of problem are listed: missing required values, two patient IDs that are not
 three letters followed by four digits, and one catheter that gives a removal reason but no
-stop date. The last is reported twice, as cause and as consequence — it was SPD0053's only
-catheter, so the patient drops out of the counts and patient-years entirely. One bad cell
+stop date. The last is reported twice — it was SPD0053's only catheter, 
+so the patient drops out of the counts and patient-years entirely. One bad cell
 can remove a patient from the cohort, which is why the build refuses rather than report a
 rate that is missing someone.
 
