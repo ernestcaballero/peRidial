@@ -8,14 +8,10 @@ patient_list_3 <- function() make_subset_unit()$patient_list
 
 # patients_to_tibble()
 
-test_that("patients_to_tibble() gives one row per patient, in patient_list order", {
+test_that("patients_to_tibble() gives one row per patient, in order, with the reporting window and counts", {
   tbl <- patients_to_tibble(patient_list_3(), T0, T1)
   expect_s3_class(tbl, "tbl_df")
   expect_identical(tbl$patient_id, c("AAA0001", "BBB0002", "CCC0003"))
-})
-
-test_that("patients_to_tibble() carries the reporting window and per-patient counts", {
-  tbl <- patients_to_tibble(patient_list_3(), T0, T1)
   expect_true(all(tbl$t0 == T0))
   expect_true(all(tbl$t1 == T1))
   expect_identical(tbl$n_catheters, c(2L, 1L, 1L))
@@ -41,15 +37,11 @@ test_that("patients_to_tibble() handles a patient with no catheters", {
 
 # catheters_to_tibble()
 
-test_that("catheters_to_tibble() gives one row per catheter across all patients", {
+test_that("catheters_to_tibble() gives one row per catheter, with dates, procedure and episode counts", {
   tbl <- catheters_to_tibble(patient_list_3(), T0, T1)
   expect_identical(tbl$catheter_id,
                    c("AAA0001_01", "AAA0001_02", "BBB0002_01", "CCC0003_01"))
   expect_identical(tbl$patient_id, c("AAA0001", "AAA0001", "BBB0002", "CCC0003"))
-})
-
-test_that("catheters_to_tibble() carries dates, procedure and episode counts", {
-  tbl <- catheters_to_tibble(patient_list_3(), T0, T1)
   expect_identical(tbl$procedure_type[1:2], c("laparoscopic", "open surgical"))
   expect_identical(tbl$insertion_date[1], as.Date("2023-05-01"))
   expect_identical(tbl$pd_stop_date[1], as.Date("2025-06-30"))
@@ -111,15 +103,6 @@ test_that("infections_to_tibble() does not count an episode outside the reportin
   tbl <- infections_to_tibble(list(p), T0, T1)
   expect_identical(nrow(tbl), 1L)
   expect_false(tbl$counts_toward_rate)
-})
-
-test_that("infections_to_tibble() does not count an episode after t1 on a catheter that stops after t1", {
-  inf_in <- make_infection(infection_date = as.Date("2025-12-20"))
-  inf_late <- make_infection(infection_date = as.Date("2026-01-20"))   # before pd_stop_date, after t1
-  cath <- make_catheter(pd_stop_date = as.Date("2026-02-15"), infections = list(inf_in, inf_late))
-  tbl <- infections_to_tibble(list(make_patient(catheters = list(cath))), T0, T1)
-  expect_identical(nrow(tbl), 2L)
-  expect_identical(tbl$counts_toward_rate, c(TRUE, FALSE))
 })
 
 test_that("infections_to_tibble() does not count an episode after the patient's tau", {

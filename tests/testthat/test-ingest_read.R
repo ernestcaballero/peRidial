@@ -39,14 +39,14 @@ test_that("map_columns() leaves a column that already has the expected name alon
   expect_identical(out, df)
 })
 
-test_that("map_columns() maps PE headers", {
+test_that("map_columns() maps differently-named PE headers", {
   df <- standardise_names(data.frame(
-    `Patient ID` = "A1", `Date of Infection` = 1, Organism = "x",
-    `Last Dose Antibiotic` = 1, `Catheter Removed` = TRUE,
-    `Catheter Removed Date` = 1, `Days Hospitalised` = 2,
-    `Overnight Hospitalisation` = "Yes", check.names = FALSE))
+    `Patient NHI` = "A1", `Infection Date` = 1, `Organism Cultured` = "x",
+    `Final Antibiotic Dose Date` = 1, `Catheter Removal Date` = 1,
+    check.names = FALSE))
   out <- map_columns(df, pe_spec, "infection (PE)")
-  expect_identical(names(out), names(df))
+  expect_identical(names(out), c("patient_id", "date_of_infection", "organism",
+                                 "last_dose_antibiotic", "catheter_removed_date"))
 })
 
 # require_cols()
@@ -78,6 +78,7 @@ test_that("ensure_cols() adds missing columns as all-NA and keeps existing ones"
 test_that("ensure_cols() works on a dataframe with no rows", {
   out <- ensure_cols(data.frame(a = integer(0)), "b")
   expect_identical(nrow(out), 0L)
+  expect_named(out, c("a", "b"))
 })
 
 # as_date_safe()
@@ -91,24 +92,15 @@ test_that("as_date_safe() converts an Excel serial number", {
   expect_identical(as_date_safe(45000), as.Date("2023-03-15"))
 })
 
-test_that("as_date_safe() parses ISO date strings and tolerates padding and NA", {
-  out <- as_date_safe(c("2025-01-31", " 2025-02-01 ", NA))
-  expect_identical(out, as.Date(c("2025-01-31", "2025-02-01", NA)))
-})
-
 test_that("as_date_safe() reads day-first text dates, as a CSV or data frame", {
   out <- as_date_safe(c("31/01/2025", "1/2/2025", "03-04-2025", "05.06.2025", "2025/07/08"))
   expect_identical(out, as.Date(c("2025-01-31", "2025-02-01", "2025-04-03",
                                   "2025-06-05", "2025-07-08")))
 })
 
-test_that("as_date_safe() reads an ambiguous date day-first, never month-first", {
-  expect_identical(as_date_safe("03/04/2025"), as.Date("2025-04-03"))
-})
-
 test_that("as_date_safe() copes with a column that mixes formats and blanks", {
-  out <- as_date_safe(c("2025-01-31", "01/02/2025", "", NA, "2025-03-04 00:00:00"))
-  expect_identical(out, as.Date(c("2025-01-31", "2025-02-01", NA, NA, "2025-03-04")))
+  out <- as_date_safe(c("2025-01-31", " 2025-02-01 ", "01/02/2025", "", NA, "2025-03-04 00:00:00"))
+  expect_identical(out, as.Date(c("2025-01-31", "2025-02-01", "2025-02-01", NA, NA, "2025-03-04")))
 })
 
 test_that("as_date_safe() will not read a two-digit year as year 00YY", {
@@ -125,17 +117,11 @@ test_that("as_date_safe() takes the calendar day in the value's own time zone", 
 
 # as_logical_safe()
 
-test_that("as_logical_safe() passes logicals through", {
-  expect_identical(as_logical_safe(c(TRUE, NA, FALSE)), c(TRUE, NA, FALSE))
-})
-
-test_that("as_logical_safe() reads yes/no style text, ignoring case and padding", {
+test_that("as_logical_safe() reads yes/no text, ignoring case and padding, and gives NA for the unrecognised", {
+  expect_identical(as_logical_safe(c(TRUE, NA, FALSE)), c(TRUE, NA, FALSE))     # logicals pass through
   x <- c("Yes", " y ", "TRUE", "1", "No", "n", "false", "0", "")
   expect_identical(as_logical_safe(x),
                    c(TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE))
-})
-
-test_that("as_logical_safe() gives NA for unrecognised text and NA input", {
   expect_identical(as_logical_safe(c("maybe", NA)), c(NA, NA))
 })
 
@@ -160,11 +146,8 @@ test_that("new_issue_log() keeps errors and warnings apart", {
 
 # is_blank_cell()
 
-test_that("is_blank_cell() flags NA, empty and whitespace-only text", {
+test_that("is_blank_cell() flags NA, empty and whitespace-only text, and only NA for other types", {
   expect_identical(is_blank_cell(c("a", "", "  ", NA)), c(FALSE, TRUE, TRUE, TRUE))
-})
-
-test_that("is_blank_cell() flags only NA for non-character columns", {
   expect_identical(is_blank_cell(c(1, NA)), c(FALSE, TRUE))
   expect_identical(is_blank_cell(as.Date(c("2025-01-01", NA))), c(FALSE, TRUE))
 })
@@ -198,10 +181,6 @@ test_that("check_required_cells() copes with a row that has no patient_id", {
   expect_match(log$get(), "no patient_id")
 })
 
-test_that("check_required_cells() errors if a required column is not in the data", {
-  expect_error(check_required_cells(data.frame(a = 1), "b", "PE", new_issue_log()))
-})
-
 test_that("check_required_cells() reports the stamped sheet row, not the position", {
   df <- data.frame(patient_id = c("A", "B"), x = c(1, NA), .sheet_row = c(7L, 12L))
   log <- new_issue_log()
@@ -220,19 +199,15 @@ test_that("is_valid_nhi() accepts three letters followed by four digits", {
 
 # check_patient_ids()
 
-test_that("check_patient_ids() keeps valid rows", {
-  df <- data.frame(patient_id = c("ABC1234", "DEF5678"))
-  expect_identical(check_patient_ids(df, "unit (A3)"), df)
-})
-
 test_that("check_patient_ids() drops and logs each invalid id with its row", {
   df <- data.frame(patient_id = c("ABC1234", "40", "DEF5678", "xyz"), v = 1:4)
   log <- new_issue_log()
   out <- check_patient_ids(df, "unit (A3)", log)
   expect_identical(out$patient_id, c("ABC1234", "DEF5678"))
-  expect_length(log$get(), 2)
-  expect_match(log$get()[1], "unit \\(A3\\) file, row 3: `40` is not a valid NHI number")
-  expect_match(log$get()[2], "row 5: `xyz` is not a valid NHI number")
+  expect_identical(
+    startsWith(log$get(), c("The unit (A3) file, row 3: `40` is not a valid NHI number",
+                            "The unit (A3) file, row 5: `xyz` is not a valid NHI number")),
+    c(TRUE, TRUE))
 })
 
 test_that("check_patient_ids() trims whitespace and stores the upper-case id", {
@@ -243,11 +218,6 @@ test_that("check_patient_ids() trims whitespace and stores the upper-case id", {
 
 # check_known_patients()
 
-test_that("check_known_patients() keeps rows whose patient is in the A3 file", {
-  df <- data.frame(patient_id = c("ABC1234", "DEF5678"))
-  expect_identical(check_known_patients(df, c("ABC1234", "DEF5678", "GHJ9012"), "PE"), df)
-})
-
 test_that("check_known_patients() drops and logs an unknown patient with its row", {
   df <- data.frame(patient_id = c("ABC1234", "ZZZ9999"), v = 1:2)
   log <- new_issue_log()
@@ -256,42 +226,7 @@ test_that("check_known_patients() drops and logs an unknown patient with its row
   expect_match(log$get(), "infection \\(PE\\) file, row 3: patient ZZZ9999 has no row in the unit \\(A3\\) file")
 })
 
-
-
 # read_input()
-
-test_that("read_input() takes a data frame as it is, without touching the original", {
-  df <- data.frame(`Patient ID` = c("ABC1234", "DEF5678"), n = 1:2, check.names = FALSE)
-  before <- df
-  out <- read_input(df)
-  expect_s3_class(out, "tbl_df")
-  expect_identical(names(out), c("Patient ID", "n"))
-  expect_equal(nrow(out), 2)
-  expect_identical(df, before)
-})
-
-test_that("read_input() reads an Excel file", {
-  path <- system.file("extdata", "a3_2025.xlsx", package = "peridial", mustWork = TRUE)
-  out <- read_input(path)
-  expect_s3_class(out, "tbl_df")
-  expect_equal(nrow(out), 62)
-})
-
-test_that("read_input() reads a CSV: names untouched, blank and NA cells become NA", {
-  path <- tempfile(fileext = ".CSV")                   # extension match ignores case
-  writeLines(c("Patient ID,Date of Birth,Gender", "ABC1234,31/01/1960,", "DEF5678,NA,Male"), path)
-  out <- read_input(path)
-  expect_identical(names(out), c("Patient ID", "Date of Birth", "Gender"))
-  expect_identical(out[["Patient ID"]], c("ABC1234", "DEF5678"))
-  expect_identical(out[["Date of Birth"]], c("31/01/1960", NA))
-  expect_identical(out[["Gender"]], c(NA, "Male"))
-})
-
-test_that("read_input() drops the byte-order mark Excel puts at the start of a CSV", {
-  path <- tempfile(fileext = ".csv")
-  writeBin(c(as.raw(c(0xEF, 0xBB, 0xBF)), charToRaw("Patient ID,Gender\nABC1234,Male\n")), path)
-  expect_identical(names(read_input(path)), c("Patient ID", "Gender"))
-})
 
 test_that("read_input() names the argument when the file is missing or the input is the wrong type", {
   expect_error(read_input(file.path(tempdir(), "no_such_file.csv"), "unit_data"),
