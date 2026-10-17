@@ -192,3 +192,16 @@ pd_unit_quiet <- function(...) {
     }
   )
 }
+
+
+# The unit built from the bundled example files (default arguments, t0 = T0, t1 = T1).
+.bundled_cache <- new.env(parent = emptyenv())
+bundled_unit <- function() {
+  if (is.null(.bundled_cache$unit)) {
+    a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
+    pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
+    skip_if_not(nzchar(a3) && nzchar(pe), "bundled example files not found")
+    .bundled_cache$unit <- pd_unit_quiet(a3, pe, t0 = T0, t1 = T1)
+  }
+  .bundled_cache$unit
+}
