@@ -107,11 +107,6 @@ ensure_cols <- function(df, cols, type = NA) {
 
 
 #' Read one raw input (A3 or PE) into a tibble: a data frame already in R, a CSV file or an Excel file
-#'
-#' A data frame is used as it is (the caller's copy is never changed). A path ending in
-#' .csv is read with read.csv(), values left as the file has them (names untouched,
-#' blank cells and "NA" become NA, a leading byte-order mark is dropped). Any other path
-#' goes to readxl, which sniffs .xlsx / .xls from the file itself.
 #' @noRd
 read_input <- function(x, arg = "input") {
   if (is.data.frame(x)) {                              # already in R: keep as is

@@ -533,24 +533,24 @@ pd_unit <- function(unit_data,
   # PY: total patient-years at risk, censored to [t0, t1] and each patient's tau
   tpyar <- total_patient_years(patient_list, t0, t1)
 
-  # a gap in the source data is an erro; the source files need correcting.
+  # a gap in the source data is an error; the source files need correcting.
   report_issues(log)
   for (msg in log$get("warning")) {
     warning(msg, call. = FALSE)
   }
 
   x <- new_pd_unit(
-    unit_id        = unit_id,
-    t0             = t0,
-    t1             = t1,
-    n_new          = as.integer(n_new),
-    n_patients     = as.integer(n_patients),
-    tpyar          = tpyar,
+    unit_id = unit_id,
+    t0 = t0,
+    t1 = t1,
+    n_new = as.integer(n_new),
+    n_patients = as.integer(n_patients),
+    tpyar = tpyar,
     rate_benchmark = rate_benchmark,
-    pf_benchmark   = pf_benchmark,
-    patients       = patients_tbl,
-    catheters    = catheters_tbl,
-    infections   = infections_tbl,
+    pf_benchmark = pf_benchmark,
+    patients = patients_tbl,
+    catheters = catheters_tbl,
+    infections = infections_tbl,
     patient_list = patient_list
   )
 
