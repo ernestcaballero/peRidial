@@ -6,8 +6,9 @@
 #' draw a peritonitis rate trend binned by that calendar period
 #' (via `peritonitis_rate_by_period()`); `"yearly"` draws the cumulative
 #' (year-to-date) rate  and a cumulative (year-to-date) peritonitis-free percentage
-#' in a two-panel plot. Both views reuse `summarise_rate()`/`summarise_pf()`.
-#' Requires the `ggplot2` package, and also `patchwork` for `type = "yearly"`.
+#' in a two-panel plot. Both views judge the indicators exactly as
+#' [summary.pd_unit()] does. Requires the `ggplot2` package, and also
+#' `patchwork` for `type = "yearly"`.
 #'
 #' With `type = "yearly"`, four optional bar-chart panels summarising the
 #' reporting cohort are added underneath the two cumulative panels; each is
@@ -39,7 +40,7 @@
 #'   PD catheters were stopped, as a **count of catheters** (a patient can have
 #'   more than one). Only catheters whose `pd_stop_date` falls within
 #'   `[x$t0, x$t1]` are counted. The reason is the catheter's `removal_reason`
-#'   checked against the accepted list of reasons in `R/value_maps.R`
+#'   checked against the package's accepted list of removal reasons
 #'   (the ISPD reasons plus death, transplant and permanent transfer to HD);
 #'   text not on the list is counted as `"Other"`.
 #'   Where a catheter was removed for a permanent transfer to HD, the patient's
@@ -52,10 +53,13 @@
 #' @return Invisibly, the plot that was drawn: a `ggplot` object for
 #'   `"monthly"`/`"quarterly"`, or a `patchwork` object for `"yearly"`.
 #'   The plot is also printed.
+#' @seealso [peritonitis_rate_by_period()], which produces the bins and rates
+#'   plotted, [summary.pd_unit()] for the same indicators as a report, and
+#'   `vignette("peridial", package = "peridial")`.
 #' @export
 #'
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' x <- new_pd_unit(
 #'   unit_id = "Wellington PD Unit",
 #'   t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
