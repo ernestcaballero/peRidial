@@ -122,9 +122,10 @@ test_that("derive_patient_tau(censor_on_last_stop = FALSE) leaves a stopped pati
   expect_true(is.na(tau$date))
 })
 
-test_that("derive_patient_tau() can handle with a patient who has no catheter rows", {
+test_that("derive_patient_tau() can handle a patient who has no catheter rows", {
   tau <- derive_patient_tau(tau_demo(), tau_mod(), tau_cath()[0, ])
   expect_true(is.na(tau$reason))
+  expect_true(is.na(tau$date))
 })
 
 
@@ -181,6 +182,12 @@ test_that("on_pd_in_period() is FALSE for a catheter that ended before, or start
   expect_false(on_pd_in_period(tau_cath(pd_start_date = d("2023-01-01"),
                                         pd_stop_date = d("2024-12-31")), T0, T1))
   expect_false(on_pd_in_period(tau_cath(pd_start_date = d("2026-01-01")), T0, T1))
+})
+
+test_that("on_pd_in_period() is FALSE for a catheter whose stop date is before its start date", {
+  # no day at risk, so the patient is skipped here, before pd_catheter() gets to reject the dates
+  expect_false(on_pd_in_period(tau_cath(pd_start_date = d("2025-02-01"),
+                                        pd_stop_date = d("2025-01-01")), T0, T1))
 })
 
 test_that("on_pd_in_period() uses tau to cut a catheter short", {
