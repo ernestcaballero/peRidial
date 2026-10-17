@@ -2,7 +2,12 @@
 #' Calculate exposure days between two dates
 #' @noRd
 exposure_days <- function(min_date, max_date) {
-  stopifnot(inherits(min_date, "Date"), inherits(max_date, "Date"))
+  if (!inherits(min_date, "Date")) {
+    stop("`min_date` must be a Date, not ", class(min_date)[1], ".", call. = FALSE)
+  }
+  if (!inherits(max_date, "Date")) {
+    stop("`max_date` must be a Date, not ", class(max_date)[1], ".", call. = FALSE)
+  }
   as.numeric(pmax(0, max_date - min_date + 1))
 }
 
