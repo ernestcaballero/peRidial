@@ -121,7 +121,7 @@ One person and the catheters they used.
 | `catheters` | a list of the patient's `pd_catheter` objects; their PD windows may not overlap |
 | `t0`, `t1` | the reporting period |
 | `gender`, `ethnicity`, `date_of_birth`, `primary_kidney_disease`, `diabetes_status`, `smoking_status`, `dialysis_type` | demographic and clinical details, `NA` where not recorded |
-| `transfer_reason`, `transfer_date` | the patient's censoring point $\tau$: `"death"`, `"transplant"` or `"permanent transfer to HD"` with its date, or `NA` if they are still on PD |
+| `transfer_reason`, `transfer_date` | the patient's censoring point $\tau$: `"death"`, `"transplant"`, `"permanent transfer to HD"` or `"pd stopped"` (every catheter closed with none reopened, only when `censor_on_last_stop = TRUE`) with its date, or `NA` if they are still on PD |
 | `new_patient_flag` | **derived**: `TRUE` for an incident patient (first PD start inside `[t0, t1]`), `FALSE` for a prevalent one |
 | `n_catheters`, `n_episodes` | **derived**: the number of catheters, and the countable episodes across all of them |
 
@@ -151,7 +151,7 @@ names(unit)
 lapply(unit[c("patients", "catheters", "infections")], names)
 ```
 
-The tibbles are what `subset()` joins together, and they hold what the objects do not. `catheter_id` is a column of `infections`, so an episode can be traced to its catheter. `infections` also has `counts_toward_rate`, which is `TRUE` for an episode that is inside its catheter's PD window and the reporting period and is not relapsing. `catheters` has `exposure_days_in_period` and `patients` has `patient_years_at_risk`.
+The tibbles are what `subset()` joins together, and they hold what the objects do not. `catheter_id` is a column of `infections`, so an episode can be traced to its catheter. `infections` also has `counts_toward_rate`, which is `TRUE` for an episode (non-relapsing) that is inside its catheter's PD window and the reporting period, and `n_organisms`. `catheters` has `exposure_days_in_period`. `patients` has `patient_years_at_risk`, `first_pd_start_date`, and `transfer_detail`: the cause of death, the modality-change reason, or the removal reason that sits behind `transfer_reason` (used by `plot()`'s `show_stop.reason` panel).
 
 The stored counts describe the level they sit on: `n_episodes` and `patient_years_at_risk` are per patient, and `n_peritonitis_episodes` and `exposure_days_in_period` are per catheter. Only `n_patients`, `n_new` and `tpyar` describe the whole unit. None of them change when `subset()` filters rows.
 
