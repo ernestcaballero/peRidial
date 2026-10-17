@@ -42,6 +42,7 @@
 #' @export
 #'
 #' @examples
+#' \dontrun{
 #' classify_episode_types(
 #'   patient_id = c("patient01", "patient01", "patient02", "patient02"),
 #'   infection_date = as.Date(c("2025-04-01", "2025-05-12",
@@ -54,6 +55,7 @@
 #' # patient01's second episode is 27 days after the last dose, same organism: relapsing
 #' # patient02's is 90 days after: repeat.
 #' # Episodes are never compared across patients, so each patient's first is NA.
+#' }
 #'
 classify_episode_types <- function(patient_id,
                                    infection_date,

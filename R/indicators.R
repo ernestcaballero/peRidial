@@ -13,8 +13,7 @@ exposure_days <- function(min_date, max_date) {
 #' Days a catheter is at risk: this catheter's PD window clipped to
 #' the reporting period \code{[t0, t1]} and censored at the patient's
 #' \code{tau} (death, transplant, or permanent transfer to HD). The clipped
-#' interval is then measured by \code{exposure_days()}, which is documented as
-#' taking dates that have already been truncated.
+#' interval is then measured by \code{exposure_days()}.
 #'
 #' An \code{NA} \code{pd_stop_date} means the catheter is still in active
 #' use, and an \code{NA} \code{tau} means the patient never left PD, so neither
@@ -30,8 +29,26 @@ exposure_days <- function(min_date, max_date) {
 #'
 #' @return A single non-negative numeric: days at risk, inclusive of both
 #'   endpoints. Zero for a catheter whose window never overlaps the period.
+#' @seealso \code{\link{total_patient_years}()} to sum this over a cohort, and
+#'   \code{vignette("indicators-classification", package = "peridial")}, which
+#'   writes the same clipping out as a formula.
 #' @export
 #'
+#' @examples
+#' \dontrun{
+#' # a catheter that started before the period and is still open, for a patient
+#' # who died on 30 September: 1 January to 30 September, both days counted
+#' catheter <- list(pd_start_date = as.Date("2024-11-10"),
+#'                  pd_stop_date = as.Date(NA))
+#'
+#' catheter_exposure_days(catheter,
+#'                        t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
+#'                        tau = as.Date("2025-09-30"))
+#'
+#' # with no tau the patient never left PD, so the catheter runs to t1
+#' catheter_exposure_days(catheter,
+#'                        t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"))
+#'}
 catheter_exposure_days <- function(catheter, t0, t1, tau = as.Date(NA)) {
   stopifnot(inherits(t0, "Date"), inherits(t1, "Date"), inherits(tau, "Date"))
   stopifnot(inherits(catheter$pd_start_date, "Date"))
@@ -66,8 +83,24 @@ catheter_exposure_days <- function(catheter, t0, t1, tau = as.Date(NA)) {
 #' @param t1 Date. End of the reporting period.
 #'
 #' @return A single non-negative numeric value: total patient-years-at-risk
-#'   across all patients.
+#'   across all patients. This is what a unit's \code{tpyar} holds, and the
+#'   denominator of its peritonitis rate.
+#' @seealso \code{\link{catheter_exposure_days}()} for the per-catheter step,
+#'   and \code{vignette("indicators-classification", package = "peridial")}.
 #' @export
+#'
+#' @examples
+#' \dontrun{
+#' unit <- suppressWarnings(pd_unit(
+#'   unit_data = system.file("extdata", "a3_2025.xlsx", package = "peridial"),
+#'   infection_data = system.file("extdata", "pe_2025.xlsx", package = "peridial"),
+#'   t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
+#'   unit_id = "Wellington PD Unit"
+#' ))
+#'
+#' total_patient_years(unit$patient_list, unit$t0, unit$t1)
+#' unit$tpyar   # the same number, stored on the unit
+#' }
 #'
 total_patient_years <- function(patient_list, t0, t1) {
   stopifnot(is.list(patient_list))
@@ -110,7 +143,9 @@ total_patient_years <- function(patient_list, t0, t1) {
 #' so `patient_years` never exceeds what the unit could actually accrue.
 #'
 #' @param x A `pd_unit` object.
-#' @param cal.period Character. `"month"`, `"quarter"`, or `"year"`.
+#' @param cal.period Character. `"month"`, `"quarter"`, or `"year"`. These are
+#'   the same bins `plot.pd_unit()` draws, where the equivalent `type` argument
+#'   spells them `"monthly"`, `"quarterly"` and `"yearly"`.
 #'
 #' @return A tibble, one row per period spanned by `[x$t0, x$t1]`:
 #'   `period` (Date, start of that period),
@@ -196,7 +231,8 @@ peritonitis_rate_by_period <- function(x, cal.period = c("month", "quarter", "ye
 #' Peritonitis rate by calendar month
 #'
 #' A wrapper around `peritonitis_rate_by_period(x, cal.period = "month")`.
-#' Monthly peritonitis rate with a`month` column instead of `period` and `label` columns.
+#' Monthly peritonitis rate with a `month` column instead of the `period` and
+#' `label` columns.
 #'
 #' @param x A `pd_unit` object.
 #'
@@ -210,12 +246,14 @@ peritonitis_rate_by_period <- function(x, cal.period = c("month", "quarter", "ye
 #' @export
 #'
 #' @examples
+#' \dontrun{
 #' x <- new_pd_unit(
 #'   unit_id = "Wellington PD Unit",
 #'   t0 = as.Date("2025-01-01"), t1 = as.Date("2025-03-31"),
 #'   n_new = 0L, n_patients = 0L, tpyar = 0
 #' )
 #' monthly_peritonitis_rate(x)
+#' }
 #'
 monthly_peritonitis_rate <- function(x) {
   out <- peritonitis_rate_by_period(x, cal.period = "month")
