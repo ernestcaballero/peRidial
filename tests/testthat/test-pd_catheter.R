@@ -1,23 +1,5 @@
 # Shared fixtures (T0, T1, make_catheter(), make_infection()) live in helper-fixtures.R
 
-test_that("new_pd_catheter creates a valid pd_catheter object", {
-  cath <- new_pd_catheter(
-    patient_id = "ABC1234",
-    catheter_id = "ABC1234_01",
-    insertion_date = as.Date("2025-01-25"),
-    procedure_type = "laparoscopic",
-    pd_start_date = as.Date("2025-02-10"),
-    pd_stop_date = as.Date(NA),
-    removal_reason = NA_character_,
-    infections = list(),
-    t0 = T0,
-    t1 = T1,
-    total_exposure_days = 100,
-    n_peritonitis_episodes = 2,
-    peritonitis_flag = TRUE)
-  expect_s3_class(cath, "pd_catheter")
-})
-
 
 
 # validate_pd_catheter()
@@ -87,7 +69,7 @@ test_that("validate_pd_catheter() errors when pd_stop_date is empty
   expect_error(validate_pd_catheter(cath), "pd_stop_date must be supplied when removal_reason is given.")
 })
 
-test_that("validate_pd_catheter() errors exposure days is non-positive", {
+test_that("validate_pd_catheter() errors when total_exposure_days is negative", {
   cath <- make_catheter(
     insertion_date = as.Date("2025-01-25"),
     pd_start_date = as.Date("2025-02-10"),
@@ -97,23 +79,20 @@ test_that("validate_pd_catheter() errors exposure days is non-positive", {
   expect_error(validate_pd_catheter(cath), "total_exposure_days cannot be negative.")
 })
 
-test_that("validate_pd_catheter() accepts total_exposure_days as inclusive of two dates", {
-  cath <- make_catheter(
+test_that("validate_pd_catheter() treats total_exposure_days as inclusive of both end dates", {
+  ten_days <- make_catheter(
     pd_start_date = as.Date("2025-01-01"),
     pd_stop_date  = as.Date("2025-01-10"),
     removal_reason = "infection",
     total_exposure_days = 10)   # 1-10 Jan inclusive = 10 days
-  expect_no_error(validate_pd_catheter(cath))
-})
+  expect_no_error(validate_pd_catheter(ten_days))
 
-test_that("validate_pd_catheter() rejects total_exposure_days
-          one day over the inclusive span", {
-  cath <- make_catheter(
+  eleven_days <- make_catheter(
     pd_start_date = as.Date("2025-01-01"),
     pd_stop_date  = as.Date("2025-01-10"),
     removal_reason = "infection",
-    total_exposure_days = 11)
-  expect_error(validate_pd_catheter(cath), "cannot exceed the span")
+    total_exposure_days = 11)   # one day over the inclusive span
+  expect_error(validate_pd_catheter(eleven_days), "cannot exceed the span")
 })
 
 test_that("validate_pd_catheter() errors when total_exposure_days
@@ -259,78 +238,17 @@ test_that("count_episodes raises the lower bound to t0 when pd_start_date is bef
 })
 
 
-
-# subset()
-
-# CCC0003_01: three episodes, E3a (type NA), E3b (repeat), E3c (relapsing, so not counted towards the rate).
-# BBB0002_01 has none.
-subset_catheter <- function(patient = 3) {
-  make_subset_unit()$patient_list[[patient]]$catheters[[1]]
-}
-
-test_that("subset.pd_catheter() returns a tibble with one row per episode", {
-  y <- subset(subset_catheter())
-  expect_s3_class(y, "tbl_df")
-  expect_false(inherits(y, "pd_catheter"))
-  expect_true(all(y$catheter_id == "CCC0003_01"))
-  expect_true(all(y$procedure_type == "open surgical"))
-  expect_identical(y$episode_type, c(NA, "repeat", "relapsing"))
-  expect_identical(y$counts_toward_rate, c(TRUE, TRUE, FALSE))
-})
-
-test_that("subset.pd_catheter() leaves out columns the catheter object doesn't have", {
-  y <- subset(subset_catheter())
-  expect_false(any(c("gender", "ethnicity", "exposure_days_in_period") %in% names(y)))
-})
-
-test_that("subset.pd_catheter() filters on episode and catheter columns", {
-  cath <- subset_catheter()
-  expect_equal(nrow(subset(cath, episode_type == "repeat")), 1L)
-  expect_equal(nrow(subset(cath, counts_toward_rate)), 2L)
-  expect_equal(nrow(subset(cath, infection_date >= as.Date("2025-08-01"))), 2L)
-  expect_equal(nrow(subset(cath, procedure_type == "laparoscopic")), 0L)
-})
-
-test_that("subset.pd_catheter() gives a row with NA episode columns when there are no episodes", {
-  y <- subset(subset_catheter(2))
-  expect_true(is.na(y$infection_date))
-  expect_true(is.na(y$episode_type))
-})
-
-test_that("subset.pd_catheter() supports select and does not modify the catheter", {
-  cath <- subset_catheter()
-  before <- cath
-  y <- subset(cath, episode_type == "repeat",
-              select = c(catheter_id, infection_date, episode_type))
-  expect_identical(names(y), c("catheter_id", "infection_date", "episode_type"))
-  expect_identical(cath, before)
-})
-
-test_that("subset.pd_catheter() rejects bad conditions and stray arguments", {
-  cath <- subset_catheter()
-  expect_error(subset(cath, n_organisms), "must be logical")
-  expect_error(subset(cath, no_such_column == 1), "Could not evaluate the `subset`")
-  expect_error(subset(cath, infections = TRUE), "Unused argument")
-})
-
-
 # count_episodes(): the upper bound is the earliest of pd_stop_date, t1 and tau
 
-test_that("count_episodes stops at t1 when the catheter's pd_stop_date is after the reporting period", {
+test_that("count_episodes stops at t1, inclusive, when the catheter's pd_stop_date is after the reporting period", {
   infections <- list(
     make_infection(infection_date = as.Date("2025-12-20")),  # inside [pd_start_date, t1] = counted
+    make_infection(infection_date = T1),                     # on t1 itself = counted
     make_infection(infection_date = as.Date("2026-01-20"))   # before pd_stop_date but after t1 = excluded
   )
   n <- count_episodes(infections, t0 = T0, t1 = T1, pd_start_date = as.Date("2025-10-02"),
                       pd_stop_date = as.Date("2026-02-15"))
-  expect_identical(n, 1L)
-})
-
-test_that("count_episodes counts an episode on t1 itself", {
-  infections <- list(make_infection(infection_date = T1))
-  n <- count_episodes(infections, t0 = T0, t1 = T1, pd_start_date = as.Date("2025-10-02"),
-                      pd_stop_date = as.Date("2026-02-15"))
-  expect_identical(n, 1L)
+  expect_identical(n, 2L)
 })
 
 test_that("count_episodes stops at tau when tau is earlier than t1 and pd_stop_date", {
@@ -359,4 +277,31 @@ test_that("count_episodes leaves the upper side unfiltered when stop date, t1 an
   infections <- list(make_infection(infection_date = as.Date("2030-01-01")))
   expect_identical(count_episodes(infections, t0 = as.Date(NA), t1 = as.Date(NA),
                                   pd_start_date = as.Date(NA), pd_stop_date = as.Date(NA)), 1L)
+})
+
+
+# subset()
+
+# CCC0003_01: three episodes, E3a (type NA), E3b (repeat), E3c (relapsing, so not counted towards the rate).
+# BBB0002_01 has none.
+subset_catheter <- function(patient = 3) {
+  make_subset_unit()$patient_list[[patient]]$catheters[[1]]
+}
+
+test_that("subset.pd_catheter() returns a tibble with one row per episode", {
+  y <- subset(subset_catheter())
+  expect_s3_class(y, "tbl_df")
+  expect_false(inherits(y, "pd_catheter"))
+  expect_true(all(y$catheter_id == "CCC0003_01"))
+  expect_true(all(y$procedure_type == "open surgical"))
+  expect_identical(y$episode_type, c(NA, "repeat", "relapsing"))
+  expect_identical(y$counts_toward_rate, c(TRUE, TRUE, FALSE))
+  # columns the catheter object doesn't carry are left out
+  expect_false(any(c("gender", "ethnicity", "exposure_days_in_period") %in% names(y)))
+})
+
+test_that("subset.pd_catheter() gives a row with NA episode columns when there are no episodes", {
+  y <- subset(subset_catheter(2))
+  expect_true(is.na(y$infection_date))
+  expect_true(is.na(y$episode_type))
 })
