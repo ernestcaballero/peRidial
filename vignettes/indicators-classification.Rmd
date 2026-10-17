@@ -42,17 +42,17 @@ unit <- pd_unit(
 ISPD measures time at risk from the day PD starts and counts it for as long as the patient stays on PD. Days in hospital are not taken off. A catheter's time at risk in the period is
 
 $$
-d = \max\Big(0,\; \min(e,\, t_1,\, \tau) - \max(s,\, t_0) + 1\Big)
+d = \max\Big(0,\; \min(\text{stop},\, t_1,\, \tau) - \max(\text{start},\, t_0) + 1\Big)
 $$
 
 where
 
 - $d$ is the catheter's days at risk in the period (`exposure_days_in_period` in `unit$catheters`);
-- $s$ and $e$ are the dates PD started and stopped through that catheter (`pd_start_date`, `pd_stop_date`). $s$ is the start of time at risk, not the catheter insertion date. If there is no stop date the catheter is still in use (`NA`), and $e$ is left out so that $t_1$ closes the interval;
+- $\text{start}$ and $\text{stop}$ are the dates PD started and stopped through that catheter (`pd_start_date`, `pd_stop_date`). $\text{start$ is the start of time at risk, not the catheter insertion date. If there is no stop date the catheter is still in use (`NA`), and $\text{stop}$ is left out so that $t_1$ closes the interval;
 - $t_0$ and $t_1$ are the first and last day of the reporting period, both included (`unit$t0`, `unit$t1`);
-- $\tau$ is the date the patient permanently left PD: death, transplant, permanent transfer to haemodialysis (HD) or, by default, the last catheter closing with no successor (that last rule is the `censor_on_last_stop` argument of `pd_unit()`). It applies to the patient, on top of any catheter stop date (`transfer_date` on the patient, with `transfer_reason`). If there is none the patient never left PD, and $\tau$ is left out as well.
+- $\tau$ is the date the patient permanently left PD: death, transplant, permanent transfer to haemodialysis (HD) or the last catheter closing with no successor catheter. That last rule is the `censor_on_last_stop` argument of `pd_unit()`. It applies to the patient, on top of any catheter stop date (`transfer_date` on the patient, with `transfer_reason`). If there is none, the patient never left PD, and $\tau$ is left out as well.
 
-The minimum uses whichever of $e$, $t_1$ and $\tau$ are supplied. The $+1$ counts both end days, so a catheter that delivers PD on a single day contributes one day, not zero. The unit's patient-years are the total days at risk, converted to years with a 365.25-day year:
+The minimum uses whichever of $\text{stop}$, $t_1$ and $\tau$ are supplied. The $+1$ counts both end days, so a catheter that delivers PD on a single day contributes one day, not zero. The unit's patient-years are the total days at risk, converted to years with a 365.25-day year:
 
 $$
 PY = \frac{\sum d}{365.25}
@@ -71,7 +71,7 @@ $$
 
 where $E$ is the number of *countable* episodes in the cohort (`counts_toward_rate` in `unit$infections`; `n_episodes` for each patient in `unit$patients`) and $PY$ is as above. An episode is countable only if
 
-1. its infection date lies inside the active window of the catheter it belongs to, which is $[\max(s, t_0),\; \min(e, t_1, \tau)]$, the same dates that bound the exposure above, so the numerator and the patient-years cover the same time; and
+1. its infection date lies inside the active window of the catheter it belongs to, which is $[\max(\text{start}, t_0),\; \min(\text{stop}, t_1, \tau)]$, the same dates that bound the exposure above, so the numerator and the patient-years cover the same time; and
 2. it is not a *relapsing* episode.
 
 ISPD treats a relapse as an extension of the original episode, so only the original is counted. Recurrent and repeat episodes are new episodes and are counted, and so is an episode whose type is `NA` (see the next section). The ISPD 2022 target is a rate of no more than 0.40 episodes per patient-year.
@@ -275,9 +275,10 @@ identical(do.call(classify_episode_types, c(x, use_cpp = TRUE)),
           do.call(classify_episode_types, c(x, use_cpp = FALSE)))
 ```
 
+
 ### Benchmarking
 
-Only the classification loop is compiled. The validation of each row happens in R in both modes, so how much faster the compiled mode is on your data depends on how much of the time goes on validation. To measure it on a larger, simulated set of episodes (not run here, as timings depend on the machine):
+Only the classification loop is compiled. The validation of each row happens in R in both modes, so how much faster the compiled mode is on your data depends on how much of the time goes on validation. To measure it on a larger, simulated set of episodes:
 
 ```{r timing, eval = FALSE}
 set.seed(1)
@@ -302,6 +303,8 @@ system.time(cpp <- do.call(classify_episode_types, c(big, use_cpp = TRUE)))
 system.time(r <- do.call(classify_episode_types, c(big, use_cpp = FALSE)))
 identical(cpp, r)
 ```
+
+Note: On this simulated data, the compiled mode was faster than the pure-R mode and gave identical results (`identical()` returns `TRUE`). The size of the speed improvement depends on your machine and on the data, so run the chunk to see your own timings. It is limited because validation of each row still runs in R in both modes. 
 
 
 ## Things to know

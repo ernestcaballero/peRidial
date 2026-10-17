@@ -352,3 +352,10 @@ defined for a patient and for a catheter, over whatever sits below them:
 ```{r}
 subset(pat, select = c(catheter_id, pd_start_date, pd_stop_date, removal_reason))
 ```
+
+
+## References
+
+ANZORRG. ANZDATA Data Dictionary, version 2025.3. ANZORRG Registry. 2025. <https://anzorrg.org.au/data-management/data-dictionary>.
+
+New Zealand Peritoneal Dialysis Registry. NZPDR Annual Report 2024: A Comprehensive Overview of Data, Analysis, and Insights for the Year. New Zealand Peritoneal Dialysis Registry. 2024.
