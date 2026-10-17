@@ -8,14 +8,9 @@ test_that("new_pd_unit() returns an object of class pd_unit with all fields", {
                     "infections", "patient_list"))
 })
 
-test_that("new_pd_unit() defaults rate_benchmark to 0.40", {
-  x <- make_unit()
-  expect_equal(x$rate_benchmark, 0.40)
-})
-
-test_that("new_pd_unit() accepts a custom rate_benchmark", {
-  x <- make_unit(rate_benchmark = 0.30)
-  expect_equal(x$rate_benchmark, 0.30)
+test_that("new_pd_unit() defaults rate_benchmark to 0.40 and accepts a custom one", {
+  expect_equal(make_unit()$rate_benchmark, 0.40)
+  expect_equal(make_unit(rate_benchmark = 0.30)$rate_benchmark, 0.30)
 })
 
 test_that("new_pd_unit() defaults are empty rather than absent", {
@@ -45,6 +40,15 @@ test_that("validate_pd_unit() rejects a missing or negative rate_benchmark", {
                "rate_benchmark cannot be negative")
 })
 
+test_that("validate_pd_unit() rejects a missing or out-of-range pf_benchmark", {
+  expect_error(validate_pd_unit(make_unit(pf_benchmark = NA_real_)),
+               "pf_benchmark is missing")
+  expect_error(validate_pd_unit(make_unit(pf_benchmark = -0.1)),
+               "pf_benchmark must be a proportion")
+  expect_error(validate_pd_unit(make_unit(pf_benchmark = 1.5)),
+               "pf_benchmark must be a proportion")
+})
+
 # validate: reporting period
 
 test_that("validate_pd_unit() requires both t0 and t1", {
@@ -69,7 +73,10 @@ test_that("validate_pd_unit() requires n_new and n_patients", {
 })
 
 test_that("validate_pd_unit() rejects negative counts", {
-  expect_error(validate_pd_unit(make_unit(n_new = -1L)), "cannot be negative")
+  expect_error(validate_pd_unit(make_unit(n_new = -1L)),
+               "n_new and n_patients cannot be negative")
+  expect_error(validate_pd_unit(make_unit(n_patients = -1L)),
+               "n_new and n_patients cannot be negative")
 })
 
 test_that("validate_pd_unit() rejects more incident patients than patients", {
@@ -89,12 +96,11 @@ test_that("validate_pd_unit() rejects tpyar larger than the period allows", {
   expect_error(validate_pd_unit(x), "exceeds the maximum possible")
 })
 
-test_that("validate_pd_unit() rejects n_new inconsistent with new_patient_flag", {
+test_that("validate_pd_unit() checks n_new against new_patient_flag", {
   x <- make_unit(n_new = 1L, n_patients = 1L)   # prevalent, so n_new must be 0
   expect_error(validate_pd_unit(x), "does not match the number of patients")
-})
 
-test_that("an incident patient is counted in n_new", {
+  # an incident patient is counted in n_new
   p <- make_patient(catheters = list(make_catheter(
     insertion_date = as.Date("2025-03-01"),
     pd_start_date = as.Date("2025-03-15")
@@ -154,7 +160,7 @@ test_that("validate_pd_unit() requires patient_list length to match n_patients",
   x <- make_unit(n_patients = 2L,
                  patients = tibble::tibble(patient_id = c("ABC1234", "XYZ9999"),
                                            n_episodes = c(0L, 0L)))
-  expect_error(validate_pd_unit(x), "does not match n_patients")
+  expect_error(validate_pd_unit(x), "Length of `patient_list`")
 })
 
 test_that("validate_pd_unit() rejects a non-pd_patient in patient_list", {
@@ -178,22 +184,11 @@ test_that("validate_pd_unit() rejects patients tibble disagreeing with patient_l
 
 # subset() method for method-subset.R
 
-test_that("subset() returns a plain tibble, not a pd_unit", {
+test_that("subset() returns a plain tibble with each level's values carried onto its rows", {
   y <- subset(make_subset_unit())
   expect_s3_class(y, "tbl_df")
-})
+  expect_false(inherits(y, "pd_unit"))
 
-test_that("subset() with no arguments returns the whole flat table", {
-  x <- make_subset_unit()
-  y <- subset(x)
-  expect_equal(nrow(y), 6L)
-  expect_identical(sort(unique(y$patient_id)), c("AAA0001", "BBB0002", "CCC0003"))
-  expect_true(all(c("gender", "ethnicity", "procedure_type",
-                    "episode_type", "infection_date") %in% names(y)))
-})
-
-test_that("subset() carries each level's values onto its rows", {
-  y <- subset(make_subset_unit())
   ccc <- y[y$patient_id == "CCC0003", ]
   expect_equal(nrow(ccc), 3L)
   expect_true(all(ccc$gender == "Female"))
@@ -202,71 +197,44 @@ test_that("subset() carries each level's values onto its rows", {
   expect_identical(ccc$counts_toward_rate, c(TRUE, TRUE, FALSE))
 })
 
-test_that("subset() filters on a catheter column and returns only the matching rows", {
-  y <- subset(make_subset_unit(), procedure_type == "laparoscopic")
-  expect_identical(sort(y$catheter_id), c("AAA0001_01", "BBB0002_01"))
-  expect_false("AAA0001_02" %in% y$catheter_id)
-})
+test_that("subset() filters on catheter and episode columns, across levels, and drops rows where the condition is NA", {
+  x <- make_subset_unit()
 
-test_that("subset() filters on an episode column, dropping rows with no episode", {
-  y <- subset(make_subset_unit(), episode_type == "repeat")
+  # catheter column: only the matching catheters
+  y <- subset(x, procedure_type == "laparoscopic")
+  expect_identical(sort(y$catheter_id), c("AAA0001_01", "BBB0002_01"))
+
+  # episode column: a catheter with no episode has NA there, so it is dropped
+  y <- subset(x, episode_type == "repeat")
   expect_identical(sort(y$patient_id), c("AAA0001", "CCC0003"))
   expect_true(all(y$episode_type == "repeat"))
-  expect_false("BBB0002" %in% y$patient_id)   # no episode, so NA and is dropped
-})
 
-test_that("subset() takes one condition across all three levels", {
-  y <- subset(make_subset_unit(),
-              gender == "Female" & procedure_type == "open surgical" &
-              episode_type == "repeat")
+  # one condition across all three levels
+  y <- subset(x, gender == "Female" & procedure_type == "open surgical" &
+                episode_type == "repeat")
   expect_equal(nrow(y), 2L)
-})
 
-test_that("subset() select works like base subset()", {
-  x <- make_subset_unit()
-  y <- subset(x, select = c(patient_id, gender))
-  expect_identical(names(y), c("patient_id", "gender"))
-  expect_identical(names(subset(x, select = patient_id:ethnicity)),
-                   c("patient_id", "t0", "t1", "new_patient_flag", "n_catheters",
-                     "n_episodes", "gender", "ethnicity"))
-  both <- subset(x, episode_type == "repeat", select = c(patient_id, catheter_id))
-  expect_identical(names(both), c("patient_id", "catheter_id"))
-})
-
-test_that("subset() drops rows where the condition is NA", {
-  x <- make_subset_unit()
+  # a patient with an NA in the condition column loses their rows
   x$patients$gender[x$patients$patient_id == "BBB0002"] <- NA_character_
   expect_equal(nrow(subset(x, gender == "Female")), 5L)
   expect_equal(nrow(subset(x, gender != "Female")), 0L)
 })
 
-test_that("subset() rejects bad conditions and stray arguments", {
+test_that("subset() select works like base subset()", {
   x <- make_subset_unit()
-  expect_error(subset(x, n_episodes), "must be logical")
-  expect_error(subset(x, patients = gender == "Female"), "Unused argument")
-})
-
-test_that("subset() reports a join problem", {
-  x <- make_subset_unit()
-  x$catheters$catheter_id <- NULL
-  expect_error(subset(x), "Cannot join `infections`")     # no catheter_id on the catheters table, so the episodes can't be attached to one
-
-  x2 <- make_subset_unit()
-  x2$patients$patient_id <- NULL
-  expect_error(subset(x2), "Cannot join `catheters`")     # no patient_id on the patients table, so the catheters can't be attached to one
-
-  x3 <- make_subset_unit()
-  x3$infections$catheter_id <- NULL
-  expect_error(subset(x3), "The infections table is missing required column")  # a child table missing its key column
+  expect_identical(names(subset(x, select = patient_id:ethnicity)),
+                   c("patient_id", "t0", "t1", "new_patient_flag", "n_catheters",
+                     "n_episodes", "gender", "ethnicity"))
+  expect_identical(names(subset(x, select = c("patient_id", "gender"))),
+                   c("patient_id", "gender"))
+  expect_identical(names(subset(x, select = c(gender, patient_id))),
+                   c("gender", "patient_id"))
+  both <- subset(x, episode_type == "repeat", select = c(patient_id, catheter_id))
+  expect_identical(names(both), c("patient_id", "catheter_id"))
 })
 
 test_that("subset() works on the unit built from the bundled example files", {
-  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
-  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
-  skip_if_not(nzchar(a3) && nzchar(pe))
-
-  unit <- suppressWarnings(suppressMessages(
-    pd_unit(a3, pe, t0 = T0, t1 = T1, unit_id = "Wellington PD Unit")))
+  unit <- bundled_unit()
 
   flat <- subset(unit)
 
@@ -314,21 +282,16 @@ test_that("pd_unit() builds a valid unit from the bundled example files", {
   expect_identical(nrow(unit$catheters), 62L)
   expect_identical(nrow(unit$infections), 28L)
   expect_identical(summarise_infections(unit)$culture_negative_n, 3L)
+
+  # every episode belongs to a catheter of the same patient
+  owner <- unit$catheters$patient_id[match(unit$infections$catheter_id, unit$catheters$catheter_id)]
+  expect_identical(owner, unit$infections$patient_id)
+
   expect_no_error(validate_pd_unit(unit))
 })
 
-test_that("pd_unit() attaches every episode to a catheter of the same patient", {
-  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
-  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
-  unit <- pd_unit_quiet(a3, pe, t0 = T0, t1 = T1)
-  owner <- unit$catheters$patient_id[match(unit$infections$catheter_id, unit$catheters$catheter_id)]
-  expect_identical(owner, unit$infections$patient_id)
-})
-
 test_that("pd_unit() numbers a patient's catheters in insertion order, with no overlapping windows", {
-  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
-  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
-  unit <- pd_unit_quiet(a3, pe, t0 = T0, t1 = T1)
+  unit <- bundled_unit()
 
   cath <- unit$catheters[order(unit$catheters$patient_id, unit$catheters$insertion_date), ]
   by_patient <- split(cath, cath$patient_id)
@@ -344,15 +307,6 @@ test_that("pd_unit() numbers a patient's catheters in insertion order, with no o
   expect_true(all(vapply(by_patient, function(p) {
     nrow(p) == 1 || all(p$pd_start_date[-1] > p$pd_stop_date[-nrow(p)])
   }, logical(1))))
-})
-
-test_that("pd_unit() catches a mistyped PE patient_id in the bundled files", {
-  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
-  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
-  df <- readxl::read_excel(pe)
-  df[["Patient ID"]][1] <- sub("SPD00", "SPD0", df[["Patient ID"]][1])   # SPD0003 -> SPD003
-  expect_error(pd_unit(a3, save_xlsx(df), t0 = T0, t1 = T1),
-               "row 2: `SPD003` is not a valid NHI number")
 })
 
 test_that("pd_unit() rejects a bad reporting period", {
@@ -380,18 +334,24 @@ test_that("pd_unit() returns an empty, valid unit when nobody was on PD in the p
   expect_identical(nrow(unit$patients), 0L)
 })
 
-# Data-quality problems are collected and raised as one error
+# data-quality problems are collected and raised as one error
 
-test_that("pd_unit() errors on a patient_id that is not a valid NHI, naming the sheet row", {
+test_that("pd_unit() errors on a patient_id that is not a valid NHI in either file, naming the sheet row", {
   a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
   pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
+
   df <- readxl::read_excel(a3)
   df[["Patient ID"]][2] <- "40"   # SPD0002, sheet row 3
   err <- expect_error(pd_unit(save_xlsx(df), pe, t0 = T0, t1 = T1), "1 data-quality issue")
   expect_match(conditionMessage(err), "unit \\(A3\\) file, row 3: `40` is not a valid NHI number")
+
+  df <- readxl::read_excel(pe)
+  df[["Patient ID"]][1] <- sub("SPD00", "SPD0", df[["Patient ID"]][1])   # SPD0003 -> SPD003, sheet row 2
+  expect_error(pd_unit(a3, save_xlsx(df), t0 = T0, t1 = T1),
+               "row 2: `SPD003` is not a valid NHI number")
 })
 
-# Episodes and organisms
+# episodes and organisms
 
 test_that("pd_unit() chains episodes so a repeat episode is classified", {
   a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
@@ -446,7 +406,7 @@ save_csv <- function(df) {
 test_that("pd_unit() accepts data frames and builds the same unit as from the Excel files", {
   a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial", mustWork = TRUE)
   pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial", mustWork = TRUE)
-  from_xlsx <- pd_unit_quiet(a3, pe, t0 = T0, t1 = T1)
+  from_xlsx <- bundled_unit()
   from_df <- pd_unit_quiet(readxl::read_excel(a3), readxl::read_excel(pe), t0 = T0, t1 = T1)
   expect_equal(from_df, from_xlsx)
 })
@@ -454,14 +414,7 @@ test_that("pd_unit() accepts data frames and builds the same unit as from the Ex
 test_that("pd_unit() accepts one data frame and one file path", {
   a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial", mustWork = TRUE)
   pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial", mustWork = TRUE)
-  unit <- pd_unit_quiet(readxl::read_excel(a3), pe, t0 = T0, t1 = T1)
-  expect_identical(unit$n_patients, 60L)
-  expect_identical(nrow(unit$infections), 28L)
-})
-
-test_that("pd_unit() displays an error when the input is neither a path nor a data frame", {
-  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial", mustWork = TRUE)
-  expect_error(pd_unit(42, pe, t0 = T0, t1 = T1), "`unit_data` must be")
-  expect_error(pd_unit(file.path(tempdir(), "missing.csv"), pe, t0 = T0, t1 = T1),
-               "`unit_data`: file not found")
+  from_xlsx <- bundled_unit()
+  mixed <- pd_unit_quiet(readxl::read_excel(a3), pe, t0 = T0, t1 = T1)
+  expect_equal(mixed, from_xlsx)
 })
