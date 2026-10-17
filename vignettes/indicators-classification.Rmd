@@ -48,7 +48,7 @@ $$
 where
 
 - $d$ is the catheter's days at risk in the period (`exposure_days_in_period` in `unit$catheters`);
-- $\text{start}$ and $\text{stop}$ are the dates PD started and stopped through that catheter (`pd_start_date`, `pd_stop_date`). $\text{start$ is the start of time at risk, not the catheter insertion date. If there is no stop date the catheter is still in use (`NA`), and $\text{stop}$ is left out so that $t_1$ closes the interval;
+- $\text{start}$ and $\text{stop}$ are the dates PD started and stopped through that catheter (`pd_start_date`, `pd_stop_date`). $\text{start}$ is the start of time at risk, not the catheter insertion date. If there is no stop date the catheter is still in use (`NA`), and $\text{stop}$ is left out so that $t_1$ closes the interval;
 - $t_0$ and $t_1$ are the first and last day of the reporting period, both included (`unit$t0`, `unit$t1`);
 - $\tau$ is the date the patient permanently left PD: death, transplant, permanent transfer to haemodialysis (HD) or the last catheter closing with no successor catheter. That last rule is the `censor_on_last_stop` argument of `pd_unit()`. It applies to the patient, on top of any catheter stop date (`transfer_date` on the patient, with `transfer_reason`). If there is none, the patient never left PD, and $\tau$ is left out as well.
 
