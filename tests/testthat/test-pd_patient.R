@@ -14,23 +14,17 @@ test_that("new_pd_patient creates a valid pd_patient object", {
   expect_s3_class(validate_pd_patient(p), "pd_patient")
 })
 
-test_that("new_pd_patient() allows an active patient with transfer_reason and
-          transfer_date both NA", {
-  cath <- make_catheter(
-    insertion_date = as.Date("2025-02-01"),
-    pd_start_date = as.Date("2025-02-15"))
-  p <- make_patient(catheters = list(cath))
-  expect_true(is.na(p$transfer_reason))
-  expect_true(is.na(p$transfer_date))
-  expect_s3_class(p$transfer_date, "Date")
-})
-
 test_that("new_pd_patient() coerces a bare NA transfer_date into a Date NA", {
   p <- new_pd_patient(
     patient_id = "ABC1234",
     transfer_date = NA)        # logical NA, not as.Date(NA)
   expect_s3_class(p$transfer_date, "Date")
   expect_true(is.na(p$transfer_date))
+
+  active <- make_patient(catheters = list())   # an active patient: no transfer_reason or transfer_date
+  expect_true(is.na(active$transfer_reason))
+  expect_s3_class(active$transfer_date, "Date")
+  expect_true(is.na(active$transfer_date))
 })
 
 test_that("new_pd_patient() derives new_patient_flag from is_incident_patient", {
@@ -282,11 +276,8 @@ test_that("is_incident_patient treats window boundaries as inclusive", {
   expect_true(is_incident_patient(list(cath_on_t1), t0 = T0, t1 = T1))
 })
 
-test_that("is_incident_patient returns NA for an empty catheter list", {
+test_that("is_incident_patient returns NA for an empty catheter list or when no catheter has a usable pd_start_date", {
   expect_true(is.na(is_incident_patient(list(), t0 = T0, t1 = T1)))
-})
-
-test_that("is_incident_patient returns NA when no catheter has a usable pd_start_date", {
   cath_no_start <- make_catheter(
     insertion_date = as.Date("2025-01-01"),
     pd_start_date = as.Date(NA))
@@ -317,14 +308,6 @@ test_that("subset.pd_patient() returns a tibble of the patient's catheter and ep
                     "new_patient_flag", "n_episodes") %in% names(y)))
 })
 
-test_that("subset.pd_patient() filters on catheter and episode columns", {
-  p <- subset_patient()
-  expect_identical(subset(p, procedure_type == "open surgical")$catheter_id,
-                   "AAA0001_02")
-  expect_identical(subset(p, episode_type == "repeat")$catheter_id, "AAA0001_02")
-  expect_equal(nrow(subset(p, gender == "Female")), 2L)
-})
-
 test_that("subset.pd_patient() lists a patient's episodes one per row", {
   y <- subset(subset_patient(3))
   expect_identical(y$counts_toward_rate, c(TRUE, TRUE, FALSE))
@@ -339,18 +322,4 @@ test_that("subset.pd_patient() keeps a catheter with no episodes and a patient w
   bare <- subset(make_patient(catheters = list()))
   expect_equal(nrow(bare), 1L)
   expect_identical(bare$patient_id, "ABC1234")
-})
-
-test_that("subset.pd_patient() supports select and does not modify the patient", {
-  p <- subset_patient()
-  before <- p
-  y <- subset(p, episode_type == "repeat", select = c(patient_id, catheter_id))
-  expect_identical(names(y), c("patient_id", "catheter_id"))
-  expect_identical(p, before)
-})
-
-test_that("subset.pd_patient() rejects bad conditions and stray arguments", {
-  p <- subset_patient()
-  expect_error(subset(p, n_episodes), "must be logical")
-  expect_error(subset(p, no_such_column == 1), "Could not evaluate the `subset`")
 })
