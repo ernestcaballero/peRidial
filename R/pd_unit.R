@@ -7,10 +7,6 @@
 #' together with the reporting period and the headline counts the ISPD
 #' indicators are built from.
 #'
-#' This constructor does no derivation: every count is taken as supplied.
-#' \code{\link{pd_unit}()} is the user-facing helper that reads the raw files,
-#' builds the object graph, derives these numbers and validates the result.
-#'
 #' @param unit_id Character. Name of the PD unit (e.g. "XYZ PD Unit").
 #' @param t0 Date. Start of the reporting period. Usually 1st day of January of the reporting year.
 #' @param t1 Date. End of the reporting period. Usually 31st day of December of the reporting year.
