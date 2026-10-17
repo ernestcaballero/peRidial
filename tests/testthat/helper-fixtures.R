@@ -1,8 +1,5 @@
-# Shared test fixtures. testthat sources every helper-*.R file before running the tests,
-# so these are available in all test files.
-#
-# The defaults describe one valid, prevalent patient (ABC1234) with one
-# catheter (ABC1234_01) over calendar year 2025.
+# Shared test fixtures. testthat sources every helper-*.R file before running the tests, so these are available in all test files.
+# Example default describe one valid, prevalent patient (ABC1234) with one catheter (ABC1234_01) over calendar year 2025.
 
 # Reporting period used throughout the tests
 T0 <- as.Date("2025-01-01")

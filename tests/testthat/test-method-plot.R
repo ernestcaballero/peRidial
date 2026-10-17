@@ -1,5 +1,4 @@
-# Shared fixtures (T0, T1, make_catheter(), make_patient(), make_unit()) live
-# in helper-fixtures.R, which testthat sources before every test file.
+# Shared fixtures (T0, T1, make_catheter(), make_patient(), make_unit()) live in helper-fixtures.R
 
 # peritonitis_rate_by_period() / monthly_peritonitis_rate()
 
