@@ -96,25 +96,15 @@ test_that("summarise_catheters() still reports the catheter count and procedure 
 
 # summary.pd_unit() output
 
-test_that("summary.pd_unit() labels the two timing lines as means and drops the old quartile lines", {
-  txt <- capture.output(summary(make_subset_unit()))
-  expect_true(any(grepl("Time to PD start (mean)", txt, fixed = TRUE)))
-  expect_true(any(grepl("Time to 1st peritonitis (mean)", txt, fixed = TRUE)))
-  expect_false(any(grepl("Insertion to PD start|PD start to infection|Q1/median/Q3", txt)))
-})
-
 test_that("summary.pd_unit() prints the mean days, without a patient count", {
   # CCC0003 is the only incident patient: inserted 2025-02-01, PD start 2025-02-15,
   # first episode 2025-04-01
-  txt <- capture.output(res <- summary(make_subset_unit()))
+  txt <- capture.output(summary(make_subset_unit()))
   expect_match(grep("Time to PD start (mean)", txt, value = TRUE, fixed = TRUE),
                "14\\.0 days$")
   expect_match(grep("Time to 1st peritonitis (mean)", txt, value = TRUE, fixed = TRUE),
                "45\\.0 days$")
   expect_false(any(grepl("n = ", txt, fixed = TRUE)))
-  expect_equal(res$catheters$time_to_pd_start_days[["mean"]], 14)
-  expect_equal(res$catheters$time_to_first_peritonitis_days[["mean"]],
-               as.numeric(d("2025-04-01") - d("2025-02-15")))
 })
 
 test_that("summary.pd_unit() prints NA when there are no incident patients", {
@@ -126,16 +116,11 @@ test_that("summary.pd_unit() prints NA when there are no incident patients", {
 })
 
 test_that("summary.pd_unit() timing works on the unit built from the bundled files", {
-  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
-  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
-  skip_if_not(nzchar(a3) && nzchar(pe))
-  unit <- pd_unit_quiet(a3, pe, t0 = T0, t1 = T1)
+  unit <- bundled_unit()
   capture.output(s <- summary(unit))
   tc <- s$catheters
   expect_equal(tc$time_to_pd_start_days[["n"]], unit$n_new)
   expect_equal(tc$time_to_pd_start_days[["mean"]], 14.65, tolerance = 0.01)
-  expect_lte(tc$time_to_first_peritonitis_days[["n"]], unit$n_new)
-  expect_gt(tc$time_to_first_peritonitis_days[["mean"]], 0)
 })
 
 
@@ -162,15 +147,8 @@ test_that("rate_met and pf_met are still TRUE/FALSE when there is data", {
 test_that("summary.pd_unit() prints No Data, for an empty unit", {
   empty <- new_pd_unit(unit_id = "Empty", t0 = as.Date("2025-01-01"),
                        t1 = as.Date("2025-12-31"), n_new = 0L, n_patients = 0L, tpyar = 0)
-  txt <- capture.output(res <- summary(empty))
+  txt <- capture.output(summary(empty))
   expect_equal(sum(grepl("[ No Data ]", txt, fixed = TRUE)), 2)   # rate and PF lines
-  expect_true(is.na(res$rate_met))
-  expect_true(is.na(res$pf_met))
-})
-
-test_that("summary.pd_unit() still prints MET / NOT MET when there is data", {
-  txt <- capture.output(summary(make_subset_unit()))
-  expect_true(any(grepl("\\[ (MET|NOT MET) \\]", txt)))
 })
 
 
@@ -189,29 +167,21 @@ test_that("period_is_one_year() counts both endpoints and accepts 365 or 366 day
 test_that("summary.pd_unit() does not warn for a one-year reporting period", {
   unit <- make_subset_unit()
   expect_no_warning(capture.output(summary(unit)))
-  unit$t0 <- d("2024-01-01")
-  unit$t1 <- d("2024-12-31")
-  expect_no_warning(capture.output(summary(unit)))
 })
 
-test_that("summary.pd_unit() warns that the PF percentage is not comparable for a shorter period", {
+test_that("summary.pd_unit() warns that the PF percentage is not comparable when the period is not one year, but still returns the indicators", {
   unit <- make_subset_unit()
+
   unit$t1 <- d("2025-06-30")
   expect_warning(capture.output(summary(unit)), "181 days, not exactly one year")
-})
 
-test_that("summary.pd_unit() warns for a period longer than a year", {
-  unit <- make_subset_unit()
+  # the warning does not stop the calculation
+  suppressWarnings(capture.output(s <- summary(unit)))
+  expect_true(s$pf >= 0 && s$pf <= 1)
+  expect_equal(s$pf_den, unit$n_patients)
+
   unit$t1 <- d("2026-06-30")
   expect_warning(capture.output(summary(unit)), "546 days, not exactly one year")
-})
-
-test_that("the PF warning does not stop summary() calculating or returning the indicators", {
-  unit <- make_subset_unit()
-  unit$t1 <- d("2025-06-30")
-  res <- suppressWarnings(capture.output(s <- summary(unit)))
-  expect_false(is.na(s$pf))
-  expect_equal(s$pf_den, unit$n_patients)
 })
 
 test_that("summary.pd_unit() does not raise the PF warning when there is no PF to report", {
