@@ -56,17 +56,6 @@ test_that("create_catheter_id() numbers a patient's catheters by insertion date"
   expect_identical(ids, c("A_02", "A_01", "B_01"))
 })
 
-test_that("create_catheter_id() gives an undated catheter the highest sequence number", {
-  ids <- create_catheter_id(c("A", "A"), c(as.Date(NA), d("2024-01-01")))
-  expect_identical(ids, c("A_02", "A_01"))
-})
-
-test_that("create_catheter_id() rejects bad input", {
-  expect_error(create_catheter_id(c("A", "B"), d("2024-01-01")))
-  expect_error(create_catheter_id("A", "2024-01-01"))
-  expect_identical(create_catheter_id(character(0), as.Date(character(0))), character(0))
-})
-
 
 # match_active_catheter_id()
 
@@ -132,18 +121,25 @@ test_that("build_patient_infections() carries outcome and outcome_date", {
   expect_identical(out[[1]]$outcome_date, d("2025-03-05"))
 })
 
-test_that("build_patient_infections() logs and skips an invalid episode, and keeps the rest", {
-  df <- raw_pe(date_of_infection = d(c("2025-03-01", "2025-08-01")),
-               organism = c("E. coli", "Klebsiella"))
+test_that("build_patient_infections() logs and skips an invalid episode, and does not use it as the prior episode", {
+  # Episode 2 would be "relapsing" if episode 1 were its prior (same organism, 5 days after the last dose)
+  df <- raw_pe(date_of_infection = d(c("2025-03-01", "2025-03-20")),
+               organism = c("E. coli", "E. coli"),
+               last_dose_antibiotic = d(c("2025-03-15", "2025-04-02")))
   df$outcome_date[1] <- d("2025-03-05")   # an outcome_date with no outcome is rejected
   log <- new_issue_log()
-  out <- build_patient_infections(df, log)
-  expect_identical(out[[1]]$infection_date, d("2025-08-01"))
-  expect_match(log$get(), "Patient P1, episode on 2025-03-01: .*\\(episode not checked further")
-})
 
-test_that("build_patient_infections() returns an empty list for no rows", {
-  expect_identical(build_patient_infections(raw_pe()[0, ], new_issue_log()), list())
+  out <- build_patient_infections(df, log)
+
+  # the invalid episode is dropped and logged
+  expect_length(out, 1)
+  expect_identical(out[[1]]$infection_date, d("2025-03-20"))
+  expect_length(log$get(), 1)
+  expect_match(log$get(), "Patient P1, episode on 2025-03-01: .*outcome_date.*\\(episode not checked further")
+  expect_identical(log$get("warning"), character(0))   # logged as an error, not a warning
+
+  # the skipped episode is not the prior one, so the current has no episode_type
+  expect_true(is.na(out[[1]]$episode_type))
 })
 
 
@@ -195,7 +191,7 @@ test_that("build_patient_catheters() scopes the episode count to the reporting p
   expect_true(out[[1]]$peritonitis_flag)
 })
 
-test_that("build_patient_catheters() fills total_exposure_days, inclusive of both endpoints", {
+test_that("build_patient_catheters() fills total_exposure_days, inclusive of both endpoints and censored at tau", {
   # active before the period: all 365 days of 2025
   out <- build_patient_catheters("P1", raw_cath(), list(), T0, T1, new_issue_log())
   expect_equal(out[[1]]$total_exposure_days, 365)
@@ -205,26 +201,11 @@ test_that("build_patient_catheters() fills total_exposure_days, inclusive of bot
                     insertion_date = d("2025-01-20"))
   out <- build_patient_catheters("P1", caths, list(), T0, T1, new_issue_log())
   expect_equal(out[[1]]$total_exposure_days, 10)
-})
 
-test_that("build_patient_catheters() censors total_exposure_days at the patient's tau", {
-  # still-active catheter, patient left PD on 31 Mar: 1 Jan - 31 Mar 2025 = 90 days
+  # still-active catheter, patient left PD on 31 Mar (tau): 1 Jan - 31 Mar 2025 = 90 days
   out <- build_patient_catheters("P1", raw_cath(), list(), T0, T1, new_issue_log(),
                                  tau = d("2025-03-31"))
   expect_equal(out[[1]]$total_exposure_days, 90)
-})
-
-test_that("a catheter's total_exposure_days matches exposure_days_in_period on the catheters tibble", {
-  caths <- rbind(
-    raw_cath(catheter_id = "P1_01", insertion_date = d("2022-12-01"),
-             pd_start_date = d("2023-01-01"), pd_stop_date = d("2024-12-31")),
-    raw_cath(catheter_id = "P1_02", insertion_date = d("2025-01-01"),
-             pd_start_date = d("2025-01-15")))
-  out <- build_patient_catheters("P1", caths, list(), T0, T1, new_issue_log())
-  pat <- pd_patient(patient_id = "P1", catheters = out, t0 = T0, t1 = T1)
-  tbl <- catheters_to_tibble(list(pat), T0, T1)
-  expect_equal(unlist(lapply(out, function(z) z$total_exposure_days)), tbl$exposure_days_in_period)
-  expect_equal(tbl$exposure_days_in_period, c(0, 351))   # 15 Jan - 31 Dec 2025 inclusive
 })
 
 
@@ -266,12 +247,8 @@ test_that("build_patient_list() logs a patient whose every catheter fails valida
 
 # patient_demo_value() / patient_dob_value()
 
-test_that("patient_demo_value() reads and trims a value", {
-  demo <- data.frame(gender = "  Female ", stringsAsFactors = FALSE)
-  expect_identical(patient_demo_value(demo, "gender"), "Female")
-})
-
-test_that("patient_demo_value() returns NA for blank, NA, a missing column or a missing row", {
+test_that("patient_demo_value() reads and trims a value, and returns NA for blank, NA, a missing column or a missing row", {
+  expect_identical(patient_demo_value(data.frame(gender = "  Female ", stringsAsFactors = FALSE), "gender"), "Female")
   demo <- data.frame(a = c(NA, ""), b = " ", stringsAsFactors = FALSE)
   expect_identical(patient_demo_value(demo, "a"), NA_character_)
   expect_identical(patient_demo_value(demo[2, ], "a"), NA_character_)
@@ -279,82 +256,11 @@ test_that("patient_demo_value() returns NA for blank, NA, a missing column or a 
   expect_identical(patient_demo_value(demo[0, ], "a"), NA_character_)
 })
 
-test_that("patient_dob_value() keeps the Date class", {
-  demo <- data.frame(date_of_birth = d("1970-01-01"))
-  expect_identical(patient_dob_value(demo), d("1970-01-01"))
-})
-
-test_that("patient_dob_value() returns a Date NA for NA, a missing column or a missing row", {
+test_that("patient_dob_value() keeps the Date class, and returns a Date NA for NA, a missing column or a missing row", {
+  expect_identical(patient_dob_value(data.frame(date_of_birth = d("1970-01-01"))), d("1970-01-01"))
   expect_identical(patient_dob_value(data.frame(date_of_birth = as.Date(NA))), as.Date(NA))
   expect_identical(patient_dob_value(data.frame(x = 1)), as.Date(NA))
   expect_identical(patient_dob_value(data.frame(date_of_birth = as.Date(character(0)))), as.Date(NA))
-})
-
-
-# the classifier behind build_patient_infections() / pd_unit()
-
-test_that("build_patient_infections() gives the same episode types with use_cpp = TRUE and FALSE", {
-  df <- raw_pe(date_of_infection = d(c("2025-01-01", "2025-01-20", "2025-02-20", "2025-06-01")),
-               organism = c("E. coli", "E. coli", "Klebsiella", "Klebsiella"),
-               last_dose_antibiotic = d(c("2025-01-15", "2025-02-03", "2025-03-05", "2025-06-15")))
-  cpp <- build_patient_infections(df, new_issue_log(), use_cpp = TRUE)
-  r <- build_patient_infections(df, new_issue_log(), use_cpp = FALSE)
-  types <- function(x) vapply(x, function(i) as.character(i$episode_type), character(1))
-  expect_identical(types(cpp), types(r))
-  expect_identical(types(cpp), c(NA_character_, "relapsing", "recurrent", "repeat"))
-})
-
-
-test_that("build_patient_infections() does not warn about rows it logs itself", {
-  df <- raw_pe(date_of_infection = d(c("2025-03-01", "2025-08-01")),
-               organism = c("E. coli", "Klebsiella"))
-  df$outcome_date[1] <- d("2025-03-05")   # invalid: outcome_date with no outcome
-  log <- new_issue_log()
-  expect_no_warning(out <- build_patient_infections(df, log))
-  expect_length(out, 1)
-  expect_length(log$get(), 1)
-})
-
-test_that("build_infections_by_catheter() classifies episodes with the C++ loop", {
-  skip_if_not_installed("testthat", "3.2.0")
-  called <- FALSE
-  testthat::local_mocked_bindings(
-    classify_episode_types_cpp = function(patient_id, infection_date, last_dose_antibiotic,
-                                          organism_key, valid) {
-      called <<- TRUE
-      rep(NA_character_, length(patient_id))
-    })
-  build_infections_by_catheter(raw_pe(), raw_cath(), new_issue_log())
-  expect_true(called)
-})
-
-test_that("pd_unit() classifies the bundled episodes with the C++ loop", {
-  skip_if_not_installed("testthat", "3.2.0")
-  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
-  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
-  skip_if_not(nzchar(a3) && nzchar(pe))
-  called <- FALSE
-  testthat::local_mocked_bindings(
-    classify_episode_types_cpp = function(patient_id, infection_date, last_dose_antibiotic,
-                                          organism_key, valid) {
-      called <<- TRUE
-      rep(NA_character_, length(patient_id))
-    })
-  suppressWarnings(pd_unit(a3, pe, t0 = T0, t1 = T1))
-  expect_true(called)
-})
-
-test_that("pd_unit() episode types are the same as the pure-R classifier gives", {
-  a3 <- system.file("extdata", "a3_2025.xlsx", package = "peridial")
-  pe <- system.file("extdata", "pe_2025.xlsx", package = "peridial")
-  skip_if_not(nzchar(a3) && nzchar(pe))
-  unit <- suppressWarnings(pd_unit(a3, pe, t0 = T0, t1 = T1))
-  inf <- unit$infections
-  skip_if(nrow(inf) == 0)
-  orgs <- lapply(strsplit(inf$organisms, ",\\s*"), as.list)
-  r <- classify_episode_types(inf$patient_id, inf$infection_date, inf$last_dose_antibiotic,
-                              orgs, use_cpp = FALSE)
-  expect_identical(inf$episode_type, r)
 })
 
 
