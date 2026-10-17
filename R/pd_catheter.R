@@ -11,18 +11,24 @@
 #' @param catheter_id Character. Unique identifier for this catheter. Generated as per
 #'    insertion date per patient (e.g. XYZ1234_01).
 #' @param insertion_date Date. Date the catheter was surgically inserted.
-#' @param procedure_type Character. Type of insertion technique
-#'    (eg. either of \code{"open surgical"}, \code{"laparoscopic"}, \code{"percutaneous"}).
+#' @param procedure_type Character. Type of insertion technique, as recorded on
+#'    the A3 form: \code{"Surgical"}, \code{"Laparoscopic"} or
+#'    \code{"Percutaneous"}.
 #' @param pd_start_date Date. Date of start of PD therapy of this catheter, usually 2-4 weeks after insertion.
 #' @param pd_stop_date Date. Date PD therapy stopped on this catheter, or
 #'   \code{NA} if the catheter is still in active use.
-#' @param removal_reason Character. Reason the catheter was removed (e.g. \code{"infection"},
-#'   \code{"mechanical failure"}, \code{"transplant"}), or \code{NA} if it hasn't been removed.
+#' @param removal_reason Character. Reason PD on this catheter stopped, or
+#'   \code{NA} if it has not. One of the accepted reasons the package
+#'   recognises (the ISPD removal reasons such as
+#'   \code{"Acute Peritonitis"}, \code{"Catheter Block"} or
+#'   \code{"Dialysate Leak"}, plus \code{"Death"}, \code{"Transplant"} and
+#'   \code{"Permanent transfer to HD"}); a value that is not on the list is
+#'   read as \code{"Other"}, and a blank one as \code{NA}.
 #' @param infections List. A list of \code{pd_infection} objects that occurred
-#'   on this catheter (i.e. each has \code{catheter_id} equal to this
-#'   catheter's \code{catheter_id}). Defaults to an empty list for a catheter
-#'   with no recorded peritonitis episodes. This is restricted to the reporting
-#'   period (\code{t0} and \code{t1}).
+#'   on this catheter. An episode belongs to a catheter by containment because
+#'   a \code{pd_infection} has no \code{catheter_id} field. Each one need
+#'   only carry the same \code{patient_id} as this catheter, and fall inside its PD window.
+#'   Defaults to an empty list for a catheter with no recorded peritonitis episodes.
 #' @param t0 Date. Start of the reporting period, used (together with
 #'   \code{t1}, \code{pd_start_date}, and \code{pd_stop_date} -- see
 #'   \code{count_episodes()}) to scope \code{n_peritonitis_episodes}/\code{peritonitis_flag}
@@ -51,11 +57,12 @@
 #' @param peritonitis_flag Logical. \code{TRUE} if \code{n_peritonitis_episodes > 0}
 #'   for this catheter within that window, \code{FALSE} otherwise.
 #'
-#' @returns An object of class \code{pd_catheter}.
+#' @return An object of class \code{pd_catheter}.
 #' @export
 #'
 #' @examples
 #' \dontrun{
+#' # the unchecked constructor; pd_catheter() is the one that validates
 #' new_pd_catheter(
 #'   patient_id = "ABC0110",
 #'   catheter_id = "ABC0110_01",
@@ -241,12 +248,13 @@ validate_pd_catheter <- function(x) {
 #' \code{infections} both (a) have an \code{infection_date} inside this
 #' catheter's own active window, and (b) are not a \strong{relapsing} episode.
 #' Per ISPD, a relapsing episode (same organism, occurring within 4 weeks of
-#' completing antibiotics for the immediately preceding episode --
-#' see \code{get_episode_type()} in pd_infection.R) is a continuation of that
-#' prior episode rather than a distinct new episode, so it is excluded from the count used for
-#' rate/free-percentage calculations. \code{"recurrent"} and \code{"repeat"} episodes
-#' are distinct new episodes and stay counted, as does an episode with \code{NA} \code{episode_type}
-#' (e.g. a patient's first-ever recorded episode, with nothing prior to compare against).
+#' completing antibiotics for the immediately preceding episode)
+#' see \code{\link{get_episode_type}()}) is a continuation of that
+#' prior episode rather than a distinct new episode, so it is excluded from the
+#' count used for rate/free-percentage calculations. \code{"recurrent"} and
+#' \code{"repeat"} episodes are distinct new episodes and stay counted,
+#' as does an episode with \code{NA} \code{episode_type} (e.g. a patient's
+#' first-ever recorded episode, with nothing prior to compare against).
 #'
 #' The active window is \code{[lower, upper]}, where:
 #' \itemize{
@@ -277,7 +285,26 @@ validate_pd_catheter <- function(x) {
 #'   did not, or if it is not known. Episodes after \code{tau} are not counted.
 #'
 #' @return A single non-negative integer count.
+#' @seealso \code{\link{catheter_exposure_days}()}, which uses the same upper
+#'   bound for the denominator, and
+#'   \code{vignette("indicators-classification", package = "peridial")}.
 #' @export
+#'
+#' @examples
+#' \dontrun{
+#' episode <- function(date) {
+#'   pd_infection("ABC1234", as.Date(date), list("E. coli"),
+#'                last_dose_antibiotic = as.Date(date) + 14)
+#' }
+#' infections <- list(episode("2025-12-20"), episode("2026-01-20"))
+#'
+#' # the catheter runs on into February 2026, but the reporting period ends on
+#' # 31 December 2025, so only the first episode counts
+#' count_episodes(infections,
+#'                t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
+#'                pd_start_date = as.Date("2025-03-01"),
+#'                pd_stop_date = as.Date("2026-02-15"))
+#' }
 #'
 count_episodes <- function(infections,
                           t0 = as.Date(NA),
@@ -331,7 +358,39 @@ count_episodes <- function(infections,
 #' @inheritParams new_pd_catheter
 #'
 #' @return An object of class \code{pd_catheter}.
+#' @seealso \code{\link{new_pd_catheter}()} for the unchecked constructor, and
+#'   \code{vignette("data-structures", package = "peridial")}.
 #' @export
+#'
+#' @examples
+#' \dontrun{
+#' inf <- pd_infection(
+#'   patient_id = "ABC1234",
+#'   infection_date = as.Date("2025-03-01"),
+#'   organism_list = list("S. aureus"),
+#'   last_dose_antibiotic = as.Date("2025-03-15")
+#' )
+#'
+#' pd_catheter(
+#'   patient_id = "ABC1234",
+#'   catheter_id = "ABC1234_01",
+#'   insertion_date = as.Date("2024-12-01"),
+#'   procedure_type = "Laparoscopic",
+#'   pd_start_date = as.Date("2024-12-15"),
+#'   infections = list(inf),
+#'   t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31")
+#' )
+#'
+#' # an episode dated before this catheter's PD window cannot belong to it
+#' too_early <- pd_infection("ABC1234", as.Date("2024-10-01"), list("E. coli"),
+#'                           last_dose_antibiotic = as.Date("2024-10-15"))
+#' try(pd_catheter(
+#'   patient_id = "ABC1234", catheter_id = "ABC1234_01",
+#'   insertion_date = as.Date("2024-11-02"), pd_start_date = as.Date("2024-11-20"),
+#'   infections = list(too_early),
+#'   t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31")
+#' ))
+#' }
 #'
 pd_catheter <- function(patient_id,
                         catheter_id,
@@ -369,18 +428,33 @@ pd_catheter <- function(patient_id,
 
 #' Print a pd_catheter object
 #'
-#' A single catheter's snapshot: the reporting window, \code{catheter_id}, \code{insertion_date},
-#' \code{procedure_type}, PD window, \code{n_peritonitis_episodes} (if any), \code{infection_date},
-#' \code{episode_type} (if any) and \code{outcome}, and peritonitis episode count within that window,
-#' followed by each countable episode's \code{infection_date}, \code{episode_type} (if any),
-#' and \code{outcome} (if any), and then any relapsing episodes (listed separately since
-#' it doesn't count toward \code{n_peritonitis_episodes} (see \code{count_episodes()}).
+#' A single catheter's snapshot: the reporting window, \code{catheter_id},
+#' \code{insertion_date}, \code{procedure_type}, the PD window, and the
+#' countable peritonitis episode count within that window
+#' (\code{n_peritonitis_episodes}). Each countable episode is then listed with
+#' its \code{infection_date}, \code{episode_type} (if any) and \code{outcome}
+#' (if any), followed by any relapsing episodes, shown separately because they
+#' do not count towards \code{n_peritonitis_episodes} (see
+#' \code{\link{count_episodes}()}).
 #'
 #' @param x A \code{pd_catheter} object.
 #' @param ... Ignored.
 #'
 #' @return \code{x}, invisibly.
 #' @export
+#'
+#' @examples
+#' \dontrun{
+#' inf <- pd_infection("ABC1234", as.Date("2025-03-01"), list("S. aureus"),
+#'                     last_dose_antibiotic = as.Date("2025-03-15"))
+#' cath <- pd_catheter(
+#'   patient_id = "ABC1234", catheter_id = "ABC1234_01",
+#'   insertion_date = as.Date("2024-12-01"), pd_start_date = as.Date("2024-12-15"),
+#'   procedure_type = "Laparoscopic", infections = list(inf),
+#'   t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31")
+#' )
+#' cath
+#' }
 #'
 print.pd_catheter <- function(x, ...) {
   cat("<pd_catheter>", if (is.na(x$patient_id)) "(unknown patient)" else x$patient_id, "\n")
@@ -442,11 +516,11 @@ print.pd_catheter <- function(x, ...) {
 #'
 #' Returns the rows (and, with \code{select}, the columns) of one catheter's
 #' data that meet a condition, as a plain tibble. Peritonitis indicators are not
-#' recalculated and the unit is not modified.
+#' recalculated and the catheter is not modified.
 #'
-#' The table is the one \code{\link{subset.pd_unit}()} uses for this catheter alone.
-#' A catheter with no episodes gives a single row with \code{NA}
-#' episode columns). To subset several catheters at once,
+#' The table is the one \code{\link{subset.pd_unit}()} uses, for this catheter
+#' alone. A catheter with no episodes gives a single row whose episode columns
+#' are \code{NA}. To subset several catheters at once,
 #' use \code{\link{subset.pd_unit}()} and filter on \code{catheter_id}.
 #'
 #' @param x A \code{pd_catheter} object.
