@@ -1,5 +1,5 @@
 Package: peridial
-Title: Peritonitis Indicators for Peritoneal Dialysis Units 
+Title: Peritonitis Indicators for Peritoneal Dialysis Units
 Version: 0.0.0.9000
 Authors@R: 
     person("Ernest", "Caballero", , "ernestcabs@gmail.com", role = c("aut", "cre"))
@@ -11,16 +11,17 @@ Description: A standardised R framework for ingesting, validating, and
     percentage indicators from longitudinal catheter and infection
     records.
 License: MIT + file LICENSE
-Encoding: UTF-8
-Roxygen: list(markdown = TRUE)
+URL: https://github.com/ernestcaballero/peRidial
+BugReports: https://github.com/ernestcaballero/peRidial/issues
+Depends: 
+    R (>= 4.1.0)
 Imports:
     dplyr,
-    readxl (>= 1.5.0),
-    utils,
-    tibble,
     Rcpp,
-    rlang
-LinkingTo: Rcpp
+    readxl (>= 1.5.0),
+    rlang,
+    tibble,
+    utils
 Suggests: 
     ggplot2,
     knitr,
@@ -28,8 +29,11 @@ Suggests:
     rmarkdown,
     testthat (>= 3.0.0),
     writexl
-Config/testthat/edition: 3
+LinkingTo: 
+    Rcpp
+VignetteBuilder: 
+    knitr
 Config/roxygen2/version: 8.1.0
-VignetteBuilder: knitr
-URL: https://github.com/ernestcaballero/peRidial
-BugReports: https://github.com/ernestcaballero/peRidial/issues
+Config/testthat/edition: 3
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)

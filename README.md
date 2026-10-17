@@ -1,6 +1,6 @@
 # peRidial
 
-A standardised R framework for ingesting, validating, and summarising clinical peritoneal dialysis (PD) unit data. Nested S3 classes represent PD patients, catheters, and peritonitis episodes, supporting reproducible calculation of ISPD-recommended peritonitis rate and peritonitis-free percentage indicators from longitudinal catheter and infection records.
+A standardised R framework for ingesting, validating, and summarising clinical peritoneal dialysis (PD) unit data. Four nested S3 classes represent the PD unit, its patients, their catheters, and each catheter's peritonitis episodes, supporting reproducible calculation of ISPD-recommended peritonitis rate and peritonitis-free percentage indicators from longitudinal catheter and infection records.
 
 ## Installation
 
@@ -8,7 +8,7 @@ Install the development version of peRidial from GitHub with:
 
 ```r
 # install.packages("remotes")
-remotes::install_github("ernestcaballero/peridial")
+remotes::install_github("ernestcaballero/peRidial")
 ```
 
 > **Note:** peRidial contains compiled C++ code (via Rcpp), installing it from GitHub compiles that code on your machine rather than downloading a pre-built binary. This requires a C++ compiler: on Windows, install Rtools first; on macOS, run xcode-select --install to get the Xcode Command Line Tools. If with Linux systems, so no extra step is needed there.
@@ -51,7 +51,7 @@ Across the three files below: 64 `test_that()` blocks, 74 individual expectation
 - the ISPD classification logic itself: relapsing, recurrent, repeat, and the no-category case — `expect_equal()`, `expect_true()`
 - organism matching that's case- and order-insensitive — `expect_equal()`
 - episodes are never compared across different patients — `expect_equal()`
-- rows that fail internal `pd_infection` validation (e.g. a `"catheter removed"` outcome with no `outcome_date`, or a missing `last_dose_antibiotic`) are silently excluded as comparison points rather than misclassified — `expect_equal()`
+- rows that fail internal `pd_infection` validation (e.g. a `"catheter removed"` outcome with no `outcome_date`, or a missing `last_dose_antibiotic`) are returned as `NA` with a warning, and excluded as comparison points rather than misclassified — `expect_equal()`
 - malformed input at the call level — wrong argument type, or mismatched vector lengths — raises an informative error — `expect_error()`
 
 ```
