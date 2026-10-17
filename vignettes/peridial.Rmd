@@ -62,8 +62,8 @@ field definitions: patient- and episode-level data items from the Australia and 
 Zealand Dialysis and Transplant Registry (ANZDATA) Data Dictionary and its survey
 `Form A3`, and other catheter-level fields such as procedure type and removal
 reason from the New Zealand Peritoneal Dialysis Registry (NZPDR), which records them
-where `Form A3` does not. The column names are the package author's own, chosen to suit
-the package, so they match neither an ANZDATA nor an NZPDR export. Values are decoded
+where `Form A3` does not. The column names are the package author's own, chosen to achieve
+the aims of this package, so they match neither an ANZDATA nor an NZPDR export. Values are decoded
 rather than coded: `Gender` holds `"Female"`, not a registry code. To prepare your own
 data, see *Using your own data* below.
 
@@ -75,8 +75,8 @@ data, see *Using your own data* below.
 `pd_unit()` reads the two files and builds the whole object in one call. Choose a reporting period with a start date `t0` and an end date `t1`, usually the first and last day of the reporting year. Dates are given in `YYYY-MM-DD` format.
 
 ```{r}
-t0 <- as.Date("2025-01-01")
-t1 <- as.Date("2025-12-31")
+t0 <- as.Date("2025-01-01")           # first calendar day
+t1 <- as.Date("2025-12-31")           # last calenday day
 
 unit <- pd_unit(
   unit_data = system.file("extdata", "a3_2025.xlsx", package = "peridial"),
@@ -87,7 +87,7 @@ unit <- pd_unit(
 unit
 ```
 
-Building this example raises one warning, shown above. It flags SPD0012, who was already on PD at `t0` and whose first episode in the example file is on 2025-01-18, 17 days after `t0`, with no earlier episode in the file. The example file starts at `t0`, so the warning is expected here (see *Include earlier episodes* below). The other two vignettes build the same unit and do not repeat it.
+Building this example raises one warning, shown above. It flags SPD0012, who was already on PD at `t0` and whose first episode in the example file is on 2025-01-18, 17 days after `t0`, with no earlier episode in the file. The example file starts at `t0`, so the warning is expected here as an example (see *Include earlier episodes* below). The other two vignettes build the same unit and warning is muted.
 
 `pd_unit()` takes three further arguments, all with defaults. `rate_benchmark` (0.40 episodes per patient-year) and `pf_benchmark` (0.80) are the ISPD targets the unit is judged against; they are carried on the unit and used by `summary()` and `plot()`. `censor_on_last_stop` (`TRUE`) treats a patient whose every catheter has closed, with none reopened, as having left PD on the last stop date, which ends their time at risk there. Set it to `FALSE` if your unit records genuine breaks from PD, because a break and a permanent exit look identical in the raw data. What each one changes is covered in `vignette("indicators-classification", package = "peridial")`.
 
@@ -146,7 +146,7 @@ a3 <- data.frame(
   "Date of Birth" = raw_a3$DOB,
   "Insertion Date" = raw_a3$CatheterInsertDate,
   "PD Start Date" = raw_a3$PDStart,
-  "Gender" = ifelse(raw_a3$Sex == 1, "Male", "Female"),  # recode
+  "Gender" = ifelse(raw_a3$Sex == 1, "Male", "Female"),
   check.names = FALSE
 )
 
@@ -225,6 +225,8 @@ It also returns those components invisibly, so they can be used directly:
 s$rate
 s$rate_met
 s$episode_types
+s$demographics$dialysis_type
+s$catheters$time_to_first_peritonitis_days["mean"]
 ```
 
 How the two indicators are defined, and which episodes count towards them, is covered

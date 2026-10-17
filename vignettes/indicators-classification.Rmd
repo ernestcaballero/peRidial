@@ -112,9 +112,12 @@ Here is one patient's year, with the day gap measured from the previous episode'
 
 ```{r worked-example}
 episodes <- data.frame(
-  infection_date = as.Date(c("2025-01-01", "2025-02-01", "2025-03-01", "2025-06-01", "2025-09-01")),
-  last_dose_antibiotic = as.Date(c("2025-01-15", "2025-02-15", "2025-03-15", "2025-06-15", "2025-09-15")),
-  organism = c("E. coli", "E. coli", "Klebsiella", "Klebsiella", "Staphylococcus aureus")
+  infection_date = as.Date(c("2025-01-01", "2025-02-01", "2025-03-01", 
+                             "2025-06-01", "2025-09-01")),
+  last_dose_antibiotic = as.Date(c("2025-01-15", "2025-02-15", "2025-03-15", 
+                                   "2025-06-15", "2025-09-15")),
+  organism = c("E. coli", "E. coli", "Klebsiella", "Klebsiella", 
+               "Staphylococcus aureus")
 )
 
 episodes$episode_type <- classify_episode_types(
@@ -160,7 +163,7 @@ mean(unit$patients$n_episodes == 0)
 all.equal(c(s$rate, s$pf), c(numerator / unit$tpyar, mean(unit$patients$n_episodes == 0)))
 ```
 
-`summary()` lists *every* episode under "Episodes by type", including relapsing ones, while "Countable episodes" is the rate numerator. The two do not have to match: the difference is the relapsing episodes, plus any episode outside the period. `print()` shows all episodes in the unit for the same reason.
+`summary()` lists *every* episode under "Episodes by type", including relapsing ones, while "Countable episodes" is the rate numerator. The two do not have to match: the difference is the relapsing episodes and any episode outside the period. `print()` shows all episodes in the unit for the same reason.
 
 ```{r episode-types}
 table(unit$infections$episode_type, unit$infections$counts_toward_rate,
@@ -272,7 +275,7 @@ identical(do.call(classify_episode_types, c(x, use_cpp = TRUE)),
           do.call(classify_episode_types, c(x, use_cpp = FALSE)))
 ```
 
-### Timing it
+### Benchmarking
 
 Only the classification loop is compiled. The validation of each row happens in R in both modes, so how much faster the compiled mode is on your data depends on how much of the time goes on validation. To measure it on a larger, simulated set of episodes (not run here, as timings depend on the machine):
 
@@ -307,7 +310,6 @@ identical(cpp, r)
 - **Spelling:** `pd_unit()` standardises organism names against the accepted list before classifying. `classify_episode_types()` used on its own compares the names as given, so `"E. coli"` and `"Escherichia coli"` are different.
 - **Culture-negative:** `"negative"` is a culture-negative episode and cannot be combined with another organism. It pairs with any other episode as a relapse if it falls within 4 weeks.
 - **Invalid rows:** a row that fails `pd_infection` validation (for example a missing `last_dose_antibiotic`) gets `NA` and is **not** used as the previous episode for the next row. `classify_episode_types()` raises a warning listing the first few. `pd_unit()` instead reports them in its list of data problems, and builds no unit until they are fixed.
-- **Across catheters and periods:** the previous episode is the patient's previous episode, whichever catheter it was on, and it may be dated before `t0`. A relapse is therefore recognised across a catheter change and across the start of the reporting period.
 - **Episodes before `t0` must be in the file:** only episodes that are in the infection file can be the previous episode. If a patient who was already on PD at `t0` has an episode in the first 28 days of the period and the file does not hold their earlier episode, it is classified as `NA` and counted, even if it was a relapse, which overstates the rate. `pd_unit()` warns when this may have happened, naming the patients to check. How to prepare the file is under *Include earlier episodes* in `vignette("peridial", package = "peridial")`.
 
 
