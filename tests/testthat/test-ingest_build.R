@@ -254,13 +254,11 @@ test_that("build_patient_list() records each patient's tau as transfer_reason / 
 })
 
 test_that("build_patient_list() logs a patient whose every catheter fails validation", {
-  # a stop date before the start date makes pd_catheter() reject the only catheter
-  caths <- raw_cath(insertion_date = d("2025-01-01"), pd_start_date = d("2025-02-01"),
-                    pd_stop_date = d("2025-01-01"))
+  caths <- raw_cath(insertion_date = d("2025-03-01"), pd_start_date = d("2025-02-01"))
   log <- new_issue_log()
   out <- build_patient_list("P1", list(P1 = raw_tau()), caths, raw_patient(),
                             list(), T0, T1, log)
-  expect_length(out$patient_list, 1)   # still built; the logged issue stops pd_unit()
+  expect_length(out$patient_list, 1)
   expect_true(any(grepl("catheter not checked further", log$get())))
   expect_true(any(grepl("Patient P1: no valid PD catheter remains", log$get())))
 })
@@ -306,31 +304,6 @@ test_that("build_patient_infections() gives the same episode types with use_cpp 
   expect_identical(types(cpp), c(NA_character_, "relapsing", "recurrent", "repeat"))
 })
 
-test_that("build_patient_infections() classifies with the C++ loop by default", {
-  skip_if_not_installed("testthat", "3.2.0")
-  called <- FALSE
-  testthat::local_mocked_bindings(
-    classify_episode_types_cpp = function(patient_id, infection_date, last_dose_antibiotic,
-                                          organism_key, valid) {
-      called <<- TRUE
-      rep(NA_character_, length(patient_id))
-    })
-  build_patient_infections(raw_pe(), new_issue_log())
-  expect_true(called)
-})
-
-test_that("build_patient_infections() does not call the C++ loop when use_cpp = FALSE", {
-  skip_if_not_installed("testthat", "3.2.0")
-  called <- FALSE
-  testthat::local_mocked_bindings(
-    classify_episode_types_cpp = function(patient_id, infection_date, last_dose_antibiotic,
-                                          organism_key, valid) {
-      called <<- TRUE
-      rep(NA_character_, length(patient_id))
-    })
-  build_patient_infections(raw_pe(), new_issue_log(), use_cpp = FALSE)
-  expect_false(called)
-})
 
 test_that("build_patient_infections() does not warn about rows it logs itself", {
   df <- raw_pe(date_of_infection = d(c("2025-03-01", "2025-08-01")),

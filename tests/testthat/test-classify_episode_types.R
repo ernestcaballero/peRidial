@@ -122,7 +122,6 @@ test_that("classify_episode_types() errors when organism_list is not a list", {
   )
 })
 
-
 test_that("classify_episode_types() errors when the inputs are different lengths", {
   expect_error(
     classify_episode_types(
@@ -133,6 +132,12 @@ test_that("classify_episode_types() errors when the inputs are different lengths
     ),
     "organism_list"
   )
+})
+
+test_that("classify_episode_types() returns an empty result for no episodes", {
+  out <- classify_episode_types(character(0), as.Date(character(0)),
+                                as.Date(character(0)), list())
+  expect_identical(out, character(0))
 })
 
 
