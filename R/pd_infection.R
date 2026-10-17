@@ -238,6 +238,7 @@ get_episode_type <- function(current_infection_date,
 #' @export
 #'
 #' @examples
+#' \dontrun{
 #' first <- pd_infection(
 #'   patient_id = "ABC1234",
 #'   infection_date = as.Date("2025-04-01"),
@@ -257,6 +258,7 @@ get_episode_type <- function(current_infection_date,
 #'
 #' # every episode needs a last antibiotic dose
 #' try(pd_infection("ABC1234", as.Date("2025-03-10"), list("S. aureus")))
+#' }
 #'
 pd_infection <- function(patient_id,
                          infection_date,

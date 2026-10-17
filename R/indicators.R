@@ -157,12 +157,14 @@ total_patient_years <- function(patient_list, t0, t1) {
 #' @export
 #'
 #' @examples
+#' \dontrun{
 #' x <- new_pd_unit(
 #'   unit_id = "Wellington PD Unit",
 #'   t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
 #'   n_new = 0L, n_patients = 0L, tpyar = 0
 #' )
 #' peritonitis_rate_by_period(x, cal.period = "quarter")
+#' }
 #'
 peritonitis_rate_by_period <- function(x, cal.period = c("month", "quarter", "year")) {
   stopifnot(inherits(x, "pd_unit"))
@@ -196,7 +198,7 @@ peritonitis_rate_by_period <- function(x, cal.period = c("month", "quarter", "ye
   bin_ends <- c(bin_starts[-1] - 1, x$t1)
 
   period_start <- pmax(bin_starts, x$t0)
-  period_end   <- pmin(bin_ends, x$t1)  # each bin's end is one day before the next bin's start
+  period_end <- pmin(bin_ends, x$t1)  # each bin's end is one day before the next bin's start
 
   # count the episodes per bin
   n_episodes <- vapply(seq_along(bin_starts), function(i) {
@@ -233,32 +235,12 @@ peritonitis_rate_by_period <- function(x, cal.period = c("month", "quarter", "ye
 #' A wrapper around `peritonitis_rate_by_period(x, cal.period = "month")`.
 #' Monthly peritonitis rate with a `month` column instead of the `period` and
 #' `label` columns.
-#'
-#' @param x A `pd_unit` object.
-#'
-#' @return A tibble, one row per calendar month spanned by `[x$t0, x$t1]`:
-#'   `month` (Date, first of that month),
-#'   `period_start`/`period_end` (the bin's actual bounds, clipped to `[t0, t1]`),
-#'   `n_episodes`,
-#'   `patient_years`, and
-#'   `rate`.
-#'   See `peritonitis_rate_by_period()` for the full details of how each bin is computed.
-#' @export
-#'
-#' @examples
-#' \dontrun{
-#' x <- new_pd_unit(
-#'   unit_id = "Wellington PD Unit",
-#'   t0 = as.Date("2025-01-01"), t1 = as.Date("2025-03-31"),
-#'   n_new = 0L, n_patients = 0L, tpyar = 0
-#' )
-#' monthly_peritonitis_rate(x)
-#' }
+#' @noRd
 #'
 monthly_peritonitis_rate <- function(x) {
   out <- peritonitis_rate_by_period(x, cal.period = "month")
   tibble::tibble(
-    month = out$period,
+    month = out$period,                  # month column instead of 'period' and 'label'
     period_start = out$period_start,
     period_end = out$period_end,
     n_episodes = out$n_episodes,

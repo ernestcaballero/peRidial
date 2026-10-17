@@ -280,20 +280,6 @@ validate_pd_patient <- function(x) {
 
 
 #' Determine whether a patient is incident (new to PD) in a reporting period
-#'
-#' A patient is "incident" (a new PD patient) for the reporting period \code{[t0, t1]}
-#' if the \emph{earliest} PD start date falls inside that window.
-#'
-#' Either t0/t1 boundary can be \code{NA}, in which case that side is left unfiltered.
-#' If both are \code{NA} there is no window to be incident \emph{within}, so this returns \code{NA}.
-#'
-#' @param catheters List of \code{pd_catheter} objects for one patient.
-#' @param t0 Date. Start of the reporting period, or \code{NA}.
-#' @param t1 Date. End of the reporting period, or \code{NA}.
-#'
-#' @return \code{TRUE} if the patient first started PD within \code{[t0, t1]},
-#'   \code{FALSE} if they started before it, or \code{NA} when there is nothing
-#'   to decide from (no catheters, no usable start dates, or no reporting window supplied).
 #' @noRd
 #'
 is_incident_patient <- function(catheters,
