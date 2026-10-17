@@ -10,32 +10,41 @@
 #'   causative organism(s) identified for this episode. Use \code{"negative"}
 #'   for a culture-negative episode; \code{"negative"} cannot be combined with
 #'   other organisms in the same list.
-#' @param episode_type Character. One of \code{"relapsing"}, \code{"recurrent"},
-#'   or \code{"repeat"} (per ISPD 2022 definitions), or \code{NA} if this is the
-#'   patient's first recorded episode and there is no prior episode to compare
-#'   against. Derived via \code{get_episode_type()}.
+#' @param episode_type Character. One of \code{"relapsing"}, \code{"recurrent"}
+#'   or \code{"repeat"} (per ISPD 2022 definitions), or \code{NA} when no ISPD
+#'   category applies. \code{NA} is not a missing value and the episode is still
+#'   counted towards the peritonitis rate; see \code{\link{get_episode_type}()}.
+#'   Derived via \code{\link{get_episode_type}()}.
 #' @param last_dose_antibiotic Date. Date of the last dose of antibiotic
-#'   treatment given for this episode.
-#' @param outcome Character. Clinical outcome of this episode (e.g.
-#'   \code{"hospitalisation"}, \code{"catheter removed"}, \code{"temporary transfer to HD"}).
-#'   If supplied, \code{outcome_date} must also be supplied. \code{NA} when resolved.
-#' @param outcome_date Date. Date of the outcome. Required whenever
-#'   \code{outcome} is supplied, and specifically required when \code{outcome} is \code{"catheter removed"}.
+#'   treatment given for this episode. Required: it is the date every later
+#'   episode of the same patient is classified against.
+#' @param outcome Character. Clinical outcome of this episode, one of
+#'   \code{"catheter removed"}, \code{"permanent transfer to HD"},
+#'   \code{"temporary transfer to HD"} or \code{"hospitalisation"} (when
+#'   \code{pd_unit()} derives it, the most severe flag set on the PE row wins,
+#'   in that order). \code{NA} means the episode resolved, and is not a missing
+#'   value.
+#' @param outcome_date Date. Date of the outcome. Required when \code{outcome}
+#'   is \code{"catheter removed"}; optional for the other outcomes, and in fact
+#'   left \code{NA} by \code{pd_unit()} for \code{"hospitalisation"}. An
+#'   \code{outcome_date} without an \code{outcome} is an error.
 #'
-#' @returns An object of class \code{pd_infection}.
+#' @return An object of class \code{pd_infection}.
 #' @export
 #'
 #' @examples
 #' \dontrun{
+#' # the unchecked constructor; pd_infection() is the one that validates
 #' new_pd_infection(
 #'   patient_id = "ABC0110",
 #'   infection_date = as.Date("2025-06-01"),
-#'   organism_list = list("Staphylococcus aureus"),
+#'   organism_list = list("S. aureus"),
 #'   episode_type = NA_character_,
-#'   last_dose_antibiotic = as.Date(NA),
+#'   last_dose_antibiotic = as.Date("2025-06-15"),
 #'   outcome = NA_character_,
 #'   outcome_date = as.Date(NA)
 #' )}
+#'
 
 new_pd_infection <- function(patient_id = NA_character_,
                              infection_date = as.Date(NA),
@@ -124,8 +133,17 @@ validate_pd_infection <- function(x) {
 #' \strong{Repeat}: more than 4 weeks after completing therapy, with the same
 #' specific organism as the prior episode.
 #'
-#' \strong{NA}: means classified as first ever episode, or a resolved peritonitis
-#' episode not in one of \code{"relapsing"}, \code{"recurrent"}, \code{"repeat"}
+#' \strong{NA}: no ISPD category applies. This is not a missing value, and the
+#' episode is still counted towards the peritonitis rate. It arises three ways:
+#' the patient's first recorded episode (\code{prior_episode = NULL}); a
+#' different organism more than 4 weeks after completing therapy; or a prior
+#' episode whose \code{last_dose_antibiotic} is missing, so the 4-week window
+#' cannot be judged.
+#'
+#' The 4-week boundary is inclusive: 28 days after the prior episode's last
+#' dose is within 4 weeks. Organisms are compared ignoring case
+#' and order, and two episodes are the same organism only if their whole
+#' organism lists match.
 #'
 #' @param current_infection_date Date. Infection date of the episode being classified.
 #' @param current_organism_list A list of organism name(s) for this episode.
@@ -133,9 +151,29 @@ validate_pd_infection <- function(x) {
 #'   immediately preceding episode, or \code{NULL} if this is their first
 #'   recorded episode.
 #'
-#' @returns Character: one of \code{"relapsing"}, \code{"recurrent"},
+#' @return Character: one of \code{"relapsing"}, \code{"recurrent"},
 #'   \code{"repeat"}, or \code{NA_character_}.
+#' @seealso \code{\link{classify_episode_types}()} for many episodes at once,
+#'   and \code{vignette("indicators-classification", package = "peridial")}.
 #' @export
+#'
+#' @examples
+#' \dontrun{
+#' first <- pd_infection("ABC1234", as.Date("2025-04-01"), list("E. coli"),
+#'                       last_dose_antibiotic = as.Date("2025-04-15"))
+#'
+#' # 27 days after the last dose, same organism
+#' get_episode_type(as.Date("2025-05-12"), list("E. coli"), prior_episode = first)
+#'
+#' # same timing, a different organism
+#' get_episode_type(as.Date("2025-05-12"), list("Klebsiella"), prior_episode = first)
+#'
+#' # same organism, but more than 4 weeks later
+#' get_episode_type(as.Date("2025-07-01"), list("E. coli"), prior_episode = first)
+#'
+#' # a patient's first episode has nothing to be classified against
+#' get_episode_type(as.Date("2025-04-01"), list("E. coli"), prior_episode = NULL)
+#' }
 #'
 get_episode_type <- function(current_infection_date,
                              current_organism_list,
@@ -195,9 +233,31 @@ get_episode_type <- function(current_infection_date,
 #'   to derive this episode's \code{episode_type}.
 #'
 #' @return An object of class \code{pd_infection}.
+#' @seealso \code{\link{get_episode_type}()} for the classification rule, and
+#'   \code{vignette("data-structures", package = "peridial")}.
 #' @export
 #'
-
+#' @examples
+#' first <- pd_infection(
+#'   patient_id = "ABC1234",
+#'   infection_date = as.Date("2025-04-01"),
+#'   organism_list = list("E. coli"),
+#'   last_dose_antibiotic = as.Date("2025-04-15")
+#' )
+#' first$episode_type   # NA: there is nothing prior to classify against
+#'
+#' # the same patient's next episode, classified against the first
+#' pd_infection(
+#'   patient_id = "ABC1234",
+#'   infection_date = as.Date("2025-05-12"),
+#'   organism_list = list("E. coli"),
+#'   last_dose_antibiotic = as.Date("2025-05-26"),
+#'   prior_episode = first
+#' )
+#'
+#' # every episode needs a last antibiotic dose
+#' try(pd_infection("ABC1234", as.Date("2025-03-10"), list("S. aureus")))
+#'
 pd_infection <- function(patient_id,
                          infection_date,
                          organism_list,
@@ -236,6 +296,11 @@ pd_infection <- function(patient_id,
 #'
 #' @return \code{x}, invisibly.
 #' @export
+#'
+#' @examples
+#' # an NA outcome means the episode resolved, not that the outcome is missing
+#' pd_infection("ABC1234", as.Date("2025-03-01"), list("S. aureus"),
+#'              last_dose_antibiotic = as.Date("2025-03-15"))
 #'
 print.pd_infection <- function(x, ...) {
   cat("<pd_infection>", if (is.na(x$patient_id)) "(unknown patient)" else x$patient_id, "\n")
