@@ -279,15 +279,71 @@ validate_pd_unit <- function(x) {
 #'   Defaults to 0.80, the ISPD recommendation.
 #' @param censor_on_last_stop Logical. Treat a patient whose every catheter
 #'   has closed, with none reopened, as having left PD on the last
-#'   \code{pd_stop_date}. Defaults to \code{TRUE}. Set \code{FALSE} if your
+#'   \code{pd_stop_date}, recording \code{transfer_reason = "pd stopped"}.
+#'   Defaults to \code{TRUE}. Set \code{FALSE} if your
 #'   unit records genuine breaks from PD, since a break and a permanent exit
 #'   look identical in the raw data.
 #'
+#' @section Input data:
+#' Column names are matched ignoring capitalisation, spacing and punctuation,
+#' so \code{Patient ID}, \code{patient_id} and \code{PatientID} are the same
+#' column. Beyond that the match is on keywords, so \code{Infection Date} is
+#' read as \code{Date of Infection}, \code{DOB} as \code{Date of Birth} and
+#' \code{Sex} as \code{Gender}. An exactly named column will always be chosen;
+#' where two or more columns could match one target, the leftmost is used and
+#' a warning lists the candidates.
+#'
+#' \describe{
+#'   \item{\code{unit_data} (A3), required}{\code{Patient ID},
+#'     \code{Insertion Date}, \code{PD Start Date}, \code{Date of Birth}.}
+#'   \item{\code{unit_data} (A3), optional}{\code{Gender}, \code{Ethnicity},
+#'     \code{Primary Kidney Disease}, \code{Height}, \code{Weight},
+#'     \code{Cigarette Smoking Status}, \code{Diabetes Type},
+#'     \code{Procedure Type}, \code{PD Stop Date}, \code{Removal Reason},
+#'     \code{Dialysis Type}, \code{Dialysis Modality Change},
+#'     \code{Modality Change Reason}, \code{Date Modality Change},
+#'     \code{Date of Death}, \code{Cause of Death}, \code{Transplant Date}.}
+#'   \item{\code{infection_data} (PE), required}{\code{Patient ID},
+#'     \code{Date of Infection}, \code{Organism}, \code{Last Dose Antibiotic}.}
+#'   \item{\code{infection_data} (PE), optional}{\code{Overnight Hospitalisation},
+#'     \code{Days Hospitalised}, \code{Catheter Removed},
+#'     \code{Catheter Removed Date}, \code{Interim HD}, \code{Permanent HD},
+#'     \code{First Dialysis Date}, \code{Last Dialysis Date}.}
+#' }
+#'
+#' A missing required column stops the build. A missing optional column is
+#' filled with \code{NA} without a warning, so check the spelling of optional
+#' columns carefully: a mis-named \code{Date of Death} or \code{PD Stop Date}
+#' means patients are not censored and patient-years are overstated.
+#'
+#' Values are expected decoded rather than coded (\code{Gender} holds
+#' \code{"Female"}, not a registry code), and:
+#' \itemize{
+#'   \item \code{Patient ID} must be in NHI format, three letters then four
+#'     digits (\code{ABC1234}), case-insensitive.
+#'   \item Dates may be Excel date cells, \code{Date} columns, or text in
+#'     \code{YYYY-MM-DD} or day-first form (\code{31/01/2025},
+#'     \code{31-01-2025}).
+#'   \item Yes/no columns accept \code{Yes}/\code{No}, \code{Y}/\code{N},
+#'     \code{TRUE}/\code{FALSE} or \code{1}/\code{0}.
+#'   \item Several organisms for one episode go in one cell, separated by a
+#'     comma, semicolon, \code{&}, \code{+}, \code{/} or the word "and".
+#'     Spellings are standardised against the package's accepted list.
+#'   \item A permanent move to haemodialysis is recorded as
+#'     \code{Any PD to HD} in \code{Dialysis Modality Change}.
+#' }
+#'
+#'
 #' @return A validated \code{pd_unit} object.
 #' @seealso \code{\link{new_pd_unit}()} for the underlying constructor.
+#'   \code{vignette("peridial", package = "peridial")} works through building a
+#'   unit from the example files, preparing your own data, and reading a failed
+#'   build; \code{vignette("data-structures", package = "peridial")} describes
+#'   the object graph it returns.
 #' @export
 #'
 #' @examples
+#' \dontrun{
 #' unit <- pd_unit(
 #'   unit_data = system.file("extdata", "a3_2025.xlsx",
 #'                           package = "peridial", mustWork = TRUE),
@@ -298,6 +354,8 @@ validate_pd_unit <- function(x) {
 #'   unit_id = "Wellington PD Unit"
 #' )
 #' unit
+#' }
+#'
 pd_unit <- function(unit_data,
                     infection_data,
                     t0,
@@ -558,11 +616,29 @@ pd_unit <- function(unit_data,
 
 #' Print a pd_unit object
 #'
+#' A unit's headline snapshot: its name, the reporting period, the cohort size
+#' with the incident count, how many catheters and peritonitis episodes it
+#' holds, and its total patient-years at risk. Every episode in the unit is
+#' counted here, including relapsing ones; \code{\link{summary.pd_unit}()}
+#' reports the countable subset the peritonitis rate is built from.
+#'
 #' @param x A \code{pd_unit} object.
 #' @param ... Ignored.
 #'
 #' @return \code{x}, invisibly.
+#' @seealso \code{\link{summary.pd_unit}()} for the full indicator report.
 #' @export
+#'
+#' @examples
+#' \dontrun{
+#' unit <- pd_unit(
+#'   unit_data = system.file("extdata", "a3_2025.xlsx", package = "peridial"),
+#'   infection_data = system.file("extdata", "pe_2025.xlsx", package = "peridial"),
+#'   t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
+#'   unit_id = "Wellington PD Unit"
+#' )
+#' unit
+#' }
 #'
 print.pd_unit <- function(x, ...) {
   cat("<pd_unit>", if (is.na(x$unit_id)) "(Unnamed unit)" else x$unit_id, "\n")
