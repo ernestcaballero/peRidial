@@ -1,5 +1,5 @@
 
-# new_pd_patient()
+# new_pd_infection()
 
 test_that("new_pd_infection creates a valid pd_infection object", {
   x <- new_pd_infection(
@@ -13,38 +13,19 @@ test_that("new_pd_infection creates a valid pd_infection object", {
   expect_s3_class(x, "pd_infection")
 })
 
-test_that("new_pd_infection errors when infection_date is not a Date", {
-  expect_error(
-    new_pd_infection(
-      patient_id = "ABC1234",
-      infection_date = "2025-03-15",   # character, not a Date
-      organism_list = list("Staphylococcus aureus"),
-      last_dose_antibiotic = as.Date("2025-03-29"))
-  )
-})
-
-test_that("new_pd_infection errors when last_dose_antibiotic is not a Date", {
-  expect_error(
-    new_pd_infection(
-      patient_id = "ABC1234",
-      infection_date = as.Date("2025-03-15"),
-      organism_list = list("Staphylococcus aureus"),
-      last_dose_antibiotic = "2025-03-29"   # character, not a Date
-    )
-  )
-})
-
-test_that("new_pd_infection errors when outcome_date is not a Date", {
-  expect_error(
-    new_pd_infection(
-      patient_id = "ABC1234",
-      infection_date = as.Date("2025-03-15"),
-      organism_list = list("Staphylococcus aureus"),
-      last_dose_antibiotic = as.Date("2025-03-29"),
-      outcome = "resolved",
-      outcome_date = "2025-03-29"   # character, not a Date
-    )
-  )
+test_that("new_pd_infection errors when infection_date, last_dose_antibiotic or outcome_date is not a Date", {
+  ok <- list(
+    patient_id = "ABC1234",
+    infection_date = as.Date("2025-03-15"),
+    organism_list = list("Staphylococcus aureus"),
+    last_dose_antibiotic = as.Date("2025-03-29"),
+    outcome = "resolved",
+    outcome_date = as.Date("2025-03-29"))
+  for (arg in c("infection_date", "last_dose_antibiotic", "outcome_date")) {
+    bad <- ok
+    bad[[arg]] <- "2025-03-29"   # character, not a Date
+    expect_error(do.call(new_pd_infection, bad), info = arg)
+  }
 })
 
 
@@ -106,72 +87,26 @@ test_that("validate_pd_infection requires outcome_date when catheter is removed"
 
 # pd_infection(), similar to classify_episode_type()
 
-test_that("pd_infection() classifies a relapsing episode", {
-  prior <- new_pd_infection(
-    patient_id = "ABC1234",
-    infection_date = as.Date("2025-01-01"),
-    organism_list = list("E. coli"),
-    last_dose_antibiotic = as.Date("2025-01-15")
-  )
-  x <- pd_infection(
-    patient_id = "ABC1234",
-    infection_date = as.Date("2025-01-25"),             # 10 days after prior treatment ended
-    organism_list = list("E. coli"),                    # can add variation here like organism name spelled out
-    last_dose_antibiotic = as.Date("2025-02-08"),
-    prior_episode = prior
-  )
-  expect_equal(x$episode_type, "relapsing")
-})
-
-test_that("pd_infection() classifies a relapsing episode: negative culture followed by a specific organism", {
-  prior <- new_pd_infection(
-    patient_id = "ABC1234",
-    infection_date = as.Date("2025-01-01"),
-    organism_list = list("negative"),
-    last_dose_antibiotic = as.Date("2025-01-15")
-  )
-  x <- pd_infection(
-    patient_id = "ABC1234",
-    infection_date = as.Date("2025-01-25"),             # 10 days after prior treatment ended
-    organism_list = list("E. coli"),                    # specific organism after a negative culture
-    last_dose_antibiotic = as.Date("2025-02-08"),
-    prior_episode = prior
-  )
-  expect_equal(x$episode_type, "relapsing")
-})
-
-test_that("pd_infection() classifies a relapsing episode: specific organism followed by a negative culture", {
-  prior <- new_pd_infection(
-    patient_id = "ABC1234",
-    infection_date = as.Date("2025-01-01"),
-    organism_list = list("E. coli"),
-    last_dose_antibiotic = as.Date("2025-01-15")
-  )
-  x <- pd_infection(
-    patient_id = "ABC1234",
-    infection_date = as.Date("2025-01-25"),             # 10 days after prior treatment ended
-    organism_list = list("negative"),                   # negative culture after a specific organism
-    last_dose_antibiotic = as.Date("2025-02-08"),
-    prior_episode = prior
-  )
-  expect_equal(x$episode_type, "relapsing")
-})
-
-test_that("pd_infection() classifies a relapsing episode: negative culture followed by another negative culture", {
-  prior <- new_pd_infection(
-    patient_id = "ABC1234",
-    infection_date = as.Date("2025-01-01"),
-    organism_list = list("negative"),
-    last_dose_antibiotic = as.Date("2025-01-15")
-  )
-  x <- pd_infection(
-    patient_id = "ABC1234",
-    infection_date = as.Date("2025-01-25"),             # 10 days after prior treatment ended
-    organism_list = list("negative"),
-    last_dose_antibiotic = as.Date("2025-02-08"),
-    prior_episode = prior
-  )
-  expect_equal(x$episode_type, "relapsing")
+test_that("pd_infection() classifies a relapsing episode, including negative cultures on either side", {
+  relapse_type <- function(prior_org, current_org) {
+    prior <- new_pd_infection(
+      patient_id = "ABC1234",
+      infection_date = as.Date("2025-01-01"),
+      organism_list = list(prior_org),
+      last_dose_antibiotic = as.Date("2025-01-15")
+    )
+    pd_infection(
+      patient_id = "ABC1234",
+      infection_date = as.Date("2025-01-25"),            # 10 days after prior treatment ended
+      organism_list = list(current_org),
+      last_dose_antibiotic = as.Date("2025-02-08"),
+      prior_episode = prior
+    )$episode_type
+  }
+  expect_equal(relapse_type("E. coli", "E. coli"), "relapsing")      # same organism
+  expect_equal(relapse_type("negative", "E. coli"), "relapsing")     # negative, then a specific organism
+  expect_equal(relapse_type("E. coli", "negative"), "relapsing")     # specific organism, then negative
+  expect_equal(relapse_type("negative", "negative"), "relapsing")    # negative, then negative
 })
 
 test_that("pd_infection() classifies a recurrent episode", {
