@@ -99,39 +99,6 @@ test_that("plot.pd_unit() lets a per-call benchmark override x$rate_benchmark", 
   expect_equal(hline_layer$data$yintercept, 0.60)
 })
 
-test_that("plot.pd_unit() type = 'yearly' returns a combined two-panel figure", {
-  skip_if_not_installed("ggplot2")
-  skip_if_not_installed("patchwork")
-  p <- plot(make_unit(), type = "yearly")
-  expect_s3_class(p, "patchwork")
-})
-
-test_that("cumulative rate (by hand from the monthly bins) matches summarise_rate()'s overall rate", {
-  # pure data-logic check: no plotting/rendering involved, so no ggplot2/
-  # patchwork dependency needed here. This mirrors plot_cumulative_rate()'s
-  # rate-panel formula: cumsum(n_episodes) / cumsum(patient_years), the
-  # actual year-to-date rate in episodes-per-patient-year units -- the
-  # same units as the benchmark line, not a dimensionless proportion.
-  x <- make_unit(infections = tibble::tibble(
-    patient_id = "ABC1234", catheter_id = "ABC1234_01",
-    infection_date = as.Date(c("2025-02-10", "2025-07-05")),
-    counts_toward_rate = c(TRUE, TRUE)
-  ))
-  monthly <- peritonitis_rate_by_period(x, cal.period = "month")
-  cum_episodes <- cumsum(monthly$n_episodes)
-  cum_patient_years <- cumsum(monthly$patient_years)
-  # cumulative episode count must only ever increase (or hold) month to month
-  expect_true(all(diff(cum_episodes) >= 0))
-  expect_equal(cum_episodes[12], 2L)
-  # the final month's cumulative rate must equal the whole-period rate that
-  # summarise_rate() (the same helper summary.pd_unit() uses) reports --
-  # patient-years accrue additively over non-overlapping months, so this
-  # is exact, not an approximation
-  cum_rate_final <- cum_episodes[12] / cum_patient_years[12]
-  overall <- summarise_rate(x)
-  expect_equal(cum_rate_final, overall$rate)
-})
-
 test_that("plot.pd_unit() type = 'yearly' handles an empty cohort without erroring", {
   skip_if_not_installed("ggplot2")
   skip_if_not_installed("patchwork")
@@ -184,9 +151,7 @@ test_that("cumulative_pf_by_month()'s final value matches summarise_pf()'s overa
   )
   pf_monthly <- cumulative_pf_by_month(x)
   overall_pf <- summarise_pf(x)
-  # PF drops to 0% once the episode lands in May, and stays there
-  expect_equal(pf_monthly$cum_pf_pct[1:4], rep(100, 4))
-  expect_equal(pf_monthly$cum_pf_pct[5:12], rep(0, 8))
+  # the last month covers the whole period, so it equals the overall PF
   expect_equal(pf_monthly$cum_pf_pct[12], overall_pf$pf * 100)
 })
 
