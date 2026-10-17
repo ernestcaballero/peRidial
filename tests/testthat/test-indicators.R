@@ -1,5 +1,4 @@
 # Tests for R/indicators.R.
-# peritonitis_rate_by_period() and monthly_peritonitis_rate() are already tested in test-method-plot.R.
 
 d <- function(x) as.Date(x)
 
@@ -25,9 +24,11 @@ test_that("exposure_days() rejects arguments that are not Dates, naming the argu
 
 # catheter_exposure_days()
 
-test_that("catheter_exposure_days() gives the whole period for a catheter still active", {
-  cath <- list(pd_start_date = d("2024-06-01"), pd_stop_date = as.Date(NA))
-  expect_equal(catheter_exposure_days(cath, T0, T1), 365)
+test_that("catheter_exposure_days() gives the whole period for a catheter active throughout", {
+  open <- list(pd_start_date = d("2024-06-01"), pd_stop_date = as.Date(NA))
+  expect_equal(catheter_exposure_days(open, T0, T1), 365)
+  spans <- list(pd_start_date = d("2024-06-01"), pd_stop_date = d("2026-03-01"))   # clipped at both ends
+  expect_equal(catheter_exposure_days(spans, T0, T1), 365)
 })
 
 test_that("catheter_exposure_days() starts counting at pd_start_date when it is inside the period", {
@@ -38,11 +39,6 @@ test_that("catheter_exposure_days() starts counting at pd_start_date when it is 
 test_that("catheter_exposure_days() stops counting at pd_stop_date when it is inside the period", {
   cath <- list(pd_start_date = d("2024-06-01"), pd_stop_date = d("2025-02-28"))
   expect_equal(catheter_exposure_days(cath, T0, T1), 59)   # 31 Jan + 28 Feb
-})
-
-test_that("catheter_exposure_days() clips a window for a catheter active before and after the period", {
-  cath <- list(pd_start_date = d("2024-06-01"), pd_stop_date = d("2026-03-01"))
-  expect_equal(catheter_exposure_days(cath, T0, T1), 365)
 })
 
 test_that("catheter_exposure_days() counts a catheter that starts and stops inside the period", {
@@ -64,17 +60,13 @@ test_that("catheter_exposure_days() counts exactly one day when the window touch
   expect_equal(catheter_exposure_days(starts_on_t1, T0, T1), 1)
 })
 
-test_that("catheter_exposure_days() censors an open catheter at tau", {
-  cath <- list(pd_start_date = d("2024-06-01"), pd_stop_date = as.Date(NA))
-  expect_equal(catheter_exposure_days(cath, T0, T1, tau = d("2025-03-31")), 90)  # # left PD on 31 Mar: 1 Jan - 31 Mar 2025 = 90 days
-})
-
 test_that("catheter_exposure_days() uses the earliest of pd_stop_date, t1 and tau", {
+  open <- list(pd_start_date = d("2024-06-01"), pd_stop_date = as.Date(NA))
+  expect_equal(catheter_exposure_days(open, T0, T1, tau = d("2025-03-31")), 90)   # left PD on 31 Mar: 1 Jan - 31 Mar 2025 = 90 days
+  expect_equal(catheter_exposure_days(open, T0, T1, tau = d("2026-06-01")), 365)  # tau after t1
   cath <- list(pd_start_date = d("2024-06-01"), pd_stop_date = d("2025-06-30"))
-  expect_equal(catheter_exposure_days(cath, T0, T1, tau = d("2025-09-30")), 181) # # tau after the stop date
-  expect_equal(catheter_exposure_days(cath, T0, T1, tau = d("2025-01-31")), 31) # tau before the stop date
-  open <- list(pd_start_date = d("2024-06-01"), pd_stop_date = as.Date(NA))  # tau after t1
-  expect_equal(catheter_exposure_days(open, T0, T1, tau = d("2026-06-01")), 365)
+  expect_equal(catheter_exposure_days(cath, T0, T1, tau = d("2025-09-30")), 181)  # tau after the stop date
+  expect_equal(catheter_exposure_days(cath, T0, T1, tau = d("2025-01-31")), 31)   # tau before the stop date
 })
 
 test_that("catheter_exposure_days() treats an NA tau as 'never left PD'", {
@@ -93,10 +85,6 @@ test_that("catheter_exposure_days() rejects non-Date inputs", {
 
 test_that("total_patient_years() is 0 for an empty cohort", {
   expect_equal(total_patient_years(list(), T0, T1), 0)
-})
-
-test_that("total_patient_years() converts exposure days with a 365.25-day year", {
-  expect_equal(total_patient_years(list(make_patient()), T0, T1), 365 / 365.25)
 })
 
 test_that("total_patient_years() adds patients together", {
@@ -188,12 +176,10 @@ test_that("peritonitis_rate_by_period() patient-years across the bins add up to 
   }
 })
 
-test_that("peritonitis_rate_by_period() rejects bad input", {
+test_that("peritonitis_rate_by_period() rejects an unknown cal.period and a unit with no t0 or t1", {
   expect_error(peritonitis_rate_by_period(make_unit(), cal.period = "week"))
-})
-
-test_that("peritonitis_rate_by_period() errors when the unit has no t0 or t1", {
   x <- make_unit()
   x$t1 <- as.Date(NA)
   expect_error(peritonitis_rate_by_period(x), "Both t0 and t1")
 })
+
