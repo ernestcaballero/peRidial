@@ -47,7 +47,7 @@ cohort. Only for \code{type = "yearly"}. Default \code{FALSE}.}
 PD catheters were stopped, as a \strong{count of catheters} (a patient can have
 more than one). Only catheters whose \code{pd_stop_date} falls within
 \verb{[x$t0, x$t1]} are counted. The reason is the catheter's \code{removal_reason}
-checked against the accepted list of reasons in \code{R/value_maps.R}
+checked against the package's accepted list of removal reasons
 (the ISPD reasons plus death, transplant and permanent transfer to HD);
 text not on the list is counted as \code{"Other"}.
 Where a catheter was removed for a permanent transfer to HD, the patient's
@@ -69,8 +69,9 @@ Draws a plot of peritonitis rate and peritonitis-free percentage of a
 draw a peritonitis rate trend binned by that calendar period
 (via \code{peritonitis_rate_by_period()}); \code{"yearly"} draws the cumulative
 (year-to-date) rate  and a cumulative (year-to-date) peritonitis-free percentage
-in a two-panel plot. Both views reuse \code{summarise_rate()}/\code{summarise_pf()}.
-Requires the \code{ggplot2} package, and also \code{patchwork} for \code{type = "yearly"}.
+in a two-panel plot. Both views judge the indicators exactly as
+\code{\link[=summary.pd_unit]{summary.pd_unit()}} does. Requires the \code{ggplot2} package, and also
+\code{patchwork} for \code{type = "yearly"}.
 }
 \details{
 With \code{type = "yearly"}, four optional bar-chart panels summarising the
@@ -81,7 +82,7 @@ their data from the unit's tibbles (\code{x$patients}, \code{x$catheters}) and
 \code{"Unknown"} bar.
 }
 \examples{
-\donttest{
+\dontrun{
 x <- new_pd_unit(
   unit_id = "Wellington PD Unit",
   t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
@@ -97,4 +98,9 @@ x <- new_pd_unit(
        show_modality = TRUE, show_stop.reason = TRUE)
 }
 
+}
+\seealso{
+\code{\link[=peritonitis_rate_by_period]{peritonitis_rate_by_period()}}, which produces the bins and rates
+plotted, \code{\link[=summary.pd_unit]{summary.pd_unit()}} for the same indicators as a report, and
+\code{vignette("peridial", package = "peridial")}.
 }

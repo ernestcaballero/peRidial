@@ -24,20 +24,27 @@ causative organism(s) identified for this episode. Use \code{"negative"}
 for a culture-negative episode; \code{"negative"} cannot be combined with
 other organisms in the same list.}
 
-\item{episode_type}{Character. One of \code{"relapsing"}, \code{"recurrent"},
-or \code{"repeat"} (per ISPD 2022 definitions), or \code{NA} if this is the
-patient's first recorded episode and there is no prior episode to compare
-against. Derived via \code{get_episode_type()}.}
+\item{episode_type}{Character. One of \code{"relapsing"}, \code{"recurrent"}
+or \code{"repeat"} (per ISPD 2022 definitions), or \code{NA} when no ISPD
+category applies. \code{NA} is not a missing value and the episode is still
+counted towards the peritonitis rate; see \code{\link{get_episode_type}()}.
+Derived via \code{\link{get_episode_type}()}.}
 
 \item{last_dose_antibiotic}{Date. Date of the last dose of antibiotic
-treatment given for this episode.}
+treatment given for this episode. Required: it is the date every later
+episode of the same patient is classified against.}
 
-\item{outcome}{Character. Clinical outcome of this episode (e.g.
-\code{"hospitalisation"}, \code{"catheter removed"}, \code{"temporary transfer to HD"}).
-If supplied, \code{outcome_date} must also be supplied. \code{NA} when resolved.}
+\item{outcome}{Character. Clinical outcome of this episode, one of
+\code{"catheter removed"}, \code{"permanent transfer to HD"},
+\code{"temporary transfer to HD"} or \code{"hospitalisation"} (when
+\code{pd_unit()} derives it, the most severe flag set on the PE row wins,
+in that order). \code{NA} means the episode resolved, and is not a missing
+value.}
 
-\item{outcome_date}{Date. Date of the outcome. Required whenever
-\code{outcome} is supplied, and specifically required when \code{outcome} is \code{"catheter removed"}.}
+\item{outcome_date}{Date. Date of the outcome. Required when \code{outcome}
+is \code{"catheter removed"}; optional for the other outcomes, and in fact
+left \code{NA} by \code{pd_unit()} for \code{"hospitalisation"}. An
+\code{outcome_date} without an \code{outcome} is an error.}
 }
 \value{
 An object of class \code{pd_infection}.
@@ -47,13 +54,15 @@ Peritonitis episode data for any catheter owned by a patient in the reporting pe
 }
 \examples{
 \dontrun{
+# the unchecked constructor; pd_infection() is the one that validates
 new_pd_infection(
   patient_id = "ABC0110",
   infection_date = as.Date("2025-06-01"),
-  organism_list = list("Staphylococcus aureus"),
+  organism_list = list("S. aureus"),
   episode_type = NA_character_,
-  last_dose_antibiotic = as.Date(NA),
+  last_dose_antibiotic = as.Date("2025-06-15"),
   outcome = NA_character_,
   outcome_date = as.Date(NA)
 )}
+
 }

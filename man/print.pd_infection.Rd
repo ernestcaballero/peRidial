@@ -19,3 +19,9 @@ A single peritonitis episode's snapshot: patient id, infection date,
 causative organism(s), episode type, date of last antibiotic dose, and
 outcome.
 }
+\examples{
+# an NA outcome means the episode resolved, not that the outcome is missing
+pd_infection("ABC1234", as.Date("2025-03-01"), list("S. aureus"),
+             last_dose_antibiotic = as.Date("2025-03-15"))
+
+}

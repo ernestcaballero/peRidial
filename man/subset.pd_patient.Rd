@@ -21,16 +21,19 @@ Omit to keep every column.}
 A tibble.
 }
 \description{
-Returns the rows (and, with \code{select}, the columns) of one patient's
+Returns the rows and, (with \code{select}), the columns of one patient's
 data that meet a condition, as a plain tibble. Peritonitis indicators are not
-recalculated and the unit is not modified.
+recalculated and the patient is not modified.
 }
 \details{
-The table is the one \code{\link{subset.pd_unit}()} uses, for this patient alone.
-\code{NA} for a patient with no catheters or episode columns. To subset several patients at
-once, use \code{\link{subset.pd_unit}()} and filter on \code{patient_id}.
+The table is the one \code{\link{subset.pd_unit}()} uses, for this patient
+alone. A patient with no catheters, or with no episodes, still gives a row,
+with the columns below that level left \code{NA}. To subset several patients
+at once, use \code{\link{subset.pd_unit}()} and filter on
+\code{patient_id}.
 }
 \examples{
+\dontrun{
 cath <- new_pd_catheter(
   patient_id = "ABC0110", catheter_id = "ABC0110_01",
   insertion_date = as.Date("2024-12-01"), pd_start_date = as.Date("2024-12-15"),
@@ -43,6 +46,7 @@ pat <- new_pd_patient(
 )
 subset(pat, procedure_type == "laparoscopic",
        select = c(patient_id, gender, catheter_id, procedure_type))
+}
 
 }
 \seealso{

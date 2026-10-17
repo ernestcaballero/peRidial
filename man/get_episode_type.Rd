@@ -41,6 +41,38 @@ culture-negative pairing).
 \strong{Repeat}: more than 4 weeks after completing therapy, with the same
 specific organism as the prior episode.
 
-\strong{NA}: means classified as first ever episode, or a resolved peritonitis
-episode not in one of \code{"relapsing"}, \code{"recurrent"}, \code{"repeat"}
+\strong{NA}: no ISPD category applies. This is not a missing value, and the
+episode is still counted towards the peritonitis rate. It arises three ways:
+the patient's first recorded episode (\code{prior_episode = NULL}); a
+different organism more than 4 weeks after completing therapy; or a prior
+episode whose \code{last_dose_antibiotic} is missing, so the 4-week window
+cannot be judged.
+
+The 4-week boundary is inclusive: 28 days after the prior episode's last
+dose is within 4 weeks. Organisms are compared ignoring case
+and order, and two episodes are the same organism only if their whole
+organism lists match.
+}
+\examples{
+\dontrun{
+first <- pd_infection("ABC1234", as.Date("2025-04-01"), list("E. coli"),
+                      last_dose_antibiotic = as.Date("2025-04-15"))
+
+# 27 days after the last dose, same organism
+get_episode_type(as.Date("2025-05-12"), list("E. coli"), prior_episode = first)
+
+# same timing, a different organism
+get_episode_type(as.Date("2025-05-12"), list("Klebsiella"), prior_episode = first)
+
+# same organism, but more than 4 weeks later
+get_episode_type(as.Date("2025-07-01"), list("E. coli"), prior_episode = first)
+
+# a patient's first episode has nothing to be classified against
+get_episode_type(as.Date("2025-04-01"), list("E. coli"), prior_episode = NULL)
+}
+
+}
+\seealso{
+\code{\link{classify_episode_types}()} for many episodes at once,
+and \code{vignette("indicators-classification", package = "peridial")}.
 }

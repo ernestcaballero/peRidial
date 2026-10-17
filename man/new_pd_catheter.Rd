@@ -28,22 +28,28 @@ insertion date per patient (e.g. XYZ1234_01).}
 
 \item{insertion_date}{Date. Date the catheter was surgically inserted.}
 
-\item{procedure_type}{Character. Type of insertion technique
-(eg. either of \code{"open surgical"}, \code{"laparoscopic"}, \code{"percutaneous"}).}
+\item{procedure_type}{Character. Type of insertion technique, as recorded on
+the A3 form: \code{"Surgical"}, \code{"Laparoscopic"} or
+\code{"Percutaneous"}.}
 
 \item{pd_start_date}{Date. Date of start of PD therapy of this catheter, usually 2-4 weeks after insertion.}
 
 \item{pd_stop_date}{Date. Date PD therapy stopped on this catheter, or
 \code{NA} if the catheter is still in active use.}
 
-\item{removal_reason}{Character. Reason the catheter was removed (e.g. \code{"infection"},
-\code{"mechanical failure"}, \code{"transplant"}), or \code{NA} if it hasn't been removed.}
+\item{removal_reason}{Character. Reason PD on this catheter stopped, or
+\code{NA} if it has not. One of the accepted reasons the package
+recognises (the ISPD removal reasons such as
+\code{"Acute Peritonitis"}, \code{"Catheter Block"} or
+\code{"Dialysate Leak"}, plus \code{"Death"}, \code{"Transplant"} and
+\code{"Permanent transfer to HD"}); a value that is not on the list is
+read as \code{"Other"}, and a blank one as \code{NA}.}
 
 \item{infections}{List. A list of \code{pd_infection} objects that occurred
-on this catheter (i.e. each has \code{catheter_id} equal to this
-catheter's \code{catheter_id}). Defaults to an empty list for a catheter
-with no recorded peritonitis episodes. This is restricted to the reporting
-period (\code{t0} and \code{t1}).}
+on this catheter. An episode belongs to a catheter by containment because
+a \code{pd_infection} has no \code{catheter_id} field. Each one need
+only carry the same \code{patient_id} as this catheter, and fall inside its PD window.
+Defaults to an empty list for a catheter with no recorded peritonitis episodes.}
 
 \item{t0}{Date. Start of the reporting period, used (together with
 \code{t1}, \code{pd_start_date}, and \code{pd_stop_date} -- see
@@ -88,6 +94,7 @@ occurred during this catheter's active PD window.
 }
 \examples{
 \dontrun{
+# the unchecked constructor; pd_catheter() is the one that validates
 new_pd_catheter(
   patient_id = "ABC0110",
   catheter_id = "ABC0110_01",

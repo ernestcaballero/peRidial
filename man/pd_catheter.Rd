@@ -28,22 +28,28 @@ insertion date per patient (e.g. XYZ1234_01).}
 
 \item{insertion_date}{Date. Date the catheter was surgically inserted.}
 
-\item{procedure_type}{Character. Type of insertion technique
-(eg. either of \code{"open surgical"}, \code{"laparoscopic"}, \code{"percutaneous"}).}
+\item{procedure_type}{Character. Type of insertion technique, as recorded on
+the A3 form: \code{"Surgical"}, \code{"Laparoscopic"} or
+\code{"Percutaneous"}.}
 
 \item{pd_start_date}{Date. Date of start of PD therapy of this catheter, usually 2-4 weeks after insertion.}
 
 \item{pd_stop_date}{Date. Date PD therapy stopped on this catheter, or
 \code{NA} if the catheter is still in active use.}
 
-\item{removal_reason}{Character. Reason the catheter was removed (e.g. \code{"infection"},
-\code{"mechanical failure"}, \code{"transplant"}), or \code{NA} if it hasn't been removed.}
+\item{removal_reason}{Character. Reason PD on this catheter stopped, or
+\code{NA} if it has not. One of the accepted reasons the package
+recognises (the ISPD removal reasons such as
+\code{"Acute Peritonitis"}, \code{"Catheter Block"} or
+\code{"Dialysate Leak"}, plus \code{"Death"}, \code{"Transplant"} and
+\code{"Permanent transfer to HD"}); a value that is not on the list is
+read as \code{"Other"}, and a blank one as \code{NA}.}
 
 \item{infections}{List. A list of \code{pd_infection} objects that occurred
-on this catheter (i.e. each has \code{catheter_id} equal to this
-catheter's \code{catheter_id}). Defaults to an empty list for a catheter
-with no recorded peritonitis episodes. This is restricted to the reporting
-period (\code{t0} and \code{t1}).}
+on this catheter. An episode belongs to a catheter by containment because
+a \code{pd_infection} has no \code{catheter_id} field. Each one need
+only carry the same \code{patient_id} as this catheter, and fall inside its PD window.
+Defaults to an empty list for a catheter with no recorded peritonitis episodes.}
 
 \item{t0}{Date. Start of the reporting period, used (together with
 \code{t1}, \code{pd_start_date}, and \code{pd_stop_date} -- see
@@ -83,4 +89,39 @@ An object of class \code{pd_catheter}.
 \description{
 Builds a \code{pd_catheter} via \code{new_pd_catheter()} and checks it with
 \code{validate_pd_catheter()} before returning it.
+}
+\examples{
+\dontrun{
+inf <- pd_infection(
+  patient_id = "ABC1234",
+  infection_date = as.Date("2025-03-01"),
+  organism_list = list("S. aureus"),
+  last_dose_antibiotic = as.Date("2025-03-15")
+)
+
+pd_catheter(
+  patient_id = "ABC1234",
+  catheter_id = "ABC1234_01",
+  insertion_date = as.Date("2024-12-01"),
+  procedure_type = "Laparoscopic",
+  pd_start_date = as.Date("2024-12-15"),
+  infections = list(inf),
+  t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31")
+)
+
+# an episode dated before this catheter's PD window cannot belong to it
+too_early <- pd_infection("ABC1234", as.Date("2024-10-01"), list("E. coli"),
+                          last_dose_antibiotic = as.Date("2024-10-15"))
+try(pd_catheter(
+  patient_id = "ABC1234", catheter_id = "ABC1234_01",
+  insertion_date = as.Date("2024-11-02"), pd_start_date = as.Date("2024-11-20"),
+  infections = list(too_early),
+  t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31")
+))
+}
+
+}
+\seealso{
+\code{\link{new_pd_catheter}()} for the unchecked constructor, and
+\code{vignette("data-structures", package = "peridial")}.
 }

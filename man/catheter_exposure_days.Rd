@@ -26,11 +26,31 @@ endpoints. Zero for a catheter whose window never overlaps the period.
 Days a catheter is at risk: this catheter's PD window clipped to
 the reporting period \code{[t0, t1]} and censored at the patient's
 \code{tau} (death, transplant, or permanent transfer to HD). The clipped
-interval is then measured by \code{exposure_days()}, which is documented as
-taking dates that have already been truncated.
+interval is then measured by \code{exposure_days()}.
 }
 \details{
 An \code{NA} \code{pd_stop_date} means the catheter is still in active
 use, and an \code{NA} \code{tau} means the patient never left PD, so neither
 contributes an upper bound and \code{t1} closes the interval instead.
+}
+\examples{
+\dontrun{
+# a catheter that started before the period and is still open, for a patient
+# who died on 30 September: 1 January to 30 September, both days counted
+catheter <- list(pd_start_date = as.Date("2024-11-10"),
+                 pd_stop_date = as.Date(NA))
+
+catheter_exposure_days(catheter,
+                       t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
+                       tau = as.Date("2025-09-30"))
+
+# with no tau the patient never left PD, so the catheter runs to t1
+catheter_exposure_days(catheter,
+                       t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"))
+}
+}
+\seealso{
+\code{\link{total_patient_years}()} to sum this over a cohort, and
+\code{vignette("indicators-classification", package = "peridial")}, which
+writes the same clipping out as a formula.
 }

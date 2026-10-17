@@ -15,10 +15,26 @@
 \code{x}, invisibly.
 }
 \description{
-A single catheter's snapshot: the reporting window, \code{catheter_id}, \code{insertion_date},
-\code{procedure_type}, PD window, \code{n_peritonitis_episodes} (if any), \code{infection_date},
-\code{episode_type} (if any) and \code{outcome}, and peritonitis episode count within that window,
-followed by each countable episode's \code{infection_date}, \code{episode_type} (if any),
-and \code{outcome} (if any), and then any relapsing episodes (listed separately since
-it doesn't count toward \code{n_peritonitis_episodes} (see \code{count_episodes()}).
+A single catheter's snapshot: the reporting window, \code{catheter_id},
+\code{insertion_date}, \code{procedure_type}, the PD window, and the
+countable peritonitis episode count within that window
+(\code{n_peritonitis_episodes}). Each countable episode is then listed with
+its \code{infection_date}, \code{episode_type} (if any) and \code{outcome}
+(if any), followed by any relapsing episodes, shown separately because they
+do not count towards \code{n_peritonitis_episodes} (see
+\code{\link{count_episodes}()}).
+}
+\examples{
+\dontrun{
+inf <- pd_infection("ABC1234", as.Date("2025-03-01"), list("S. aureus"),
+                    last_dose_antibiotic = as.Date("2025-03-15"))
+cath <- pd_catheter(
+  patient_id = "ABC1234", catheter_id = "ABC1234_01",
+  insertion_date = as.Date("2024-12-01"), pd_start_date = as.Date("2024-12-15"),
+  procedure_type = "Laparoscopic", infections = list(inf),
+  t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31")
+)
+cath
+}
+
 }

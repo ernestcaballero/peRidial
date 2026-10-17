@@ -77,11 +77,6 @@ and as the nested \code{pd_patient} object list they were derived from;
 together with the reporting period and the headline counts the ISPD
 indicators are built from.
 }
-\details{
-This constructor does no derivation: every count is taken as supplied.
-\code{\link{pd_unit}()} is the user-facing helper that reads the raw files,
-builds the object graph, derives these numbers and validates the result.
-}
 \examples{
 # An empty unit for a period with no patients.
 new_pd_unit(

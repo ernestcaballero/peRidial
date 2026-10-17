@@ -17,7 +17,8 @@ by the objects' constructors.}
 }
 \value{
 A single non-negative numeric value: total patient-years-at-risk
-across all patients.
+across all patients. This is what a unit's \code{tpyar} holds, and the
+denominator of its peritonitis rate.
 }
 \description{
 Computes the denominator for the unit's peritonitis rate: total exposure
@@ -31,4 +32,22 @@ because censoring is a patient-level property: \code{tau} lives on
 \code{pd_patient} (as \code{transfer_date}), while the PD windows live on
 the \code{pd_catheter} objects nested inside it. Walking the objects keeps
 each catheter paired with the \code{tau} that applies to it.
+}
+\examples{
+\dontrun{
+unit <- suppressWarnings(pd_unit(
+  unit_data = system.file("extdata", "a3_2025.xlsx", package = "peridial"),
+  infection_data = system.file("extdata", "pe_2025.xlsx", package = "peridial"),
+  t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
+  unit_id = "Wellington PD Unit"
+))
+
+total_patient_years(unit$patient_list, unit$t0, unit$t1)
+unit$tpyar   # the same number, stored on the unit
+}
+
+}
+\seealso{
+\code{\link{catheter_exposure_days}()} for the per-catheter step,
+and \code{vignette("indicators-classification", package = "peridial")}.
 }

@@ -6,7 +6,15 @@
 \alias{peridial-package}
 \title{peridial: Peritonitis Indicators for Peritoneal Dialysis Units}
 \description{
-A standardised R framework for ingesting, validating, and summarising clinical peritoneal (PD) unit data. Nested S3 classes represent the PD patients, catheters, and peritonitis episodes, supporting reproducible calculation of ISPD-recommended peritonitis rate and peritonitis-free percentage indicators from longitudinal catheter and infection records.
+A standardised R framework for ingesting, validating, and summarising clinical peritoneal dialysis (PD) unit data. Four nested S3 classes represent the PD unit, its patients, their catheters, and each catheter's peritonitis episodes, supporting reproducible calculation of ISPD-recommended peritonitis rate and peritonitis-free percentage indicators from longitudinal catheter and infection records.
+}
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/ernestcaballero/peRidial}
+  \item Report bugs at \url{https://github.com/ernestcaballero/peRidial/issues}
+}
+
 }
 \author{
 \strong{Maintainer}: Ernest Caballero \email{ernestcabs@gmail.com}

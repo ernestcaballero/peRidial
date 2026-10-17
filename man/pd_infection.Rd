@@ -25,14 +25,20 @@ for a culture-negative episode; \code{"negative"} cannot be combined with
 other organisms in the same list.}
 
 \item{last_dose_antibiotic}{Date. Date of the last dose of antibiotic
-treatment given for this episode.}
+treatment given for this episode. Required: it is the date every later
+episode of the same patient is classified against.}
 
-\item{outcome}{Character. Clinical outcome of this episode (e.g.
-\code{"hospitalisation"}, \code{"catheter removed"}, \code{"temporary transfer to HD"}).
-If supplied, \code{outcome_date} must also be supplied. \code{NA} when resolved.}
+\item{outcome}{Character. Clinical outcome of this episode, one of
+\code{"catheter removed"}, \code{"permanent transfer to HD"},
+\code{"temporary transfer to HD"} or \code{"hospitalisation"} (when
+\code{pd_unit()} derives it, the most severe flag set on the PE row wins,
+in that order). \code{NA} means the episode resolved, and is not a missing
+value.}
 
-\item{outcome_date}{Date. Date of the outcome. Required whenever
-\code{outcome} is supplied, and specifically required when \code{outcome} is \code{"catheter removed"}.}
+\item{outcome_date}{Date. Date of the outcome. Required when \code{outcome}
+is \code{"catheter removed"}; optional for the other outcomes, and in fact
+left \code{NA} by \code{pd_unit()} for \code{"hospitalisation"}. An
+\code{outcome_date} without an \code{outcome} is an error.}
 
 \item{prior_episode}{A \code{pd_infection} object for the same patient's
 immediately preceding episode, or \code{NULL} if this is their first
@@ -46,4 +52,32 @@ An object of class \code{pd_infection}.
 Builds a \code{pd_infection} via \code{new_pd_infection()} and checks it with
 \code{validate_pd_infection()} before returning it. \code{episode_type} is
 derived automatically from \code{prior_episode} via \code{get_episode_type()}.
+}
+\examples{
+\dontrun{
+first <- pd_infection(
+  patient_id = "ABC1234",
+  infection_date = as.Date("2025-04-01"),
+  organism_list = list("E. coli"),
+  last_dose_antibiotic = as.Date("2025-04-15")
+)
+first$episode_type   # NA: there is nothing prior to classify against
+
+# the same patient's next episode, classified against the first
+pd_infection(
+  patient_id = "ABC1234",
+  infection_date = as.Date("2025-05-12"),
+  organism_list = list("E. coli"),
+  last_dose_antibiotic = as.Date("2025-05-26"),
+  prior_episode = first
+)
+
+# every episode needs a last antibiotic dose
+try(pd_infection("ABC1234", as.Date("2025-03-10"), list("S. aureus")))
+}
+
+}
+\seealso{
+\code{\link{get_episode_type}()} for the classification rule, and
+\code{vignette("data-structures", package = "peridial")}.
 }

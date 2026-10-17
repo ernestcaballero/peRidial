@@ -19,3 +19,23 @@ A single patient's own snapshot: their id, reporting window, incident/
 prevalent status, catheter and countable-episode counts, and whether
 (and how) they were censored within the period.
 }
+\examples{
+\dontrun{
+inf <- pd_infection("ABC1234", as.Date("2025-03-01"), list("S. aureus"),
+                    last_dose_antibiotic = as.Date("2025-03-15"))
+cath <- pd_catheter(
+  patient_id = "ABC1234", catheter_id = "ABC1234_01",
+  insertion_date = as.Date("2024-12-01"), pd_start_date = as.Date("2024-12-15"),
+  procedure_type = "Laparoscopic", infections = list(inf),
+  t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31")
+)
+pat <- pd_patient(
+  patient_id = "ABC1234", catheters = list(cath),
+  t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
+  gender = "Female", date_of_birth = as.Date("1968-04-12"),
+  dialysis_type = "APD"
+)
+pat
+}
+
+}

@@ -22,7 +22,8 @@ when there is no rate or percentage to judge),
 \code{death}, \code{transplant}, \code{permanent transfer to HD},
 \code{pd stopped}, or \code{still active}), \code{cohort} (a named
 integer vector of \code{incident}/\code{prevalent} counts),
-\code{median_age_years} (this cohort's median patient age at \code{t1}),
+\code{mean_age_years} (this cohort's mean patient age at \code{t1}, the
+end of the reporting window),
 \code{demographics} (a list of tables: \code{gender}, \code{ethnicity},
 \code{primary_kidney_disease}, \code{diabetes_status},
 \code{smoking_status}, \code{dialysis_type}), \code{catheters} (a list
@@ -40,4 +41,40 @@ and peritonitis free percentage against their ISPD benchmarks),
 a breakdown of episodes by type, the cohort's outcomes and
 incident/prevalent split, patient demographics, a catheter summary,
 and peritonitis episodes summary.
+}
+\details{
+"Episodes by type" counts \emph{every} episode in the unit, relapsing ones
+and any falling outside the reporting period included, with an \code{NA}
+\code{episode_type} shown as \code{"uncategorised"}. "Countable episodes" is
+the rate numerator and excludes those, so the two are not expected to agree.
+Demographic tables relabel \code{NA} as \code{"unknown"}.
+
+The ISPD peritonitis-free target is defined per year, so a reporting period
+that is not 365 or 366 days long gives a percentage that is not comparable
+with it. The percentage is still calculated, with a warning. The rate is per
+patient-year and is unaffected.
+}
+\examples{
+\dontrun{
+unit <- suppressWarnings(pd_unit(
+  unit_data = system.file("extdata", "a3_2025.xlsx", package = "peridial"),
+  infection_data = system.file("extdata", "pe_2025.xlsx", package = "peridial"),
+  t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
+  unit_id = "Wellington PD Unit"
+))
+
+s <- summary(unit)
+
+# the components are returned invisibly, so they can be used directly
+s$rate
+s$rate_met
+s$episode_types
+s$demographics$dialysis_type
+}
+
+}
+\seealso{
+\code{\link{plot.pd_unit}()} to plot the same indicators, and
+\code{vignette("indicators-classification", package = "peridial")} for how
+each one is defined and which episodes count towards it.
 }

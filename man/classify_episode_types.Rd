@@ -38,7 +38,8 @@ same validation and the same ISPD rule, so the result is the same either way.}
 \value{
 Character vector, the same length as the inputs: \code{"relapsing"},
 \code{"recurrent"}, \code{"repeat"}, or \code{NA_character_} (first valid
-episode for a patient, invalid row, or no ISPD category applies).
+episode for a patient, invalid row, or no ISPD category applies). An \code{NA}
+is not a missing value and the episode still counts towards the peritonitis rate.
 }
 \description{
 A vectorised counterpart to \code{\link[=get_episode_type]{get_episode_type()}}. Each row is first checked
@@ -48,4 +49,37 @@ Valid rows are then classified as \code{"relapsing"}, \code{"recurrent"} or \cod
 (ISPD 2022 definitions) against the same patient's immediately preceding
 valid episode. By default the classification loop runs in C++; set
 \code{use_cpp = FALSE} to run the equivalent pure-R loop instead.
+}
+\details{
+A row that fails validation (eg. a missing \code{last_dose_antibiotic}, or a
+\code{"catheter removed"} outcome with no \code{outcome_date}) is returned as \code{NA} and
+is \strong{not} carried forward as the prior episode for the next row.
+\code{pd_unit()} reports them among its data problems and builds no unit until they are fixed.
+
+Organism names are compared \strong{as given}. Only \code{pd_unit()} standardises
+spellings against the package's accepted list before classifying, so used on
+its own this function treats \code{"E. coli"} and \code{"Escherichia coli"} as
+different organisms.
+}
+\examples{
+\dontrun{
+classify_episode_types(
+  patient_id = c("patient01", "patient01", "patient02", "patient02"),
+  infection_date = as.Date(c("2025-04-01", "2025-05-12",
+                             "2025-03-31", "2025-07-13")),
+  last_dose_antibiotic = as.Date(c("2025-04-15", "2025-06-01",
+                                   "2025-04-14", "2025-07-27")),
+  organism_list = list(list("E. coli"), list("E. coli"),
+                       list("E. coli"), list("E. coli"))
+)
+# patient01's second episode is 27 days after the last dose, same organism: relapsing
+# patient02's is 90 days after: repeat.
+# Episodes are never compared across patients, so each patient's first is NA.
+}
+
+}
+\seealso{
+\code{\link[=get_episode_type]{get_episode_type()}} for the single-episode version, and
+\code{vignette("indicators-classification", package = "peridial")} for the ISPD
+rule, a worked example and the compiled classifier.
 }

@@ -13,10 +13,12 @@
 }
 \value{
 Invisibly, a list with components \code{status}, \code{age_years}
-(age at \code{t0}, the reporting-window start), \code{catheters}
+(age at \code{t1}, the reporting-window end), \code{catheters}
 (a data frame with one row per catheter), \code{total_exposure_days},
 \code{total_exposure_years}, \code{n_episodes}, and \code{episode_types}
-(a table of countable-episode counts by \code{episode_type}).
+(a table of countable-episode counts by \code{episode_type}). Unlike
+\code{\link{summary.pd_unit}()}'s \code{episode_types}, which counts every
+episode, this counts only those that tell towards the rate.
 }
 \description{
 A single patient's clinical snapshot: reporting window, incident/
@@ -24,4 +26,30 @@ prevalent status, each catheter's active window and outcome (with that
 catheter's own countable peritonitis episodes), this patient's total time-at-risk
 within \code{[t0, t1]}, a breakdown of countable peritonitis episodes by \code{episode_type}
 across every catheter, and how (or whether) this patient was censored.
+}
+\examples{
+\dontrun{
+inf <- pd_infection("ABC1234", as.Date("2025-03-01"), list("S. aureus"),
+                    last_dose_antibiotic = as.Date("2025-03-15"))
+cath <- pd_catheter(
+  patient_id = "ABC1234", catheter_id = "ABC1234_01",
+  insertion_date = as.Date("2024-12-01"), pd_start_date = as.Date("2024-12-15"),
+  procedure_type = "Laparoscopic", infections = list(inf),
+  t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31")
+)
+pat <- pd_patient(
+  patient_id = "ABC1234", catheters = list(cath),
+  t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
+  gender = "Female", date_of_birth = as.Date("1968-04-12"),
+  dialysis_type = "APD"
+)
+s <- summary(pat)
+s$total_exposure_years
+s$episode_types
+}
+
+}
+\seealso{
+\code{\link{summary.pd_unit}()} for the whole cohort, and
+\code{vignette("peridial", package = "peridial")}.
 }

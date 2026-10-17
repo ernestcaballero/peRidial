@@ -9,7 +9,9 @@ peritonitis_rate_by_period(x, cal.period = c("month", "quarter", "year"))
 \arguments{
 \item{x}{A \code{pd_unit} object.}
 
-\item{cal.period}{Character. \code{"month"}, \code{"quarter"}, or \code{"year"}.}
+\item{cal.period}{Character. \code{"month"}, \code{"quarter"}, or \code{"year"}. These are
+the same bins \code{plot.pd_unit()} draws, where the equivalent \code{type} argument
+spells them \code{"monthly"}, \code{"quarterly"} and \code{"yearly"}.}
 }
 \value{
 A tibble, one row per period spanned by \verb{[x$t0, x$t1]}:
@@ -30,11 +32,13 @@ are clipped to \code{t0}/\code{t1} rather than padded out to a full period,
 so \code{patient_years} never exceeds what the unit could actually accrue.
 }
 \examples{
+\dontrun{
 x <- new_pd_unit(
   unit_id = "Wellington PD Unit",
   t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
   n_new = 0L, n_patients = 0L, tpyar = 0
 )
 peritonitis_rate_by_period(x, cal.period = "quarter")
+}
 
 }

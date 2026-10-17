@@ -15,5 +15,24 @@
 \code{x}, invisibly.
 }
 \description{
-Print a pd_unit object
+A unit's headline snapshot: its name, the reporting period, the cohort size
+with the incident count, how many catheters and peritonitis episodes it
+holds, and its total patient-years at risk. Every episode in the unit is
+counted here, including relapsing ones; \code{\link{summary.pd_unit}()}
+reports the countable subset the peritonitis rate is built from.
+}
+\examples{
+\dontrun{
+unit <- pd_unit(
+  unit_data = system.file("extdata", "a3_2025.xlsx", package = "peridial"),
+  infection_data = system.file("extdata", "pe_2025.xlsx", package = "peridial"),
+  t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
+  unit_id = "Wellington PD Unit"
+)
+unit
+}
+
+}
+\seealso{
+\code{\link{summary.pd_unit}()} for the full indicator report.
 }

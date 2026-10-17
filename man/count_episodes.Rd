@@ -38,12 +38,13 @@ Counts how many \code{pd_infection} objects in
 \code{infections} both (a) have an \code{infection_date} inside this
 catheter's own active window, and (b) are not a \strong{relapsing} episode.
 Per ISPD, a relapsing episode (same organism, occurring within 4 weeks of
-completing antibiotics for the immediately preceding episode --
-see \code{get_episode_type()} in pd_infection.R) is a continuation of that
-prior episode rather than a distinct new episode, so it is excluded from the count used for
-rate/free-percentage calculations. \code{"recurrent"} and \code{"repeat"} episodes
-are distinct new episodes and stay counted, as does an episode with \code{NA} \code{episode_type}
-(e.g. a patient's first-ever recorded episode, with nothing prior to compare against).
+completing antibiotics for the immediately preceding episode)
+see \code{\link{get_episode_type}()}) is a continuation of that
+prior episode rather than a distinct new episode, so it is excluded from the
+count used for rate/free-percentage calculations. \code{"recurrent"} and
+\code{"repeat"} episodes are distinct new episodes and stay counted,
+as does an episode with \code{NA} \code{episode_type} (e.g. a patient's
+first-ever recorded episode, with nothing prior to compare against).
 }
 \details{
 The active window is \code{[lower, upper]}, where:
@@ -62,4 +63,26 @@ numerator and the patient-years cover the same time.
 Any of \code{t0}/\code{t1}/\code{pd_start_date}/\code{pd_stop_date}/\code{tau}
 can be \code{NA}; a missing bound is simply left unfiltered on that side. If all
 five are \code{NA} this only filters out relapses.
+}
+\examples{
+\dontrun{
+episode <- function(date) {
+  pd_infection("ABC1234", as.Date(date), list("E. coli"),
+               last_dose_antibiotic = as.Date(date) + 14)
+}
+infections <- list(episode("2025-12-20"), episode("2026-01-20"))
+
+# the catheter runs on into February 2026, but the reporting period ends on
+# 31 December 2025, so only the first episode counts
+count_episodes(infections,
+               t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
+               pd_start_date = as.Date("2025-03-01"),
+               pd_stop_date = as.Date("2026-02-15"))
+}
+
+}
+\seealso{
+\code{\link{catheter_exposure_days}()}, which uses the same upper
+bound for the denominator, and
+\code{vignette("indicators-classification", package = "peridial")}.
 }

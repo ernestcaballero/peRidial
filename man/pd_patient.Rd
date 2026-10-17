@@ -56,25 +56,28 @@ smoking status (e.g. \code{"Never"}, \code{"Former"},
 uses -- \code{"APD"} (Automated PD), \code{"CAPD"} (Continuous
 Ambulatory PD), or \code{"Hybrid"} (both), or \code{NA}.}
 
-\item{transfer_reason}{Character. Reason the patient left PD permanently
-(e.g. \code{"death"}, \code{"transplant"}, \code{"permanent transfer to HD"}),
-or \code{NA} if they are still on PD. This together with
+\item{transfer_reason}{Character. Reason the patient left PD permanently:
+\code{"death"}, \code{"transplant"}, \code{"permanent transfer to HD"}, or
+\code{"pd stopped"} (every catheter has closed with none reopened, which
+\code{pd_unit()} applies only when \code{censor_on_last_stop = TRUE}).
+\code{NA} if they are still on PD. This together with
 \code{transfer_date} is the patient-level censoring point \eqn{tau}.}
 
 \item{transfer_date}{Date. Date the patient left PD (\eqn{tau}). Required
 whenever \code{transfer_reason} is supplied, and vice versa.}
 
 \item{new_patient_flag}{Logical. \code{TRUE} if this patient first started
-PD within \code{[t0, t1]} (incident), \code{FALSE} if they were already on
-PD before \code{t0} (prevalent). Defaults to \code{NULL} and derived via
-\code{is_incident_patient()}.}
+PD within \code{[t0, t1]} (incident), \code{FALSE} if PD start date is
+before \code{t0} (prevalent). Defaults to \code{NULL}, which derives it
+from the earliest \code{pd_start_date} across \code{catheters}.}
 
 \item{n_catheters}{Integer. Number of catheters this patient has. Defaults
 to \code{NULL}, which derives it as \code{length(catheters)}.}
 
 \item{n_episodes}{Integer. Count of countable (non-relapsing) peritonitis
 episodes across all of this patient's catheters within the reporting
-period. Defaults to \code{NULL}, which derives it via \code{count_patient_episodes()}.}
+period. Defaults to \code{NULL}, which derives it by summing each
+catheter's \code{n_peritonitis_episodes}.}
 }
 \value{
 An object of class \code{pd_patient}.
@@ -82,4 +85,36 @@ An object of class \code{pd_patient}.
 \description{
 Builds a \code{pd_patient} via \code{new_pd_patient()} and checks it with
 \code{validate_pd_patient()} before returning it.
+}
+\examples{
+\dontrun{
+inf <- pd_infection("ABC1234", as.Date("2025-03-01"), list("S. aureus"),
+                    last_dose_antibiotic = as.Date("2025-03-15"))
+cath <- pd_catheter(
+  patient_id = "ABC1234", catheter_id = "ABC1234_01",
+  insertion_date = as.Date("2024-12-01"), pd_start_date = as.Date("2024-12-15"),
+  procedure_type = "Laparoscopic", infections = list(inf),
+  t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31")
+)
+pat <- pd_patient(
+  patient_id = "ABC1234", catheters = list(cath),
+  t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
+  gender = "Female", date_of_birth = as.Date("1968-04-12"),
+  dialysis_type = "APD"
+)
+pat
+pat$new_patient_flag   # FALSE: PD started before t0, so prevalent
+
+# no catheter may run past the patient's censoring point
+try(pd_patient(
+  patient_id = "ABC1234", catheters = list(cath),
+  t0 = as.Date("2025-01-01"), t1 = as.Date("2025-12-31"),
+  transfer_reason = "transplant", transfer_date = as.Date("2025-06-30")
+))
+}
+
+}
+\seealso{
+\code{\link{new_pd_patient}()} for the unchecked constructor, and
+\code{vignette("data-structures", package = "peridial")}.
 }
