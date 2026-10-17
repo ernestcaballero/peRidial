@@ -8,6 +8,16 @@
 #' valid episode. By default the classification loop runs in C++; set
 #' `use_cpp = FALSE` to run the equivalent pure-R loop instead.
 #'
+#' A row that fails validation (eg. a missing `last_dose_antibiotic`, or a
+#' `"catheter removed"` outcome with no `outcome_date`) is returned as `NA` and
+#' is **not** carried forward as the prior episode for the next row.
+#' `pd_unit()` reports them among its data problems and builds no unit until they are fixed.
+#'
+#' Organism names are compared **as given**. Only `pd_unit()` standardises
+#' spellings against the package's accepted list before classifying, so used on
+#' its own this function treats `"E. coli"` and `"Escherichia coli"` as
+#' different organisms.
+#'
 #' @param patient_id Character. Patient identifier for each episode.
 #' @param infection_date Date. Date each episode was diagnosed.
 #' @param last_dose_antibiotic Date. Date of the last antibiotic dose for each
@@ -22,10 +32,29 @@
 #'   [get_episode_type()] once per episode, and needs no compiled code. Both apply the
 #'   same validation and the same ISPD rule, so the result is the same either way.
 #'
-#' @returns Character vector, the same length as the inputs: \code{"relapsing"},
+#' @return Character vector, the same length as the inputs: \code{"relapsing"},
 #'   \code{"recurrent"}, \code{"repeat"}, or \code{NA_character_} (first valid
-#'   episode for a patient, invalid row, or no ISPD category applies).
+#'   episode for a patient, invalid row, or no ISPD category applies). An `NA`
+#'   is not a missing value and the episode still counts towards the peritonitis rate.
+#' @seealso [get_episode_type()] for the single-episode version, and
+#'   `vignette("indicators-classification", package = "peridial")` for the ISPD
+#'   rule, a worked example and the compiled classifier.
 #' @export
+#'
+#' @examples
+#' classify_episode_types(
+#'   patient_id = c("patient01", "patient01", "patient02", "patient02"),
+#'   infection_date = as.Date(c("2025-04-01", "2025-05-12",
+#'                              "2025-03-31", "2025-07-13")),
+#'   last_dose_antibiotic = as.Date(c("2025-04-15", "2025-06-01",
+#'                                    "2025-04-14", "2025-07-27")),
+#'   organism_list = list(list("E. coli"), list("E. coli"),
+#'                        list("E. coli"), list("E. coli"))
+#' )
+#' # patient01's second episode is 27 days after the last dose, same organism: relapsing
+#' # patient02's is 90 days after: repeat.
+#' # Episodes are never compared across patients, so each patient's first is NA.
+#'
 classify_episode_types <- function(patient_id,
                                    infection_date,
                                    last_dose_antibiotic,
