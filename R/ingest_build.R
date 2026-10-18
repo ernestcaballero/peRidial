@@ -143,8 +143,8 @@ build_patient_infections <- function(df, log, use_cpp = TRUE) {
     return(list())
   }
 
-  # Rows that fail validation come back NA and are logged one by one below, so the
-  # classifier's own warning about them is silenced here to avoid reporting twice.
+  # Rows that fail validation come back NA and are logged below
+  # classifier's own warning about them is silenced here to avoid reporting twice
   types <- suppressWarnings(classify_episode_types(
     patient_id = df$patient_id,
     infection_date = df$date_of_infection,
