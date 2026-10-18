@@ -52,7 +52,7 @@ library(peridial)
 
 ## The example data
 
-The example uses two synthetic Excel files that ship with the package, covering the 2025 reporting year for a fictional unit:
+The example uses two synthetic Excel files that ship with the package, covering the 2025 reporting year for a sample PD unit:
 
 - `a3_2025.xlsx` is the unit survey called `Form A3` file. Each row is one PD catheter. `Patient ID` identifies the patient and it repeats when a patient has more than one catheter in the period. This input also includes the patient's demographic details, PD start and stop dates, dialysis modality, and any change of dialysis modality like transplant, permanent transfer to haemodialysis (HD) or stopped PD. The example file has 62 catheters across 60 patients: 58 patients with a single catheter, and two whose catheter was removed and replaced during the reporting year.
 - `pe_2025.xlsx` is the peritonitis episode `Form PE` file. Each row is one peritonitis episode: the date of infection, the organism(s) cultured, the date of the last antibiotic dose, and whether the episode led to hospitalisation, catheter removal or a permanent transfer to HD. The example file has 28 episodes across 17 patients.
