@@ -119,7 +119,7 @@ Your files must use the column names in the table below. Capitalisation, spacing
 
 | File | Required columns | Optional columns |
 |---|---|---|
-| Unit (A3) | Patient ID, Insertion Date, PD Start Date, Date of Birth | Gender, Ethnicity, Primary Kidney Disease, Height, Weight, Cigarette Smoking Status, Diabetes Type, Procedure Type, PD Stop Date, Removal Reason, Dialysis Type, Dialysis Modality Change, Modality Change Reason, Date Modality Change, Date of Death, Cause of Death, Transplant Date |
+| Unit (A3) | Patient ID, Insertion Date, PD Start Date, Date of Birth | Gender, Ethnicity, Primary Kidney Disease, Cigarette Smoking Status, Diabetes Type, Procedure Type, PD Stop Date, Removal Reason, Dialysis Type, Dialysis Modality Change, Modality Change Reason, Date Modality Change, Date of Death, Cause of Death, Transplant Date |
 | Peritonitis (PE) | Patient ID, Date of Infection, Organism, Last Dose Antibiotic | Overnight Hospitalisation, Days Hospitalised, Catheter Removed, Catheter Removed Date, Interim HD, Permanent HD, First Dialysis Date, Last Dialysis Date |
 
 A missing required column stops the build with an error and provide a list of what was found. Check the spelling of optional columns carefully as a missing optional column is filled with `NA` without a warning. An incorrectly named `Date of Death` or `PD Stop Date` column, for example, means patients are not censored and patient-years are overstated.

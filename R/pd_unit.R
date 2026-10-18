@@ -297,8 +297,8 @@ validate_pd_unit <- function(x) {
 #'   \item{\code{unit_data} (A3), required}{\code{Patient ID},
 #'     \code{Insertion Date}, \code{PD Start Date}, \code{Date of Birth}.}
 #'   \item{\code{unit_data} (A3), optional}{\code{Gender}, \code{Ethnicity},
-#'     \code{Primary Kidney Disease}, \code{Height}, \code{Weight},
-#'     \code{Cigarette Smoking Status}, \code{Diabetes Type},
+#'     \code{Primary Kidney Disease}, \code{Cigarette Smoking Status},
+#'     \code{Diabetes Type},
 #'     \code{Procedure Type}, \code{PD Stop Date}, \code{Removal Reason},
 #'     \code{Dialysis Type}, \code{Dialysis Modality Change},
 #'     \code{Modality Change Reason}, \code{Date Modality Change},
@@ -388,7 +388,7 @@ pd_unit <- function(unit_data,
   require_cols(raw_pe_file, pe_required_cells, "infection (PE)")
 
   a3_optional <- c("gender", "ethnicity",
-                   "primary_kidney_disease", "height", "weight",
+                   "primary_kidney_disease",
                    "cigarette_smoking_status", "diabetes_type",
                    "dialysis_modality_change", "modality_change_reason",
                    "date_modality_change", "date_of_death", "cause_of_death",
@@ -441,7 +441,7 @@ pd_unit <- function(unit_data,
   raw_patients <- raw_a3 |>
     dplyr::select(dplyr::any_of(c(
       "patient_id", "date_of_birth", "gender", "ethnicity",
-      "primary_kidney_disease", "height", "weight",
+      "primary_kidney_disease",
       "cigarette_smoking_status", "diabetes_type", "date_of_death",
       "cause_of_death", "dialysis_type", "transplant_date"))) |>
     dplyr::distinct(patient_id, .keep_all = TRUE)

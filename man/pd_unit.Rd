@@ -81,8 +81,8 @@ a warning lists the candidates.
 \item{\code{unit_data} (A3), required}{\code{Patient ID},
 \code{Insertion Date}, \code{PD Start Date}, \code{Date of Birth}.}
 \item{\code{unit_data} (A3), optional}{\code{Gender}, \code{Ethnicity},
-\code{Primary Kidney Disease}, \code{Height}, \code{Weight},
-\code{Cigarette Smoking Status}, \code{Diabetes Type},
+\code{Primary Kidney Disease}, \code{Cigarette Smoking Status},
+\code{Diabetes Type},
 \code{Procedure Type}, \code{PD Stop Date}, \code{Removal Reason},
 \code{Dialysis Type}, \code{Dialysis Modality Change},
 \code{Modality Change Reason}, \code{Date Modality Change},

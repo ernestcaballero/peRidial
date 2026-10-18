@@ -19,8 +19,6 @@ a3_spec <- list(
     all = "primary",
     any = c("kidney", "renal", "disease")     # primary_kidney_disease, primary_renal_disease_code
   ),
-  height = list(any = "height"),
-  weight = list(any = "weight"),
   cigarette_smoking_status = list(
     any = c("smok", "cigarette")              # cigarette_smoking_status, smoking_code
   ),
