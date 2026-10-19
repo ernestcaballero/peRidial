@@ -71,7 +71,7 @@ and the patient's censoring date \code{tau} for death, transplant, or permanent 
 ISPD 2022 defines patient-time-at-risk as beginning on the day PD commences and continuing while
 the patient remains on PD. \code{pd_unit()} supplies this number, and it equals
 \code{exposure_days_in_period} on the unit's catheters tibble.
-Defaults to \code{NA_integer_} for a catheter built by hand.}
+Defaults to \code{NA_integer_}.}
 
 \item{n_peritonitis_episodes}{Integer. Count of peritonitis episodes that
 occurred on this catheter within its active window
