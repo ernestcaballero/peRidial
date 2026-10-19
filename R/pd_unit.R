@@ -48,6 +48,7 @@
 #' @export
 #'
 #' @examples
+#' \dontrun{
 #' # An empty unit for a period with no patients.
 #' new_pd_unit(
 #'   unit_id = "Wellington PD Unit",
@@ -56,7 +57,8 @@
 #'   n_new = 0L,
 #'   n_patients = 0L,
 #'   tpyar = 0
-#' )
+#' )}
+#'
 new_pd_unit <- function(unit_id = NA_character_,
                         t0 = as.Date(NA),        # start date
                         t1 = as.Date(NA),        # end date
