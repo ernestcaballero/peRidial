@@ -304,7 +304,7 @@ system.time(r <- do.call(classify_episode_types, c(big, use_cpp = FALSE)))
 identical(cpp, r)
 ```
 
-Note: On this simulated data, the compiled mode was faster than the pure-R mode and gave identical results (`identical()` returns `TRUE`). The size of the speed improvement depends on your machine and on the data, so run the chunk to see your own timings. It is limited because validation of each row still runs in R in both modes. 
+Note: On this simulated data, the compiled mode was faster than the pure-R mode and gave identical results (`identical()` returns `TRUE`). The size of the speed improvement depends on your machine and on the data, so run the chunk to see your own timings. The improvement is limited because validation of each row still runs in R in both modes. 
 
 
 ## Things to know

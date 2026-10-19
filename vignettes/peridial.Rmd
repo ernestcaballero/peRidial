@@ -76,7 +76,7 @@ data, see *Using your own data* below.
 
 ```{r}
 t0 <- as.Date("2025-01-01")           # first calendar day
-t1 <- as.Date("2025-12-31")           # last calenday day
+t1 <- as.Date("2025-12-31")           # last calendar day
 
 unit <- pd_unit(
   unit_data = system.file("extdata", "a3_2025.xlsx", package = "peridial"),
@@ -91,7 +91,7 @@ Building this example raises one warning, shown above. It flags SPD0012, who was
 
 `pd_unit()` takes three further arguments, all with defaults. `rate_benchmark` (0.40 episodes per patient-year) and `pf_benchmark` (0.80) are the ISPD targets the unit is judged against. They are carried on the unit and used by `summary()` and `plot()` methods. `censor_on_last_stop` (`TRUE`) treats a patient whose every catheter has closed, with none reopened, as having left PD on the last stop date, which ends their time at risk there. Set it to `FALSE` if your unit records genuine breaks from PD, because a break and a permanent exit look identical in the raw data.
 
-Gaps in the source data found while building (eg. an episode that cannot be matched to an active catheter, an organism that is not on the accepted list, or a permanent transfer to haemodialysis recorded without a reason) are collected and raised together as a single error, and **no** unit is built. Correct them in the source files/data and run `pd_unit()` again until it builds.
+Gaps in the source data found while building (e.g. an episode that cannot be matched to an active catheter, an organism that is not on the accepted list, or a permanent transfer to haemodialysis recorded without a reason) are collected and raised together as a single error, and **no** unit is built. Correct them in the source files/data and run `pd_unit()` again until it builds.
 
 Not every problem stops the build. If it can safely carry on with an assumption, it does, and reports the assumption as an R warning instead. The cases are a transplant or a permanent move to haemodialysis that is recorded without a date, more than one column in the file that could be the same expected column, a date that can’t be read (set to missing), and a patient's first episode falling close to `t0` with no earlier episode in the file (see *Using your own data*). For a missing transplant or transfer date, the warning says what the build did in its place: the patient is treated as still on PD, or, if another event or a closed catheter already ended their PD, censored on that date. These warnings are shown only after the error check passes, so a build that fails reports its errors first and the warnings appear once it succeeds; the exception is an unreadable date, which is reported as soon as the file is read. As with errors, check each warning and correct your source files if the assumption is wrong.
 
@@ -115,14 +115,14 @@ To use your own data:
    to an `.xlsx` or `.csv` file, so cleaned data held in R does not need to
    be written out first.
 
-Your files must use the column names in the table below. Capitalisation, spacing and punctuation are ignored, so `Patient ID`, `patient_id` and `PatientID` are all read as the same column. Beyond that, `pd_unit()` matches on keywords, so a name that differs but still carries the expected words is picked up. For example,`Infection Date` is read as `Date of Infection`, `DOB` as `Date of Birth`, and `Sex` as `Gender`. A column already named exactly as the target is always kept and where no such column exists and two or more columns could both match one target, the leftmost one in the file is used. The build carries on and a warning names the candidate columns and the name that is chosen.
+Your files must use the column names in the table below. Capitalisation, spacing and punctuation are ignored, so `Patient ID`, `patient_id` and `PatientID` are all read as the same column. Beyond that, `pd_unit()` matches on keywords, so a name that differs but still carries the expected words is picked up. For example, `Infection Date` is read as `Date of Infection`, `DOB` as `Date of Birth`, and `Sex` as `Gender`. A column already named exactly as the target is always kept. Where no such column exists and two or more columns could match one target, the leftmost one in the file is used; the build carries on, and a warning names the candidate columns and the one chosen.
 
 | File | Required columns | Optional columns |
 |---|---|---|
 | Unit (A3) | Patient ID, Insertion Date, PD Start Date, Date of Birth | Gender, Ethnicity, Primary Kidney Disease, Cigarette Smoking Status, Diabetes Type, Procedure Type, PD Stop Date, Removal Reason, Dialysis Type, Dialysis Modality Change, Modality Change Reason, Date Modality Change, Date of Death, Cause of Death, Transplant Date |
 | Peritonitis (PE) | Patient ID, Date of Infection, Organism, Last Dose Antibiotic | Overnight Hospitalisation, Days Hospitalised, Catheter Removed, Catheter Removed Date, Interim HD, Permanent HD, First Dialysis Date, Last Dialysis Date |
 
-A missing required column stops the build with an error and provide a list of what was found. Check the spelling of optional columns carefully as a missing optional column is filled with `NA` without a warning. An incorrectly named `Date of Death` or `PD Stop Date` column, for example, means patients are not censored and patient-years are overstated.
+A missing required column stops the build with an error and provides a list of what was found. Check the spelling of optional columns carefully as a missing optional column is filled with `NA` without a warning. An incorrectly named `Date of Death` or `PD Stop Date` column, for example, means patients are not censored and patient-years are overstated.
 
 **Include earlier episodes.** An episode is classified against the same patient's previous episode, and a relapse is not counted. For a patient who was already on PD at `t0`, an episode in the first 4 weeks of the period may be a relapse of one from before `t0`. If the infection file starts at `t0` that earlier episode is missing, so the later one is counted as new and the rate is overstated. Include episodes from at least 28 days before `t0` (for example the previous reporting period's rows) in the infection file. They are used only for classifying and are not counted in the period. When a patient's first episode falls within 28 days of `t0` and the file holds nothing from more than 28 days before `t0`, `pd_unit()` raises a warning listing those patients so you can check. After checking, a genuine no earlier episode means the warning can be ignored.
 
@@ -214,7 +214,7 @@ they surface only once these errors are fixed.
 
 ## Inspecting a unit
 
-Four S3 methods do the work of inspecting at what was built. `print()` is defined for
+Four S3 methods inspect what was built. `print()` is defined for
 every class, `summary()` for a unit and a patient, `plot()` for a unit, and `subset()`
 for a unit, a patient or a catheter.
 
@@ -244,8 +244,7 @@ own window and why it was removed:
 pat$catheters[[2]]
 ```
 
-A `pd_infection` prints its organisms, its episode type and its outcome. An `NA` 
-in outcome means resolved peritonitis case, not missing:
+A `pd_infection` prints its organisms, its episode type and its outcome. An `NA` outcome means the episode resolved, not that the value is missing:
 
 ```{r}
 spd0003 <- Filter(function(p) p$patient_id == "SPD0003", unit$patient_list)[[1]]

@@ -81,7 +81,7 @@ names(spd0003$catheters[[1]])
 names(spd0003$catheters[[1]]$infections[[1]])
 ```
 
-Fields are read with `$`. Some fields are supplied when the object is built, and others are **derived** from what the object contains. The tables below show which are supplied and derived fields.
+Fields are read with `$`. Some fields are supplied when the object is built, and others are **derived** from what the object contains. The tables below show which fields are supplied and which are derived.
 
 ### `pd_infection`
 
@@ -160,16 +160,16 @@ Both forms are validated against each other, so they cannot drift apart: the pat
 
 ## The reporting period and censoring
 
-The reporting period `t0` and `t1` is stored on the unit, on every patient and on every catheter, and each level is checked against the one above it, so exposure time is always measured against the same window. A `pd_infection` does not carry it.
+The reporting period (`t0` to `t1`) is stored on the unit, on every patient and on every catheter, and each level is checked against the one above it, so exposure time is always measured against the same window. A `pd_infection` does not carry it.
 
 A catheter's time at risk starts on the later of its `pd_start_date` and `t0`, and ends on the earliest of its `pd_stop_date`, `t1` and the patient's $\tau$, counting both end days. `vignette("indicators-classification", package = "peridial")` writes this as a formula and sums it into the unit's patient-years. A patient's `transfer_date` is therefore the point past which no catheter may run: a catheter that starts after it, or is still open on it, is rejected when the patient is built.
 
 
 ## Constructors and validation
 
-Each class has a low-level constructor that assembles the object without checking it, and a function that builds it and then validates it. The `validate_*()` functions are internal and are called by the building functions.
+Each class has a low-level constructor that assembles the object and type-checks its arguments but does not validate it, and a function that builds it and then validates it. The `validate_*()` functions are internal and are called by the building functions.
 
-| Class | Unchecked constructor | Builds and validates |
+| Class | Low-level constructor | Builds and validates |
 |---|---|---|
 | `pd_infection` | `new_pd_infection()` | `pd_infection()` |
 | `pd_catheter` | `new_pd_catheter()` | `pd_catheter()` |
