@@ -78,6 +78,7 @@ together with the reporting period and the headline counts the ISPD
 indicators are built from.
 }
 \examples{
+\dontrun{
 # An empty unit for a period with no patients.
 new_pd_unit(
   unit_id = "Wellington PD Unit",
@@ -86,7 +87,8 @@ new_pd_unit(
   n_new = 0L,
   n_patients = 0L,
   tpyar = 0
-)
+)}
+
 }
 \seealso{
 \code{\link{pd_unit}()} to build one from raw data files.
