@@ -1,6 +1,6 @@
 
 # These are the helper functions to ingest raw files.
-# pd_unit() calls them in order: create_catheter_id() -> build_infections_by_catheter() -> build_patient_list()
+# create_catheter_id() -> check_prior_episode_coverage() -> build_infections_by_catheter() -> build_patient_list()
 
 
 #' Create catheter_id from patient_id and insertion_date
@@ -22,44 +22,6 @@ create_catheter_id <- function(patient_id, insertion_date) {
     catheter_id[ord] <- paste0(pid, "_", sprintf("%02d", seq_along(ord)))  # _01, _02, ...
   }
   catheter_id
-}
-
-
-
-
-#' Match one episode to the catheter that was active on its infection_date
-#'
-#' @param raw_catheters Data frame of every catheter row, with \code{patient_id},
-#'   \code{catheter_id}, \code{pd_start_date} and \code{pd_stop_date}.
-#' @noRd
-match_active_catheter_id <- function(pid, infection_date, raw_catheters, log) {
-  cath <- raw_catheters[raw_catheters$patient_id == pid, , drop = FALSE]  # this patient's catheters
-  if (nrow(cath) == 0) {
-    return(NA_character_)  # no catheters on file
-  }
-  # ACTIVE = started on/before infection and not yet stopped (NA stop = still in use)
-  active <- !is.na(cath$pd_start_date) &
-    cath$pd_start_date <= infection_date &
-    (is.na(cath$pd_stop_date) | infection_date <= cath$pd_stop_date)
-  candidates <- cath$catheter_id[active]
-
-  if (length(candidates) == 0) {
-    # Log and return NA so the episode is skipped by later checks
-    log$add("Patient ", pid, ": no active PD catheter on infection_date ",
-            format(infection_date), "; this episode is not attached to a catheter and is not ",
-            "checked further. Check the episode date and this patient's catheter dates in the source files.")
-    return(NA_character_)
-  }
-  if (length(candidates) > 1) {
-    # Overlapping windows are a data error: log it, then fall back to the first match
-    log$add("Patient ", pid, ": ", length(candidates),
-            " overlapping PD catheters active on infection_date ",
-            format(infection_date), " (",
-            paste(candidates, collapse = ", "),
-            "); earliest used. Correct the insertion_date/pd_start_date/pd_stop_date of these catheters so their windows don't overlap.")
-  }
-  candidates[1]  # first match (the earliest, if raw_catheters is sorted by date)
-  # cath$catheter_id[active][which.min(cath$pd_start_date[active])]     # use this if not sorted by date
 }
 
 
@@ -359,6 +321,47 @@ build_patient_list <- function(pids, taus, raw_catheters, raw_patients,
 
 
 
+
+#' Match one episode to the catheter that was active on its infection_date
+#'
+#' @param raw_catheters Data frame of every catheter row, with \code{patient_id},
+#'   \code{catheter_id}, \code{pd_start_date} and \code{pd_stop_date}.
+#' @noRd
+match_active_catheter_id <- function(pid, infection_date, raw_catheters, log) {
+  cath <- raw_catheters[raw_catheters$patient_id == pid, , drop = FALSE]  # this patient's catheters
+  if (nrow(cath) == 0) {
+    return(NA_character_)  # no catheters on file
+  }
+  # ACTIVE = started on/before infection and not yet stopped (NA stop = still in use)
+  active <- !is.na(cath$pd_start_date) &
+    cath$pd_start_date <= infection_date &
+    (is.na(cath$pd_stop_date) | infection_date <= cath$pd_stop_date)
+  candidates <- cath$catheter_id[active]
+
+  if (length(candidates) == 0) {
+    # Log and return NA so the episode is skipped by later checks
+    log$add("Patient ", pid, ": no active PD catheter on infection_date ",
+            format(infection_date), "; this episode is not attached to a catheter and is not ",
+            "checked further. Check the episode date and this patient's catheter dates in the source files.")
+    return(NA_character_)
+  }
+  if (length(candidates) > 1) {
+    # Overlapping windows are a data error: log it, then fall back to the first match
+    log$add("Patient ", pid, ": ", length(candidates),
+            " overlapping PD catheters active on infection_date ",
+            format(infection_date), " (",
+            paste(candidates, collapse = ", "),
+            "); earliest used. Correct the insertion_date/pd_start_date/pd_stop_date of these catheters so their windows don't overlap.")
+  }
+  candidates[1]  # first match (the earliest, if raw_catheters is sorted by date)
+  # cath$catheter_id[active][which.min(cath$pd_start_date[active])]     # use this if not sorted by date
+}
+
+
+
+
+
+
 #' Read one demographic value for a patient off their A3 form row
 #' @noRd
 patient_demo_value <- function(demo, col) {
@@ -368,6 +371,9 @@ patient_demo_value <- function(demo, col) {
   val <- as.character(demo[[col]][1])                      # first row only
   if (is.na(val) || !nzchar(trimws(val))) NA_character_ else trimws(val)     # blank/whitespace becomes NA, otherwise trimmed
 }
+
+
+
 
 
 
