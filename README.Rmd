@@ -140,7 +140,7 @@ peridial follows the ISPD 2022 definitions (Li et al., 2022). The full derivatio
 **Time at risk.** For each catheter, the days at risk inside the reporting period $[t_0, t_1]$ are
 
 $$
-d = \max\Big(0,\; \min(\text{stop},\, t_1,\, \tau) - \max(\text{start},\, t_0) + 1\Big)
+d = \max\Big(0, \min(\text{stop}, t_1, \tau) - \max(\text{start}, t_0) + 1\Big)
 $$
 
 where *start* and *stop* are the PD start and stop dates of the catheter (a missing stop means it is still in use), and $\tau$ is the date the patient permanently left PD (death, transplant or permanent transfer to haemodialysis). Both end days are counted. The unit's patient-years are $PY = \sum d / 365.25$.
