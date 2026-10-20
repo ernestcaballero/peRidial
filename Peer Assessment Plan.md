@@ -231,6 +231,31 @@ classify_episode_types(
 
 The package is developed and distributed using synthetic data only. No real patient records are accessed, stored, or shipped, so no ethics approval is required. Patient identifiers in the sample dataset are synthetic.
 
+## 7. Response to peer review
+
+This section records how each point raised in the peer review was handled in the final package.
+
+### 7.1 Break attempts
+
+| Break attempt | Reviewer's finding | Response | Where |
+|---|---|---|---|
+| Nonexistent file | Message should name the missing file | **Addressed.** The message gives the argument, the path and the working directory, e.g. `` `infection_data`: file not found: pe.xlsx (working directory: …) ``. A file with an unsupported extension (e.g. `.txt`) now errors with "unsupported file type … Supply a .xlsx, .xls or .csv file", instead of failing inside readxl. | `read_input()` in `R/ingest_read.R` |
+| Overlapping catheters | Overlap caught, but message said the duplicate "starts after" the original when it had the same start date | **Fixed.** The message now says "starts on the same day (2025-01-10)" or "starts while it is still active (date)", gives the dates of both catheters, and has the missing space restored. | `validate_pd_patient()` in `R/pd_patient.R` |
+| Character dates in `exposure_days()` | Raw `stopifnot()` message that did not say a Date was expected | **Addressed in `exposure_days()`.** It now stops with "`min_date` must be a Date, not character." (and the same for `max_date`), naming the argument and the expected type. | `exposure_days()` in `R/indicators.R` |
+| Organism string matching | Not addressed | **Documented, not changed (design decision).** `pd_unit()` already standardises organism names (case, whitespace, punctuation and synonyms such as `E. coli` / `Escherichia coli`) against the accepted list in `R/value_maps.R`, and stops if a name is not on the list. The standalone `classify_episode_types()` / `get_episode_type()` keep exact matching (ignoring case and order) so that they classify exactly what they are given. This is now stated in the function docs, the vignette and a new README *Limitations and assumptions* section. | `R/classify_episode_types.R` docs, `README`, `vignette("indicators-classification")` |
+
+### 7.2 Recommendations
+
+| # | Recommendation | Response |
+|---|---|---|
+| 1 | Normalise organism names; document that exact names are required | **Partly addressed.** Names are normalised in the main workflow (`pd_unit()`). Exact matching for the standalone classifiers is kept on purpose and is documented in the README, the vignette and the roxygen docs (see 7.1). |
+| 2 | Document the classification rules; state that day 28 counts as relapsing | **Addressed.** The rule table with "day 28 counts as relapsing; day 29 does not" is in the README (*Definitions and assumptions*), in `vignette("indicators-classification")` and in `?get_episode_type`. The 28-day boundary is covered by the existing tests. |
+| 3 | Make rejected rows clearer; avoid silent NA | **Addressed.** `classify_episode_types()` raises a warning listing the row number and reason for each invalid row (first five shown), and does not use those rows as the previous episode. `pd_unit()` reports them as data problems and builds no unit until they are fixed. |
+| 4 | Replace `stopifnot()` / readxl messages with custom ones (date expected, lengths must match, which file argument) | **Partly addressed.** Dates: `exposure_days()` says a Date was expected (see 7.1). Files: a missing file names the argument and path, an unsupported extension is rejected with the accepted types, and readxl errors are caught and re-raised naming the argument and file. Other functions (e.g. the length checks in `classify_episode_types()` and the `new_pd_*()` constructors) still use `stopifnot()`; this is noted as remaining work. |
+| 6 | Add the ISPD definitions and equations to the README | **Addressed.** The README now has a *Definitions and assumptions* section with the time-at-risk, patient-years, rate and peritonitis-free formulas, the ISPD targets, the classification table and a link to the vignette for the worked derivation. |
+
+---
+
 ## Reference
 Li, Philip Kam-Tao, Kai Ming Chow, Yeoungjee Cho, et al. 2022. “ISPD Peritonitis Guideline
 Recommendations: 2022 Update on Prevention and Treatment.” Peritoneal Dialysis International
