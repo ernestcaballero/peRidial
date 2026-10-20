@@ -386,7 +386,7 @@ pd_unit <- function(unit_data,
   a3_required_cells <- c("patient_id", "date_of_birth", "insertion_date", "pd_start_date")
   pe_required_cells <- c("patient_id", "date_of_infection", "organism", "last_dose_antibiotic")
 
-  require_cols(raw_a3, a3_required_cells, "unit (A3)")
+  require_cols(raw_a3, a3_required_cells, "unit (A3)")              # stops immediately of required cols absent
   require_cols(raw_pe_file, pe_required_cells, "infection (PE)")
 
   a3_optional <- c("gender", "ethnicity",
@@ -477,7 +477,7 @@ pd_unit <- function(unit_data,
       # each element must itself be a list: new_pd_infection() and get_episode_type() both require is.list(organism_list)
       organism_list = lapply(strsplit(as.character(organism), ",\\s*"),
                              function(z) as.list(trimws(z))),
-      # Outcome priority is catheter removal > permanent HD > temporary HD > hospitalisation; the most severe flag set wins.
+      # outcome priority is catheter removal > permanent HD > temporary HD > hospitalisation; the most severe flag set wins.
       outcome = dplyr::case_when(
         dplyr::coalesce(catheter_removed, FALSE)          ~ "catheter removed",
         dplyr::coalesce(permanent_hd, FALSE)              ~ "permanent transfer to HD",
@@ -495,6 +495,8 @@ pd_unit <- function(unit_data,
     ) |>
     dplyr::arrange(patient_id, date_of_infection)
 
+
+  # CENSORING FOR TAU
   # Derive tau per patient, then censor the catheter windows
   pids <- sort(unique(raw_catheters$patient_id))
   taus <- list()
@@ -563,6 +565,7 @@ pd_unit <- function(unit_data,
   }
 
 
+  # BUILD OBJECT GRAPH
   # a prevalent patient's first episode just after t0 may be a relapse of an episode that is not in the file
   check_prior_episode_coverage(raw_pe_episodes, raw_catheters, t0, log)
 
@@ -574,6 +577,8 @@ pd_unit <- function(unit_data,
   patient_list <- built$patient_list
   transfer_details <- built$transfer_details
 
+
+  # FLATTEN & UNIT-LEVEL NUMBERS
   # flatten the object graph into the unit's three tibbles
   patients_tbl <- patients_to_tibble(patient_list, t0, t1, transfer_details)
   catheters_tbl <- catheters_to_tibble(patient_list, t0, t1)

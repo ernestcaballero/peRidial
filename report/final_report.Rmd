@@ -53,7 +53,7 @@ The package started from a four-class design proposal into a peer-tested fully o
 
 1. **Relapsing episodes are not counted as new episodes.** On review of the ISPD 2022 guideline, a relapse is a continuation of the preceding episode rather than a new one [@Li2022ISPD], so Equation \eqref{eq:rate} in Appendix A counts countable episodes only. The proposal counted every episode, which raises the numerator and overstates the peritonitis rate.
 2. **The compiled component was retargeted.** The proposal named two candidates for C++, the exposure calculation and the episode-type classification, and only the latter was implemented. The exposure calculation, Equation \eqref{eq:exposure-days}, is arithmetic that vectorises in base R, whereas classification is sequential within a patient. Section 3.1 gives the benchmark.
-3. **An episode no longer carries a catheter key.** The raw Peritonitis Episode form does not record which catheter was in place, so each episode is matched at ingest to the catheter whose PD window contains its infection date.
+3. **An episode no longer carries a catheter key.** The raw PE form does not record which catheter was in place, so each episode is matched at ingest to the catheter whose PD window contains its infection date.
 4. **The censoring date $\tau$ is derived rather than supplied.** Four competing events can end a patient's time at risk (death, transplantation, permanent transfer to haemodialysis and, by default, PD stopping with no successor catheter), and the earliest is taken. The last is controlled by `censor_on_last_stop`, since a genuine break from PD looks identical to a permanent exit in the raw data.
 5. **Data-quality problems are collected and reported together.** Rather than aborting on the first problem, the ingest records each issue it finds, with the patient, catheter or file row concerned, and reports them in one pass. Problems that make a unit invalid are raised as a single error listing all of them, so no unit is built; recoverable problems are recorded as warnings. A unit with many problems may still need several runs.
 6. **The input contract needs to align with the package.** A PD-specific national registry exists but is not publicly accessible [@nzpdr2024report], while the ANZDATA registry is public and records overlapping items. A raw extract from either registry would need preprocessing before the package could use it: the required columns must be selected and coded values decoded. The ingest then matches columns by keyword against the required columns, and accepts Excel, CSV or in-memory data frames.
@@ -74,7 +74,12 @@ All figures are measured from the repository at commit `17b125c` (19 October 202
 | Documentation | 25 help pages and 3 vignettes |
 | Example data | Four synthetic Excel files: a clean A3/PE pair and a deliberately malformed pair |
 
-A user supplies the unit's two raw files (the A3 form, one row per catheter, and the Peritonitis Episode form, one row per infection), a reporting period and a unit identifier. `pd_unit()` returns a validated unit, or stops with a single error listing the data problems found in that pass. `summary()` then reports the rate and the peritonitis-free percentage against their ISPD benchmarks with the numerator and denominator of each, an episode-type breakdown and the incident/prevalent split; `plot()` draws the unit's reporting panels; and `subset()` returns a filtered flat table without recalculating counts.
+A user supplies the unit's two raw files (the A3 form, one row per catheter, and the Peritonitis Episode (PE) form, one row per infection), a reporting period and a unit identifier. `pd_unit()` returns a validated unit, or stops with a single error listing the data problems found in that pass. `summary()` then reports the rate and the peritonitis-free percentage against their ISPD benchmarks with the numerator and denominator of each, an episode-type breakdown and the incident/prevalent split; `plot()` draws the unit's reporting panels; and `subset()` returns a filtered flat table without recalculating counts.
+
+## End-user
+
+PD units has a nominated person that is responsible for compiling the collected data may do validation of data from unit records for
+reporting lead in NZ for NZPDR.
 
 # Reflections and Self-critique
 
