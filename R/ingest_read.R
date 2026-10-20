@@ -116,7 +116,12 @@ read_input <- function(x, arg = "input") {
     stop("`", arg, "` must be a single file path (.xlsx or .csv) or a data frame.")
   }
   if (!file.exists(x)) {
-    stop("`", arg, "`: file not found: ", x)
+    stop("`", arg, "`: file not found: ", x,
+         " (working directory: ", getwd(), "). Check the path and file name.")
+  }
+  if (!grepl("\\.(csv|xlsx|xls)$", x, ignore.case = TRUE)) {
+    stop("`", arg, "`: unsupported file type: ", basename(x),
+         ". Supply a .xlsx, .xls or .csv file, or a data frame.")
   }
   if (grepl("\\.csv$", x, ignore.case = TRUE)) {       # CSV
     out <- utils::read.csv(x, stringsAsFactors = FALSE, check.names = FALSE,
@@ -124,7 +129,15 @@ read_input <- function(x, arg = "input") {
                            fileEncoding = "UTF-8-BOM")
     return(tibble::as_tibble(out, .name_repair = "minimal"))
   }
-  readxl::read_excel(x)                                # Excel
+  tryCatch(
+    readxl::read_excel(x),                             # Excel
+    error = function(e) {
+      stop("`", arg, "`: could not read Excel file ", basename(x),
+           ". Check it is a valid, unencrypted .xlsx/.xls file and is not open ",
+           "or locked in another program. readxl reported: ", conditionMessage(e),
+           call. = FALSE)
+    }
+  )
 }
 
 
