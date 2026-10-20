@@ -37,7 +37,8 @@ is consistent with the level above.
 
 ## Installation
 
-peridial is not on CRAN. Install the development version from GitHub:
+peridial is not on CRAN. Install the development version from GitHub and
+building the vignettes locally:
 
 ``` r
 # install.packages("remotes")
@@ -71,8 +72,12 @@ library(peridial)
 install.packages(c("ggplot2", "patchwork"))
 ```
 
-To build the vignettes locally as well, use
-`remotes::install_github("ernestcaballero/peRidial", build_vignettes = TRUE)`.
+To view the vignettes:
+
+``` r
+browseVignettes("peridial")
+#> starting httpd help server ... done
+```
 
 ## Worked example
 
@@ -224,6 +229,55 @@ Optional columns, such as PD Stop Date, Date of Death and Transplant
 Date, affect censoring and patient-years. The full list, accepted value
 formats, and a step-by-step example of renaming a registry export are in
 `vignette("peridial")`.
+
+## Definitions and assumptions
+
+peridial follows the ISPD 2022 definitions (Li et al., 2022). The full derivation, with a worked example, is in `vignette("indicators-classification")`.
+
+**Time at risk.** For each catheter, the days at risk inside the reporting period $[t_0, t_1]$ are
+
+$$
+d = \max\Big(0,\; \min(\text{stop},\, t_1,\, \tau) - \max(\text{start},\, t_0) + 1\Big)
+$$
+
+where *start* and *stop* are the PD start and stop dates of the catheter (a missing stop means it is still in use), and $\tau$ is the date the patient permanently left PD (death, transplant or permanent transfer to haemodialysis). Both end days are counted. The unit's patient-years are $PY = \sum d / 365.25$.
+
+**Peritonitis rate** (ISPD target: ≤ 0.40 episodes per patient-year):
+
+$$
+\text{rate} = \frac{E}{PY}
+$$
+
+where $E$ is the number of episodes inside their catheter's active window, excluding relapsing episodes.
+
+**Peritonitis-free percentage** (ISPD target: > 80% per year):
+
+$$
+\text{PF} = \frac{N_0}{N} \times 100
+$$
+
+where $N$ is the number of patients with at least one day on PD in the period and $N_0$ is the number of them with no countable episode.
+
+**Episode classification.** Each episode is compared with the same patient's immediately preceding valid episode, measured from that episode's **last antibiotic dose**:
+
+| Type | Days since last dose of previous episode | Organism | Counted in the rate? |
+|---|---|---|---|
+| Relapsing | 0 to 28 (**day 28 counts as relapsing**) | same, or either episode culture-negative | No |
+| Recurrent | 0 to 28 | different | Yes |
+| Repeat | 29 or more | same | Yes |
+| `NA` | first episode, or different organism after 28 days | — | Yes |
+
+### Limitations and assumptions
+
+- **Organism names must match exactly when classifying on your own.** `pd_unit()` standardises organism spellings against the package's accepted list (case, whitespace and common synonyms such as `E. coli` / `Escherichia coli`), and stops with an error if a name is not on the list. Called on their own, `classify_episode_types()` and `get_episode_type()` ignore case and order but otherwise compare names as given, so `"E. coli"` and `"Escherichia coli"` count as different organisms. Standardise names first, or go through `pd_unit()`.
+- **Polymicrobial episodes** are the same organism only if their organism lists are identical (`E. coli` + `Klebsiella` is not the same as `E. coli` alone).
+- **Episodes before $t_0$ must be in the file** to be used as the previous episode. Otherwise an early-period relapse is counted as a new episode and the rate is overstated; `pd_unit()` warns, naming the patients to check.
+- **Invalid episodes are not dropped silently.** `classify_episode_types()` returns `NA` for them with a warning that gives the row number and reason, and does not use them as the previous episode; `pd_unit()` lists them as data problems and builds no unit until they are fixed.
+- **Time at risk** is not reduced for days in hospital or interim haemodialysis, and uses a 365.25-day year.
+- **Overlapping catheters** for one patient are treated as a data error; the build stops and names the catheters and dates.
+- **Missing dates.** A transplant or permanent transfer to haemodialysis recorded without a date is handled by an assumption (the patient is treated as still on PD, or censored at an earlier recorded end), and a warning is raised. Dates that cannot be read are set to missing, with a warning.
+- **The peritonitis-free target is per year.** `summary()` warns when the reporting period is not one year.
+- **Column names** are matched by keyword against the package's synthetic example files, not against an official ANZDATA or NZPDR export, so a registry extract may need renaming first (see `vignette("peridial")`).
 
 ## Learn more
 

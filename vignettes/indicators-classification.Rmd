@@ -307,8 +307,9 @@ identical(cpp, r)
 Note: On this simulated data, the compiled mode was faster than the pure-R mode and gave identical results (`identical()` returns `TRUE`). The size of the speed improvement depends on your machine and on the data, so run the chunk to see your own timings. The improvement is limited because validation of each row still runs in R in both modes. 
 
 
-## Things to know
+## Assumptions and limitations
 
+- **Previous episode:** each episode is compared only with the same patient's immediately preceding *valid* episode, measured from that episode's last antibiotic dose. Day 28 counts as relapsing; day 29 does not.
 - **Organisms:** matching ignores case and order. Two episodes are the same organism only if their organism lists are identical, so an episode with *E. coli* and *Klebsiella* and one with *E. coli* alone are different organisms, and the second is recurrent if it is within 4 weeks.
 - **Spelling:** `pd_unit()` standardises organism names against the accepted list before classifying. `classify_episode_types()` used on its own compares the names as given, so `"E. coli"` and `"Escherichia coli"` are different.
 - **Culture-negative:** `"negative"` is a culture-negative episode and cannot be combined with another organism. It pairs with any other episode as a relapse if it falls within 4 weeks.
