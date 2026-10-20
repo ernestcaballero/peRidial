@@ -245,12 +245,16 @@ validate_pd_patient <- function(x) {
       for (i in seq_len(length(starts) - 1)) {
         # an open-ended catheter can't be followed by another one
         if (is.na(stops[i])) {
+          same_day <- starts[i + 1] == starts[i]
           stop("Catheter '", ids[i], "' has no pd_stop_date (still active) ",
-               "but catheter '", ids[i + 1], "' starts after it.",
+               "but catheter '", ids[i + 1], "' ",
+               if (same_day) "starts on the same day (" else "starts while it is still active (",
+               format(starts[i + 1]), "). ",
                "Catheter intervals within a patient must not overlap.")
         }
         if (starts[i + 1] <= stops[i]) {
-          stop("Catheters '", ids[i], "' and '", ids[i + 1], "' have ",
+          stop("Catheters '", ids[i], "' (", format(starts[i]), " to ", format(stops[i]),
+               ") and '", ids[i + 1], "' (starting ", format(starts[i + 1]), ") have ",
                "overlapping PD intervals. Catheter intervals within a ",
                "patient must not overlap.")
         }
