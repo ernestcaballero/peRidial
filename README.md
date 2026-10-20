@@ -283,9 +283,6 @@ episode’s **last antibiotic dose**:
   `get_episode_type()` ignore case and order but otherwise compare names
   as given, so `"E. coli"` and `"Escherichia coli"` count as different
   organisms. Standardise names first, or go through `pd_unit()`.
-- **Polymicrobial episodes** are the same organism only if their
-  organism lists are identical (`E. coli` + `Klebsiella` is not the same
-  as `E. coli` alone).
 - **Episodes before $t_0$ must be in the file** to be used as the
   previous episode. Otherwise an early-period relapse is counted as a
   new episode and the rate is overstated; `pd_unit()` warns, naming the

@@ -173,7 +173,6 @@ where $N$ is the number of patients with at least one day on PD in the period an
 ### Limitations and assumptions
 
 - **Organism names must match exactly when classifying on your own.** `pd_unit()` standardises organism spellings against the package's accepted list (case, whitespace and common synonyms such as `E. coli` / `Escherichia coli`), and stops with an error if a name is not on the list. Called on their own, `classify_episode_types()` and `get_episode_type()` ignore case and order but otherwise compare names as given, so `"E. coli"` and `"Escherichia coli"` count as different organisms. Standardise names first, or go through `pd_unit()`.
-- **Polymicrobial episodes** are the same organism only if their organism lists are identical (`E. coli` + `Klebsiella` is not the same as `E. coli` alone).
 - **Episodes before $t_0$ must be in the file** to be used as the previous episode. Otherwise an early-period relapse is counted as a new episode and the rate is overstated; `pd_unit()` warns, naming the patients to check.
 - **Invalid episodes are not dropped silently.** `classify_episode_types()` returns `NA` for them with a warning that gives the row number and reason, and does not use them as the previous episode; `pd_unit()` lists them as data problems and builds no unit until they are fixed.
 - **Time at risk** is not reduced for days in hospital or interim haemodialysis, and uses a 365.25-day year.
